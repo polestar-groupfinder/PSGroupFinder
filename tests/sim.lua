@@ -1,0 +1,187 @@
+-- Two simulated clients exchanging Polestar Group Finder messages, with a
+-- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
+local FILES = { "Locales", "Core", "Throttle", "Quests", "Comm", "Matcher", "UI", "Polestar" }
+local DIR = "Polestar_GroupFinder/"
+local bus = {}      -- every client's env
+local now = 0
+local timers = {}
+
+local function newClient(name, quests, opts)
+	opts = opts or {}
+	local env = setmetatable({}, { __index = _G })
+	env._G = env
+	local frames = {}
+	local printed = {}
+	env.printed = printed
+	env.GetLocale = function() return opts.locale or "frFR" end
+	env.GetTime = function() return now end
+	env.C_Timer = { After = function(s, fn) timers[#timers + 1] = { at = now + s, fn = fn } end }
+	env.UISpecialFrames = {}
+	env.SlashCmdList = {}
+	env.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
+	env.DEFAULT_CHAT_FRAME = { AddMessage = function(_, m) printed[#printed + 1] = m end }
+	env.GameTooltip = setmetatable({}, { __index = function() return function() end end })
+	local function frameStub()
+		local f = {}
+		return setmetatable(f, { __index = function(t, k)
+			if k == "IsShown" then return function() return t._shown end end
+			if k == "Show" then return function() t._shown = true end end
+			if k == "Hide" then return function() t._shown = false end end
+			if k == "GetChecked" then return function() return false end end
+			if k == "GetPoint" then return function() return "CENTER", nil, nil, 0, 0 end end
+			if k == "IsMovable" then return function() return true end end
+			if k == "CreateFontString" or k == "CreateTexture" then return function() return frameStub() end end
+			if k == "SetScript" then return function(_, ev, fn) t["_" .. ev] = fn end end
+			if k == "RegisterEvent" then return function(_, ev) frames[#frames + 1] = { t, ev } end end
+			return function() end
+		end })
+	end
+	env.CreateFrame = function() return frameStub() end
+	env.UIParent = frameStub()
+	env.C_ChatInfo = {
+		RegisterAddonMessagePrefix = function() return true end,
+		SendAddonMessage = function(prefix, text, chatType, target)
+			if opts.blocked and opts.blocked[chatType] then return 7 end
+			for _, other in ipairs(bus) do
+				local deliver
+				if chatType == "WHISPER" then deliver = other.me == target
+				elseif chatType == "GUILD" then deliver = other.guild and other.guild == env.guild
+				else deliver = not (other.blocked and other.blocked[chatType]) end
+				if deliver then
+					timers[#timers + 1] = { at = now + 0.1, fn = function() other.fire("CHAT_MSG_ADDON", prefix, text, chatType, name) end }
+				end
+			end
+			return 0
+		end,
+	}
+	env.Enum = { SendAddonMessageResult = { Success = 0 } }
+	env.GetChannelName = function() return env.joined and 5 or 0 end
+	env.JoinTemporaryChannel = function() env.joined = true end
+	env.LeaveChannelByName = function() env.joined = false end
+	env.IsInGuild = function() return env.guild ~= nil end
+	env.IsInInstance = function() return false end
+	env.UnitLevel = function() return 20 end
+	env.UnitClass = function() return "Guerrier", opts.class or "WARRIOR" end
+	env.GetNumGroupMembers = function() return 0 end
+	env.C_Map = {
+		GetBestMapForUnit = function() return opts.map or 1436 end,
+		GetPlayerMapPosition = function() return { GetXY = function() return opts.x or 0.5, opts.y or 0.5 end } end,
+		GetWorldPosFromMapPos = function(map, v) return 0, { GetXY = function() return v.x * 1000 + map, v.y * 1000 end } end,
+	}
+	env.CreateVector2D = function(x, y) return { x = x, y = y } end
+	env.GetNumQuestLogEntries = function() return #quests end
+	env.GetQuestLogTitle = function(i) local q = quests[i] return q.title, 20, q.group or 0, false, false, nil, 0, q.id end
+	env.GetNumQuestLeaderBoards = function(i) return #(quests[i].obj or {}) end
+	env.GetQuestLogLeaderBoard = function(j, i) local o = quests[i].obj[j] return o[1], o[2], false end
+	env.Polestar = opts.polestar
+	env.me = name
+	env.guild = opts.guild
+	env.blocked = opts.blocked
+	local ns = {}
+	for _, f in ipairs(FILES) do
+		local chunk = assert(loadfile(DIR .. f .. ".lua"))
+		setfenv(chunk, env)
+		chunk("Polestar_GroupFinder", ns)
+	end
+	env.fire = function(ev, ...)
+		for _, fr in ipairs(frames) do
+			if fr[2] == ev and fr[1]._OnEvent then fr[1]._OnEvent(fr[1], ev, ...) end
+		end
+	end
+	env.ns = ns
+	bus[#bus + 1] = env
+	env.fire("ADDON_LOADED", "Polestar_GroupFinder")
+	env.fire("PLAYER_LOGIN")
+	return env
+end
+
+local function run(seconds)
+	local stop = now + seconds
+	while true do
+		table.sort(timers, function(a, b) return a.at < b.at end)
+		local t = timers[1]
+		if not t or t.at > stop then break end
+		table.remove(timers, 1)
+		now = t.at
+		t.fn()
+	end
+	now = stop
+end
+
+local function check(cond, msg) if not cond then error("FAIL: " .. msg, 2) end print("ok  " .. msg) end
+
+-- Ana: Hogger (named kill) + boars (kill). Ben: Hogger too, on the same map.
+-- Cid: unrelated quest. Ana's client refuses CHANNEL (like Forever's launch build).
+local hogger = { id = 176, title = "Wanted: Hogger", obj = { { "Hogger slain: 0/1", "monster" } } }
+local boars = { id = 86, title = "Pie for Billy", obj = { { "Chunk of Boar Meat: 2/4", "item" } } }
+local other = { id = 999, title = "Report to Goldshire", obj = {} }
+local ana = newClient("Ana Smith", { hogger, boars }, { x = 0.40, y = 0.50, blocked = { CHANNEL = true } })
+local ben = newClient("Ben Stone", { hogger }, { x = 0.42, y = 0.51, class = "PRIEST" })
+local cid = newClient("Cid Vale", { other }, {})
+
+-- Off by default: nothing is sent.
+check(ana.ns.db.enabled == false, "disabled by default")
+ana.PolestarGroupFinder_Search()
+run(1)
+check(next(ana.ns.Comm.status) == nil, "a search while disabled sends nothing")
+
+for _, c in ipairs({ ana, ben, cid }) do c.ns.SetEnabled(true) end
+run(15) -- join delay, then the quiet probe
+check(ben.ns.Comm.status.CHANNEL.state == "ok", "Ben: CHANNEL echo detected")
+check(ana.ns.Comm.status.CHANNEL.state == "fail" and ana.ns.Comm.status.CHANNEL.code == "InvalidChannel", "Ana: CHANNEL refused, reported as InvalidChannel")
+
+local rel = ana.ns.Quests.Relevant()
+check(#rel == 2 and rel[1].id == 176 and rel[1].kind == "n" and rel[2].kind == "l", "Ana's relevant quests: Hogger (named) then boar meat (loot)")
+
+ana.ns.Comm.TestChannels(true) -- from a click: SAY/YELL too
+run(6)
+check(ana.ns.Comm.status.YELL.state == "ok", "Ana: YELL works as fallback")
+check(ana.ns.Comm.BestChannel() == "YELL", "Ana's best channel is YELL")
+
+ana.PolestarGroupFinder_Search()
+run(5)
+local list = ana.ns.Matcher.List()
+check(#list == 1 and list[1].name == "Ben Stone" and list[1].quests[1] == 176, "Ana finds Ben on Hogger (Ben's whisper reply)")
+check(list[1].yards and list[1].yards < 40, "distance computed in yards: " .. tostring(list[1].yards))
+check(#ben.ns.Matcher.List() == 1, "Ben sees Ana as also looking")
+check(#cid.ns.Matcher.List() == 0, "Cid (no shared quest) sees nobody and answers nothing")
+
+ana.PolestarGroupFinder_Search()
+check(ana.printed[#ana.printed]:find("Attendez"), "search cooldown enforced")
+
+-- Message size and decode round trip.
+local many = {}
+for i = 1, 40 do many[i] = { id = 100000 + i, kind = "k" } end
+local text, n = ana.ns.Comm.EncodeSearch(many)
+check(#text <= 255 and n < 40, "search text cut to 255 bytes (" .. #text .. " bytes, " .. n .. " quests)")
+local m = ana.ns.Comm.Decode(text)
+check(m and m.kind == "S" and #m.quests == n and m.class == "WARRIOR", "decode round trip")
+check(ana.ns.Comm.Decode("S|zz|1|2") == nil and ana.ns.Comm.Decode(("x"):rep(300)) == nil, "malformed messages dropped")
+
+-- With Polestar: the live step's quest comes first, the panel is themed and
+-- the launcher hangs under the guide window.
+local handlers, skinned = {}, {}
+local window = { HookScript = function() end, IsShown = function() return true end }
+local fakePolestar = {
+	API = { version = 1 },
+	On = function(msg, fn) handlers[msg] = fn end,
+	Compat = { IsOnQuest = function(id) return id == 86 end, IsQuestReadyForTurnIn = function() return false end },
+	Engine = { GetGuide = function() return { steps = { { goals = { { t = "loot", quest = 86 } } } } } end, GetLiveStep = function() return 1 end },
+	Theme = { Skin = function(f, kind) skinned[#skinned + 1] = kind return f end, Font = function() end,
+		OnChanged = function() end, HasCapability = function(c) return c == "guideParts" end,
+		GuideParts = function() return { window = window } end },
+}
+local dee = newClient("Dee Moss", { hogger, boars }, { polestar = fakePolestar })
+local rel2 = dee.ns.Quests.Relevant()
+check(rel2[1].id == 86 and rel2[1].step == true, "Polestar live step quest first (" .. rel2[1].id .. ")")
+check(handlers.STEP_CHANGED ~= nil and handlers.GUIDE_CHANGED ~= nil, "subscribed to Polestar STEP_CHANGED / GUIDE_CHANGED")
+local hasButton = false
+for _, k in ipairs(skinned) do if k == "button" then hasButton = true end end
+check(hasButton, "launcher button painted through Polestar.Theme.Skin")
+fakePolestar.Engine.GetGuide = function() error("internal API moved") end
+handlers.STEP_CHANGED()
+check(#dee.ns.Quests.Relevant() == 2, "Engine failure falls back to the quest log")
+
+ana.ns.SetEnabled(false)
+check(#ana.ns.Matcher.List() == 0 and ana.joined == false, "turning off clears the list and leaves the channel")
+print("all tests passed")

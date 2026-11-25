@@ -1,0 +1,8 @@
+<Bindings>
+	<Binding name="PSGF_SEARCH" header="POLESTAR_GROUPFINDER" category="Polestar">
+		PolestarGroupFinder_Search()
+	</Binding>
+	<Binding name="PSGF_TOGGLE_PANEL" category="Polestar">
+		PolestarGroupFinder_TogglePanel()
+	</Binding>
+</Bindings>

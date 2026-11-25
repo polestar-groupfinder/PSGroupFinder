@@ -1,0 +1,98 @@
+-- Polestar Group Finder: interface strings, English first, French over them.
+-- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
+
+local _, ns = ...
+
+local L = {}
+ns.L = L
+
+local enUS = {
+	TITLE = "Group Finder",
+	SEARCH = "Find a group",
+	SEARCHING = "Searching...",
+	WHISPER = "Whisper",
+	INVITE = "Invite",
+	ENABLE = "Enable the group finder",
+	ENABLE_TIP = "Joins the hidden finder channel, answers other players' searches for quests you share and lets you search. Off: nothing is sent or listened to.",
+	SHARE_COORDS = "Share my map position",
+	AUTO_REPLY = "Answer searches for my quests",
+	TEST = "Test channels",
+	DISABLED = "The group finder is off. Turn it on in its panel or with /psgf on.",
+	NO_QUESTS = "No quest to search for: kill, named, loot or group quests in progress.",
+	NO_CHANNEL = "No channel can send right now. Try /psgf test.",
+	COOLDOWN = "Wait %d s before searching again.",
+	INSTANCE = "Searching is off inside an instance.",
+	SENT = "Search sent on %s for %d quest(s).",
+	EMPTY = "No one yet. Press Find a group.",
+	NEAR_YD = "%d yd",
+	SAME_ZONE = "same zone",
+	OTHER_ZONE = "other zone",
+	GROUPED = "in a group",
+	ASKING = "is looking too",
+	CHANNEL_OK = "%s: works (message came back).",
+	CHANNEL_SENT = "%s: accepted, no echo (unsure).",
+	CHANNEL_FAIL = "%s: refused (%s).",
+	CHANNEL_SKIP = "%s: not available (%s).",
+	CHANNEL_BEST = "Search channel in use: %s.",
+	CHANNEL_NONE = "No channel answered. Only whisper replies will work.",
+	TESTING = "Testing the channels, results in %d s...",
+	POLESTAR_STEP = "Polestar step",
+	KIND_k = "kill", KIND_n = "named", KIND_l = "loot", KIND_g = "group",
+	HELP = "/psgf: panel. /psgf search, on, off, test, reset.",
+	BINDING_SEARCH = "Find a group for my quests",
+	BINDING_PANEL = "Show or hide the group finder",
+	NOT_IN_GUILD = "not in a guild",
+	NOT_JOINED = "channel not joined",
+	FOUND = "%s is on %s (%s).",
+}
+
+local frFR = {
+	TITLE = "Recherche de groupe",
+	SEARCH = "Chercher un groupe",
+	SEARCHING = "Recherche...",
+	WHISPER = "Chuchoter",
+	INVITE = "Inviter",
+	ENABLE = "Activer la recherche de groupe",
+	ENABLE_TIP = "Rejoint le canal caché de recherche, répond aux recherches des autres joueurs sur vos quêtes communes et vous permet de chercher. Désactivé : rien n'est envoyé ni écouté.",
+	SHARE_COORDS = "Partager ma position sur la carte",
+	AUTO_REPLY = "Répondre aux recherches sur mes quêtes",
+	TEST = "Tester les canaux",
+	DISABLED = "La recherche de groupe est désactivée. Activez-la dans son panneau ou avec /psgf on.",
+	NO_QUESTS = "Aucune quête à chercher : pas de quête de kill, d'élite nommé, de loot ou de groupe en cours.",
+	NO_CHANNEL = "Aucun canal ne peut envoyer pour l'instant. Essayez /psgf test.",
+	COOLDOWN = "Attendez %d s avant de relancer une recherche.",
+	INSTANCE = "La recherche est coupée en instance.",
+	SENT = "Recherche envoyée sur %s pour %d quête(s).",
+	EMPTY = "Personne pour l'instant. Cliquez sur Chercher un groupe.",
+	NEAR_YD = "%d m",
+	SAME_ZONE = "même zone",
+	OTHER_ZONE = "autre zone",
+	GROUPED = "déjà en groupe",
+	ASKING = "cherche aussi",
+	CHANNEL_OK = "%s : fonctionne (message reçu en retour).",
+	CHANNEL_SENT = "%s : accepté, sans écho (incertain).",
+	CHANNEL_FAIL = "%s : refusé (%s).",
+	CHANNEL_SKIP = "%s : indisponible (%s).",
+	CHANNEL_BEST = "Canal de recherche utilisé : %s.",
+	CHANNEL_NONE = "Aucun canal n'a répondu. Seules les réponses en chuchotement marcheront.",
+	TESTING = "Test des canaux, résultat dans %d s...",
+	POLESTAR_STEP = "Étape Polestar",
+	KIND_k = "kill", KIND_n = "élite nommé", KIND_l = "loot", KIND_g = "groupe",
+	HELP = "/psgf : panneau. /psgf search, on, off, test, reset.",
+	BINDING_SEARCH = "Chercher un groupe pour mes quêtes",
+	BINDING_PANEL = "Afficher ou masquer la recherche de groupe",
+	NOT_IN_GUILD = "pas de guilde",
+	NOT_JOINED = "canal non rejoint",
+	FOUND = "%s fait %s (%s).",
+}
+
+local locale = GetLocale and GetLocale() or "enUS"
+for k, v in pairs(enUS) do L[k] = v end
+if locale == "frFR" then for k, v in pairs(frFR) do L[k] = v end end
+setmetatable(L, { __index = function(_, k) return k end })
+
+-- Key Bindings page labels (Bindings.xml).
+BINDING_HEADER_POLESTAR_GROUPFINDER = "Polestar Group Finder"
+BINDING_CATEGORY_POLESTAR = BINDING_CATEGORY_POLESTAR or "Polestar"
+BINDING_NAME_PSGF_SEARCH = L.BINDING_SEARCH
+BINDING_NAME_PSGF_TOGGLE_PANEL = L.BINDING_PANEL
