@@ -1,4 +1,4 @@
--- Polestar Group Finder: settings, events, slash commands and the key
+-- Group Finder for Polestar (PSGroupFinder): settings, events, slash commands and the key
 -- binding entry points.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
@@ -19,6 +19,9 @@ local DEFAULTS = {
 	autoReply = true,    -- answer searches for quests we have (only while enabled)
 	autoGroup = false,   -- invite / accept without a click after a search (opt-in)
 	shareCoords = true,  -- send x/y with the map; off: the map only
+	headerButton = true, -- icon in Polestar's header (false: under the window)
+	searchLangs = false, -- filled in Lang.Init: the client's language
+	acceptAll = false,   -- search every language (opt-in; greys out the individual boxes)
 	panelPos = false,    -- { point, x, y } of the standalone panel
 	debug = false,
 }
@@ -38,7 +41,7 @@ end
 function ns.Print(fmt, ...)
 	local text = select("#", ...) > 0 and string.format(fmt, ...) or fmt
 	local out = DEFAULT_CHAT_FRAME or ChatFrame1
-	if out then out:AddMessage("|cffffd100Polestar GF|r " .. text) end
+	if out then out:AddMessage("|cffffd100Group Finder|r " .. text) end
 end
 
 function ns.Debug(fmt, ...)
@@ -91,10 +94,20 @@ end)
 
 ns.RegisterEvent("ADDON_LOADED", function(_, name)
 	if name ~= ADDON then return end
-	PolestarGroupFinderDB = copyDefaults(PolestarGroupFinderDB or {}, DEFAULTS)
-	PolestarGroupFinderCharDB = PolestarGroupFinderCharDB or {}
-	ns.db = PolestarGroupFinderDB
-	ns.char = PolestarGroupFinderCharDB
+	-- v0.x used the folder Polestar_GroupFinder and these globals. They
+	-- live in another saved-variables file, so they are only present if
+	-- that addon was also loaded. Copy them when we have nothing of our own.
+	if PSGroupFinderDB == nil and type(PolestarGroupFinderDB) == "table" then
+		PSGroupFinderDB = PolestarGroupFinderDB
+	end
+	if PSGroupFinderCharDB == nil and type(PolestarGroupFinderCharDB) == "table" then
+		PSGroupFinderCharDB = PolestarGroupFinderCharDB
+	end
+	PSGroupFinderDB = copyDefaults(PSGroupFinderDB or {}, DEFAULTS)
+	PSGroupFinderCharDB = PSGroupFinderCharDB or {}
+	ns.db = PSGroupFinderDB
+	ns.char = PSGroupFinderCharDB
+	if ns.Lang then ns.Lang.Init(ns.db) end
 	ns.Fire("LOADED")
 end)
 
@@ -111,7 +124,7 @@ function ns.SetEnabled(on)
 end
 
 -- Key bindings (Bindings.xml) and other addons call these.
-function PolestarGroupFinder_Search()
+function PSGroupFinder_Search()
 	if not ns.db then return end
 	if not ns.db.enabled then
 		ns.Print(ns.L.DISABLED)
@@ -121,18 +134,19 @@ function PolestarGroupFinder_Search()
 	if ns.Search then ns.Search() end
 end
 
-function PolestarGroupFinder_TogglePanel()
+function PSGroupFinder_TogglePanel()
 	if ns.TogglePanel then ns.TogglePanel() end
 end
 
-SLASH_POLESTARGROUPFINDER1 = "/psgf"
-SLASH_POLESTARGROUPFINDER2 = "/pgf"
-SlashCmdList.POLESTARGROUPFINDER = function(msg)
+SLASH_PSGROUPFINDER1 = "/psgf"
+SLASH_PSGROUPFINDER2 = "/pgf"
+SLASH_PSGROUPFINDER3 = "/psgroupfinder"
+SlashCmdList.PSGROUPFINDER = function(msg)
 	local cmd = (msg or ""):lower():match("^%s*(%S*)")
 	if cmd == "" then
-		PolestarGroupFinder_TogglePanel()
+		PSGroupFinder_TogglePanel()
 	elseif cmd == "search" then
-		PolestarGroupFinder_Search()
+		PSGroupFinder_Search()
 	elseif cmd == "stop" then
 		if ns.Session and ns.Session.Active() then
 			ns.Comm.Stop()

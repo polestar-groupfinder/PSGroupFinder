@@ -1,4 +1,4 @@
--- Polestar Group Finder: grouping without a click (option `autoGroup`, off
+-- Group Finder for Polestar (PSGroupFinder): grouping without a click (option `autoGroup`, off
 -- by default).
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --

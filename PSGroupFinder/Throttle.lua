@@ -1,4 +1,4 @@
--- Polestar Group Finder: an outgoing queue for addon messages.
+-- Group Finder for Polestar (PSGroupFinder): an outgoing queue for addon messages.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 -- The client allows about 10 addon messages per prefix in a burst, then

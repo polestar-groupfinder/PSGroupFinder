@@ -1,4 +1,4 @@
--- Polestar Group Finder: which of your quests are worth a group, and where
+-- Group Finder for Polestar (PSGroupFinder): which of your quests are worth a group, and where
 -- you stand.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --

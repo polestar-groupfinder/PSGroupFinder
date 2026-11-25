@@ -1,4 +1,4 @@
--- Polestar Group Finder: the active search.
+-- Group Finder for Polestar (PSGroupFinder): the active search.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 -- A search is a session: the quests you look for, from the click that

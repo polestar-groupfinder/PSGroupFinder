@@ -1,4 +1,4 @@
--- Polestar Group Finder: the players found, and in which order to show them.
+-- Group Finder for Polestar (PSGroupFinder): the players found, and in which order to show them.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 -- A player counts once they share a quest with you: they searched for it
@@ -31,6 +31,8 @@ function Matcher.Add(sender, m, common, source)
 	e.flags = m.flags or ""
 	e.autoGroup = e.flags:find("g", 1, true) ~= nil
 	e.faction = e.flags:match("[AH]")
+	e.langs = m.langs
+	e.langTag = ns.Lang.Summary(m.langs)
 	e.at = ns.Now()
 	local kinds = {}
 	for _, q in ipairs(m.quests or {}) do if q.kind then kinds[q.id] = q.kind end end
@@ -87,7 +89,7 @@ function Matcher.List()
 	local list = {}
 	for name, e in pairs(peers) do
 		local ok, grouped = pcall(inMyGroup, name)
-		if now - e.at > (MAX_AGE[e.source] or 300) or (ok and grouped) then
+		if now - e.at > (MAX_AGE[e.source] or 300) or (ok and grouped) or not ns.Lang.Compatible(e.langs) then
 			peers[name] = nil
 		else
 			-- Quests that left our log since no longer count.

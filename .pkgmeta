@@ -1,0 +1,21 @@
+# BigWigs packager / CurseForge metadata for Group Finder for Polestar.
+# Not shipped inside the player zip.
+
+package-as: PSGroupFinder
+
+# CurseForge slug of Polestar Guides (https://www.curseforge.com/wow/addons/polestar).
+# The app will offer to install Polestar with this addon. The .toc still lists
+# Polestar as OptionalDeps, so the addon can load alone (standalone window).
+required-dependencies:
+  - polestar
+
+manual-changelog: CHANGELOG.md
+
+ignore:
+  - README.md
+  - INSTALLATION.md
+  - tests
+  - mockups
+  - build.sh
+  - .luacheckrc
+  - .gitignore

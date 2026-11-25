@@ -1,7 +1,7 @@
--- Two simulated clients exchanging Polestar Group Finder messages, with a
+-- Two simulated clients exchanging PSGroupFinder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Throttle", "Quests", "Session", "Comm", "Matcher", "Group", "UI", "Polestar" }
-local DIR = "Polestar_GroupFinder/"
+local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Comm", "Matcher", "Group", "UI", "Polestar" }
+local DIR = "PSGroupFinder/"
 local bus = {}      -- every client's env
 local now = 0
 local timers = {}
@@ -29,9 +29,20 @@ local function newClient(name, quests, opts)
 			if k == "Show" then return function() t._shown = true end end
 			if k == "Hide" then return function() t._shown = false end end
 			if k == "GetChecked" then return function() return false end end
-			if k == "GetPoint" then return function() return "CENTER", nil, nil, 0, 0 end end
 			if k == "GetStringWidth" or k == "GetWidth" then return function() return 100 end end
+			if k == "GetFrameLevel" then return function() return t._level or 1 end end
+			if k == "SetFrameLevel" then return function(_, n) t._level = n end end
+			if k == "GetNumChildren" then return function() return #(t._kids or {}) end end
+			if k == "GetChildren" then return function() return unpack(t._kids or {}) end end
+			if k == "SetParent" then return function(_, par) t._parent = par end end
+			if k == "SetPoint" then return function(_, point, rel, relPoint, x, y)
+				t._point, t._rel, t._relPoint, t._x, t._y = point, rel, relPoint, x, y
+			end end
+			if k == "GetPoint" then return function() return t._point or "CENTER", t._rel, t._relPoint, t._x or 0, t._y or 0 end end
 			if k == "IsMovable" then return function() return true end end
+			if k == "CreateTexture" then return function() return frameStub() end end
+			if k == "SetColorTexture" or k == "SetVertexColor" or k == "SetTexture" then return function() end end
+			if k == "RegisterForClicks" then return function() end end
 			if k == "CreateFontString" or k == "CreateTexture" then return function() return frameStub() end end
 			if k == "SetScript" then return function(_, ev, fn) t["_" .. ev] = fn end end
 			if k == "RegisterEvent" then return function(_, ev) frames[#frames + 1] = { t, ev } end end
@@ -120,7 +131,7 @@ local function newClient(name, quests, opts)
 	for _, f in ipairs(FILES) do
 		local chunk = assert(loadfile(DIR .. f .. ".lua"))
 		setfenv(chunk, env)
-		chunk("Polestar_GroupFinder", ns)
+		chunk("PSGroupFinder", ns)
 	end
 	env.fire = function(ev, ...)
 		for _, fr in ipairs(frames) do
@@ -129,7 +140,7 @@ local function newClient(name, quests, opts)
 	end
 	env.ns = ns
 	bus[#bus + 1] = env
-	env.fire("ADDON_LOADED", "Polestar_GroupFinder")
+	env.fire("ADDON_LOADED", "PSGroupFinder")
 	env.fire("PLAYER_LOGIN")
 	return env
 end
@@ -160,7 +171,11 @@ local cid = newClient("Cid Vale", { other }, {})
 
 -- Off by default: nothing is sent.
 check(ana.ns.db.enabled == false, "disabled by default")
-ana.PolestarGroupFinder_Search()
+check(ana.ns.Lang.DefaultCode() == "f" and ana.ns.Lang.Search()[1] == "f" and not ana.ns.Lang.AcceptsAll(),
+	"default languages: the client's only (frFR -> FR), not all languages")
+check(ana.ns.Lang.Encode() == "f", "language payload is the client letter (f)")
+check(ana.ns.Get("headerButton") == true, "header button is on by default")
+ana.PSGroupFinder_Search()
 run(1)
 check(next(ana.ns.Comm.status) == nil, "a search while disabled sends nothing")
 
@@ -177,7 +192,7 @@ run(6)
 check(ana.ns.Comm.status.YELL.state == "ok", "Ana: YELL works as fallback")
 check(ana.ns.Comm.BestChannel() == "YELL", "Ana's best channel is YELL")
 
-ana.PolestarGroupFinder_Search()
+ana.PSGroupFinder_Search()
 run(5)
 local list = ana.ns.Matcher.List()
 check(#list == 1 and list[1].name == "Ben Stone" and list[1].quests[1] == 176, "Ana finds Ben on Hogger (Ben's whisper reply)")
@@ -185,7 +200,7 @@ check(list[1].yards and list[1].yards < 40, "distance computed in yards: " .. to
 check(#ben.ns.Matcher.List() == 1, "Ben sees Ana as also looking")
 check(#cid.ns.Matcher.List() == 0, "Cid (no shared quest) sees nobody and answers nothing")
 
-ana.PolestarGroupFinder_Search()
+ana.PSGroupFinder_Search()
 check(ana.printed[#ana.printed]:find("Attendez"), "search cooldown enforced")
 
 -- The panel builds and refreshes with a session and a player found (stub frames).
@@ -199,21 +214,33 @@ for i = 1, 40 do many[i] = { id = 100000 + i, kind = "k" } end
 local text, n = ana.ns.Comm.EncodeSearch(many)
 check(#text <= 255 and n < 40, "search text cut to 255 bytes (" .. #text .. " bytes, " .. n .. " quests)")
 local m = ana.ns.Comm.Decode(text)
-check(m and m.kind == "S" and #m.quests == n and m.class == "WARRIOR", "decode round trip")
+check(m and m.kind == "S" and #m.quests == n and m.class == "WARRIOR" and m.langs and m.langs.code == "f", "decode round trip (with langs)")
 check(ana.ns.Comm.Decode("S|zz|1|2") == nil and ana.ns.Comm.Decode(("x"):rep(300)) == nil, "malformed messages dropped")
+local oldS = "S|abc123|1436|400|500|20|WARRIOR|0|gA|176:n,86:l"
+local oldm = ana.ns.Comm.Decode(oldS)
+check(oldm and oldm.kind == "S" and #oldm.quests == 2 and oldm.langs == nil, "v0.2 messages (no langs field) still decode")
+local legacy = ana.ns.Lang.Decode("f/f")
+check(legacy and legacy.code == "f" and ana.ns.Lang.Decode("fe/*").code == "f", "legacy spoken/accepted payloads still decode as the client letter")
 
 -- With Polestar: the live step's quest comes first, the panel is themed and
 -- the launcher hangs under the guide window.
 local handlers, skinned = {}, {}
-local window = { HookScript = function() end, IsShown = function() return true end }
+local window = { HookScript = function() end, IsShown = function() return true end, GetRight = function() return 400 end, GetEffectiveScale = function() return 1 end }
+local nav = { GetNumChildren = function() return 0 end, GetChildren = function() end }
+nav.Lookup = { GetFrameLevel = function() return 5 end, SetFrameLevel = function() end,
+	GetPoint = function() return "RIGHT", nav, "RIGHT", -32, 0 end,
+	SetPoint = function() end, Show = function() end, Hide = function() end }
+nav.Menu = { GetPoint = function() return "RIGHT", nav, "RIGHT", -8, 0 end, SetPoint = function() end }
 local fakePolestar = {
 	API = { version = 1 },
 	On = function(msg, fn) handlers[msg] = fn end,
 	Compat = { IsOnQuest = function(id) return id == 86 end, IsQuestReadyForTurnIn = function() return false end },
 	Engine = { GetGuide = function() return { steps = { { goals = { { t = "loot", quest = 86 } } } } } end, GetLiveStep = function() return 1 end },
 	Theme = { Skin = function(f, kind) skinned[#skinned + 1] = kind return f end, Font = function() end,
-		OnChanged = function() end, HasCapability = function(c) return c == "guideParts" end,
-		GuideParts = function() return { window = window } end },
+		OnChanged = function() end, HasCapability = function(c) return c == "guideParts" or c == "guideReach" or c == "theme.functions" end,
+		Color = function() return 0.85, 0.88, 0.95, 1 end,
+		Media = function(name) return name == "white" and "Interface\\Buttons\\WHITE8X8" or name end,
+		GuideParts = function() return { window = window, nav = nav } end },
 }
 local dee = newClient("Dee Moss", { hogger, boars }, { polestar = fakePolestar })
 local rel2 = dee.ns.Quests.Relevant()
@@ -222,6 +249,9 @@ check(handlers.STEP_CHANGED ~= nil and handlers.GUIDE_CHANGED ~= nil, "subscribe
 local hasButton = false
 for _, k in ipairs(skinned) do if k == "button" then hasButton = true end end
 check(hasButton, "launcher button painted through Polestar.Theme.Skin")
+check(dee.ns.headerButtonFrame ~= nil, "header icon created on the step bar (left of Lookup)")
+local _, headerRel = dee.ns.headerButtonFrame:GetPoint(1)
+check(headerRel == nav.Lookup, "header icon is anchored to Lookup (the magnifying glass)")
 fakePolestar.Engine.GetGuide = function() error("internal API moved") end
 handlers.STEP_CHANGED()
 check(#dee.ns.Quests.Relevant() == 2, "Engine failure falls back to the quest log")
@@ -245,7 +275,7 @@ run(15)
 eve.ns.Comm.TestChannels(true) run(6)
 check(not eve.ns.Session.Active(), "no session before a search")
 run(30)
-eve.PolestarGroupFinder_Search()
+eve.PSGroupFinder_Search()
 run(5)
 check(eve.ns.Session.Active() and #collect(eve) == 3, "a search opens a session on its 3 quests")
 check(#eve.ns.Matcher.List() == 2, "Eve found Finn and Gus")
@@ -295,7 +325,7 @@ hal.ns.Comm.TestChannels(true) run(6)
 run(30)
 -- Option off (default): nothing automatic.
 check(hal.ns.Get("autoGroup") == false, "autoGroup is off by default")
-hal.PolestarGroupFinder_Search()
+hal.PSGroupFinder_Search()
 run(8)
 check(#hal.invited == 0 and #ivy.invited == 0 and party["Hal Orn"] == nil, "autoGroup off: nobody invited, nobody grouped")
 check(#hal.ns.Matcher.List() >= 1, "players still listed for manual Invite")
@@ -304,7 +334,7 @@ for _, c in ipairs({ hal, ivy, jon }) do c.ns.Matcher.Clear() c.ns.Session.Stop(
 -- Both on: after Hal's search, a group forms with no click on Invite.
 hal.ns.Set("autoGroup", true) ivy.ns.Set("autoGroup", true) jon.ns.Set("autoGroup", true)
 run(30)
-hal.PolestarGroupFinder_Search()
+hal.PSGroupFinder_Search()
 run(10)
 check(party["Hal Orn"] ~= nil and party["Ivy Kerr"] == party["Hal Orn"], "autoGroup on: Hal and Ivy are grouped without a click")
 check(party["Jon Pike"] == nil and #hal.invited + #ivy.invited <= 2, "the other faction (Horde) is never invited")
@@ -329,7 +359,7 @@ local invitee, inviter = lou, max
 if lou.ns.Comm.sid < max.ns.Comm.sid then invitee, inviter = max, lou end
 invitee.refuseAccept = true
 run(30)
-inviter.PolestarGroupFinder_Search()
+inviter.PSGroupFinder_Search()
 run(10)
 local told = false
 for _, p in ipairs(invitee.printed) do if p:find("à la main") then told = true end end
@@ -339,6 +369,45 @@ check(party["Lou Vance"] == nil and party["Max Teal"] == nil and told, "AcceptGr
 party["Hal Orn"] = { "Hal Orn", "a", "b", "c", "d" }
 hal.fire("GROUP_ROSTER_UPDATE")
 check(not hal.ns.Session.Active(), "party of 5: search stopped")
+
+---------------------------------------------------------------------------
+-- v1: search languages (default = the client's only; All is opt-in;
+-- filtering is unilateral; the payload is the client letter only)
+---------------------------------------------------------------------------
+local function langClient(name, locale, opts, quests)
+	opts = opts or {}
+	opts.locale = locale
+	local c = newClient(name, quests or { copyQ({ id = 9001, title = "Pest Control", obj = { { "Pest slain: 0/6", "monster" } } }) }, opts)
+	c.ns.SetEnabled(true)
+	return c
+end
+local pia = langClient("Pia Lang", "frFR", { x = 0.2, y = 0.2 })
+local ned = langClient("Ned Lang", "enUS", { x = 0.21, y = 0.2, class = "MAGE" })
+local mia = langClient("Mia Lang", "frFR", { x = 0.22, y = 0.2, class = "PRIEST" })
+run(15)
+pia.ns.Comm.TestChannels(true) run(6)
+run(30)
+check(ned.ns.Lang.DefaultCode() == "e" and ned.ns.Lang.Encode() == "e" and ned.ns.Lang.Search()[1] == "e", "an English client defaults to EN only")
+check(not pia.ns.Lang.Compatible(ned.ns.Lang.Decode(ned.ns.Lang.Encode())), "FR search does not list an EN client")
+check(pia.ns.Lang.Compatible(mia.ns.Lang.Decode(mia.ns.Lang.Encode())), "two FR-only players are compatible")
+pia.PSGroupFinder_Search()
+run(8)
+local function hasPeer(c, who) return c.ns.Matcher.Get(who) ~= nil end
+check(not hasPeer(pia, "Ned Lang") and hasPeer(pia, "Mia Lang"), "Pia (FR) finds Mia (FR) and not Ned (EN)")
+pia.ns.Lang.SetAcceptAll(true)
+check(pia.ns.Lang.Encode() == "f" and pia.ns.Lang.MineSummary() == "Toutes", "accept-all still broadcasts only the client letter")
+check(pia.ns.Lang.Compatible(ned.ns.Lang.Decode(ned.ns.Lang.Encode())), "Pia with All lists Ned (unilateral)")
+check(not ned.ns.Lang.Compatible(pia.ns.Lang.Decode(pia.ns.Lang.Encode())), "Ned (EN only) still does not list Pia: each side filters alone")
+pia.ns.Lang.SetAcceptAll(false)
+pia.ns.Lang.SetSearch("e", true)
+check(pia.ns.Lang.Encode() == "f" and pia.ns.Lang.MineSummary() == "FR/EN", "adding EN to the search does not change the payload")
+check(pia.ns.Lang.Compatible(ned.ns.Lang.Decode("e")) and not ned.ns.Lang.Compatible(pia.ns.Lang.Decode("f")),
+	"Pia searching FR+EN lists Ned; Ned still searching EN only does not list Pia")
+check(pia.ns.Lang.Summary({ code = "f" }) == "FR", "list label is the peer's client language")
+pia.ns.Lang.SetSearch("e", false)
+check(not pia.ns.Lang.Compatible(nil), "a v0.2 peer with no language is hidden when we don't accept all")
+pia.ns.Lang.SetAcceptAll(true)
+check(pia.ns.Lang.Compatible(nil), "a v0.2 peer is visible when we accept all")
 
 ana.ns.SetEnabled(false)
 check(#ana.ns.Matcher.List() == 0 and ana.joined == false, "turning off clears the list and leaves the channel")

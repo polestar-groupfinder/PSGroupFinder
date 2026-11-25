@@ -1,4 +1,4 @@
--- Polestar Group Finder: interface strings, English first, French over them.
+-- Group Finder for Polestar (PSGroupFinder): interface strings, English first, French over them.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 
 local _, ns = ...
@@ -69,6 +69,16 @@ local enUS = {
 	LEGEND_TITLE = "Search channels",
 	LEGEND_BODY = "Green: works (message came back). Yellow: accepted, no echo. Red: refused. Grey: unavailable. The search goes out on the first working one.",
 	LEGEND_BEST = "In use: %s",
+	HEADER_BUTTON = "Button in the Polestar header",
+	HEADER_BUTTON_TIP = "Places a small icon just left of Polestar's Lookup (the magnifying glass): left click searches, right click opens or closes the panel. Off: the Find a group button stays under the guide window.",
+	LANGS = "Search languages",
+	LANGS_TIP = "Players whose game language is one of those you tick appear in the list. The default is your game's language only. “All languages” greys out the other boxes and shows everyone.",
+	LANG_ALL = "All languages",
+	LANG_ALL_SHORT = "All",
+	LANG_EDIT = "Languages…",
+	LANG_FR = "French", LANG_EN = "English", LANG_DE = "German", LANG_ES = "Spanish",
+	LANG_IT = "Italian", LANG_PT = "Portuguese", LANG_RU = "Russian",
+	LANG_KO = "Korean", LANG_ZH = "Chinese (Simplified)", LANG_ZHT = "Chinese (Traditional)",
 }
 
 local frFR = {
@@ -134,6 +144,16 @@ local frFR = {
 	LEGEND_TITLE = "Canaux de recherche",
 	LEGEND_BODY = "Vert : fonctionne (message reçu en retour). Jaune : accepté, sans écho. Rouge : refusé. Gris : indisponible. La recherche part sur le premier qui marche.",
 	LEGEND_BEST = "Utilisé : %s",
+	HEADER_BUTTON = "Bouton dans l'en-tête de Polestar",
+	HEADER_BUTTON_TIP = "Place une petite icône juste à gauche de la loupe (Lookup) de Polestar : clic gauche pour chercher, clic droit pour ouvrir ou fermer le panneau. Désactivé : le bouton « Chercher un groupe » reste sous la fenêtre de guide.",
+	LANGS = "Langues de recherche",
+	LANGS_TIP = "Les joueurs dont la langue du jeu est parmi celles que vous cochez apparaissent dans la liste. Par défaut, seule la langue de votre jeu est cochée. « Toutes les langues » grise les autres cases et affiche tout le monde.",
+	LANG_ALL = "Toutes les langues",
+	LANG_ALL_SHORT = "Toutes",
+	LANG_EDIT = "Langues…",
+	LANG_FR = "Français", LANG_EN = "English", LANG_DE = "Deutsch", LANG_ES = "Español",
+	LANG_IT = "Italiano", LANG_PT = "Português", LANG_RU = "Русский",
+	LANG_KO = "한국어", LANG_ZH = "简体中文", LANG_ZHT = "繁體中文",
 }
 
 local locale = GetLocale and GetLocale() or "enUS"
@@ -142,7 +162,7 @@ if locale == "frFR" then for k, v in pairs(frFR) do L[k] = v end end
 setmetatable(L, { __index = function(_, k) return k end })
 
 -- Key Bindings page labels (Bindings.xml).
-BINDING_HEADER_POLESTAR_GROUPFINDER = "Polestar Group Finder"
+BINDING_HEADER_PSGROUPFINDER = "Group Finder for Polestar"
 BINDING_CATEGORY_POLESTAR = BINDING_CATEGORY_POLESTAR or "Polestar"
 BINDING_NAME_PSGF_SEARCH = L.BINDING_SEARCH
 BINDING_NAME_PSGF_TOGGLE_PANEL = L.BINDING_PANEL

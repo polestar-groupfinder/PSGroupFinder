@@ -1,12 +1,12 @@
--- Polestar Group Finder: talking to other players who run it.
+-- Group Finder for Polestar (PSGroupFinder): talking to other players who run it.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 -- Prefix "PSGF". Messages (fields split by "|", at most 255 bytes):
---   S|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<quest>:<kind>,...
+--   S|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<langs>|<quest>:<kind>,...
 --       a search, broadcast from a click or a key press; sent again (Update)
 --       with the quests left whenever an objective is done, from the channels
 --       that need no key press and by whisper to the players found
---   R|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<quest>,...
+--   R|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<langs>|<quest>,...
 --       the answer, whispered to the searcher, naming only the quests both
 --       have
 --   X|<sid>
@@ -16,8 +16,11 @@
 --       whispered when auto-group is on and the other player should invite
 --       us (see Group.lua)
 -- <flags>: "g" auto-group is on, "A" / "H" the faction (Alliance / Horde),
--- empty when unknown. A search with no quest in common with the receiver
--- removes the sender from the receiver's list.
+-- empty when unknown.
+--   langs (v1): one letter, the sender's client language (`f`, `e`).
+--   Legacy "f/f" / "fe/*" still decode (first letter). v0.2 had no langs field.
+-- A search with no quest in common with the receiver, or no language in
+-- common, removes the sender from the receiver's list.
 --   T|<sid>|<nonce>
 --       a channel probe: nobody answers it, we only listen for our own echo
 -- <sid> is a random id for this session: a message carrying ours is our
@@ -181,7 +184,8 @@ end
 -- it fits 255 bytes.
 function Comm.EncodeSearch(quests)
 	local map, x, y, lvl, class, size, fl = me()
-	local head = table.concat({ "S", sid, map, x, y, lvl, class, size, fl }, "|") .. "|"
+	local langs = ns.Lang.Encode()
+	local head = table.concat({ "S", sid, map, x, y, lvl, class, size, fl, langs }, "|") .. "|"
 	local parts = {}
 	for _, q in ipairs(quests) do
 		local entry = q.id .. ":" .. q.kind
@@ -202,7 +206,8 @@ end
 
 function Comm.EncodeReply(ids)
 	local map, x, y, lvl, class, size, fl = me()
-	local head = table.concat({ "R", sid, map, x, y, lvl, class, size, fl }, "|") .. "|"
+	local langs = ns.Lang.Encode()
+	local head = table.concat({ "R", sid, map, x, y, lvl, class, size, fl, langs }, "|") .. "|"
 	local parts = {}
 	for _, id in ipairs(ids) do
 		if #head + #table.concat(parts, ",") + #tostring(id) + 1 > 255 then break end
@@ -231,6 +236,14 @@ function Comm.Decode(text)
 	local m = { kind = kind, sid = msid, map = tonumber(map), level = tonumber(lvl), class = class, size = tonumber(size), flags = fl, quests = {} }
 	if m.map == 0 then m.map = nil end
 	if x ~= "" and y ~= "" then m.x, m.y = tonumber(x) / 1000, tonumber(y) / 1000 end
+	-- v1: "f|176:n,…" — a langs field (client letter, or legacy "f/f") in
+	-- front of the quest list. v0.2 started the list with a quest id, so a
+	-- leading letter is unambiguous.
+	local langField, rest = list:match("^([a-z]+/?[%*a-z]*)%|(.*)$")
+	if langField then
+		m.langs = ns.Lang.Decode(langField)
+		list = rest
+	end
 	for entry in list:gmatch("[^,]+") do
 		local id, k = entry:match("^(%d+):?([gnkl]?)$")
 		id = tonumber(id)
@@ -389,6 +402,10 @@ local function onMessage(_, prefix, text, chatType, sender)
 	-- A player of the other faction cannot group with us (Forever).
 	local theirs, mine = m.flags and m.flags:match("[AH]"), flags():match("[AH]")
 	if theirs and mine and theirs ~= mine then return end
+	if (m.kind == "S" or m.kind == "R") and not ns.Lang.Compatible(m.langs) then
+		Matcher.Remove(sender)
+		return
+	end
 	if m.kind == "X" then
 		Matcher.Remove(sender)
 		return

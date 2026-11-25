@@ -1,18 +1,20 @@
 ## Interface: 16001
-## Title: Polestar |cffffd100Group Finder|r
-## Title-frFR: Polestar |cffffd100Group Finder|r
+## Title: Group Finder |cffaaaaaafor Polestar|r
+## Title-frFR: Recherche de groupe |cffaaaaaa(Polestar)|r
 ## Notes: Optional Polestar module: find players on the same kill, named, loot or group quest near you.
 ## Notes-frFR: Module optionnel de Polestar : trouve les joueurs sur la même quête (kill, élite nommé, loot, groupe) près de vous.
 ## Author: PSGroupFinder contributors
-## Version: 0.2.0
+## Version: 1.0.0
 ## X-License: GPL-3.0-or-later
+# ## X-Curse-Project-ID: 0
 ## Category: Polestar
 ## OptionalDeps: Polestar
-## SavedVariables: PolestarGroupFinderDB
-## SavedVariablesPerCharacter: PolestarGroupFinderCharDB
+## SavedVariables: PSGroupFinderDB
+## SavedVariablesPerCharacter: PSGroupFinderCharDB
 
 Locales.lua
 Core.lua
+Lang.lua
 Throttle.lua
 Quests.lua
 Session.lua

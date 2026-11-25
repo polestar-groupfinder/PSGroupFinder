@@ -1,0 +1,8 @@
+<Bindings>
+	<Binding name="PSGF_SEARCH" header="PSGROUPFINDER" category="Polestar">
+		PSGroupFinder_Search()
+	</Binding>
+	<Binding name="PSGF_TOGGLE_PANEL" category="Polestar">
+		PSGroupFinder_TogglePanel()
+	</Binding>
+</Bindings>

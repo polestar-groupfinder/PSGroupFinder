@@ -1,8 +1,9 @@
--- Polestar Group Finder: the panel.
+-- Group Finder for Polestar (PSGroupFinder): the panel.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
--- One panel, from top to bottom: the four switches (the finder, grouping
--- without a click, sharing the position, answering searches), Find a group /
+-- One panel, from top to bottom: the switches (the finder, grouping
+-- without a click, the header button, sharing the position, answering
+-- searches, search languages), Find a group /
 -- Stop (/ Options when Polestar's settings have our page), the search in
 -- progress (its quests leave it as their objectives are done), the channels
 -- with their legend, and the players found, each with Whisper and Invite
@@ -259,12 +260,17 @@ function UI.Refresh()
 	local on = ns.Get("enabled") and true or false
 	widgets.enable:SetChecked(on)
 	widgets.auto:SetChecked(ns.Get("autoGroup") and true or false)
+	widgets.header:SetChecked(ns.Get("headerButton") ~= false)
 	widgets.coords:SetChecked(ns.Get("shareCoords") and true or false)
 	widgets.reply:SetChecked(ns.Get("autoReply") and true or false)
-	for _, c in ipairs({ widgets.auto, widgets.coords, widgets.reply }) do
-		c:SetEnabled(on)
-		c:SetAlpha(on and 1 or 0.5)
+	for _, c in ipairs({ widgets.auto, widgets.header, widgets.coords, widgets.reply }) do
+		c:SetEnabled(on or c == widgets.header)
+		c:SetAlpha((on or c == widgets.header) and 1 or 0.5)
 	end
+	if widgets.langValue then
+		widgets.langValue:SetText(dim() .. ns.Lang.MineSummary() .. "|r")
+	end
+	if widgets.langPicker and widgets.langPicker:IsShown() then UI.RefreshLangPicker() end
 
 	-- Buttons.
 	local active = ns.Session.Active()
@@ -274,7 +280,7 @@ function UI.Refresh()
 	widgets.stop:SetShown(active)
 
 	-- Off: only the switches and the buttons; the rest has nothing to say.
-	local y = 34 + 4 * OPT_H + 8 + 22 + 10
+	local y = 34 + 5 * OPT_H + 22 + 8 + 22 + 10
 	local list = ns.Session.List()
 	widgets.sessionTitle:SetShown(on)
 	widgets.chLabel:SetShown(on)
@@ -338,8 +344,9 @@ function UI.Refresh()
 		rows[i] = r
 		if e and on then
 			r.entry = e
-			r.name:SetText(string.format("|c%s%s|r  %s", classColor(e.class), short(e.name),
-				e.level and e.level > 0 and (dim() .. e.level .. "|r") or ""))
+			local lang = e.langTag and e.langTag ~= "?" and ("  " .. dim() .. e.langTag .. "|r") or ""
+			r.name:SetText(string.format("|c%s%s|r  %s%s", classColor(e.class), short(e.name),
+				e.level and e.level > 0 and (dim() .. e.level .. "|r") or "", lang))
 			r.dist:SetText(rightText(e))
 			local first = e.quests[1]
 			local more = #e.quests > 1 and ("  " .. dim() .. "+" .. (#e.quests - 1) .. "|r") or ""
@@ -410,9 +417,69 @@ end
 -- Build
 ---------------------------------------------------------------------------
 
+
+---------------------------------------------------------------------------
+-- Language picker (spoken + accepted), opened from the compact summary.
+---------------------------------------------------------------------------
+
+local function langCheck(parent, label, getter, setter)
+	local c = check(parent, label, nil, nil, function(on) setter(on) UI.RefreshLangPicker() UI.Refresh() end)
+	c.psGet = getter
+	return c
+end
+
+function UI.RefreshLangPicker()
+	local box = widgets.langPicker
+	if not box then return end
+	if box.all then box.all:SetChecked(ns.Lang.AcceptsAll()) end
+	local locked = ns.Lang.AcceptsAll()
+	for _, c in ipairs(box.langs or {}) do
+		c:SetChecked(c.psGet and c.psGet())
+		c:SetEnabled(not locked)
+		c:SetAlpha(locked and 0.45 or 1)
+	end
+end
+
+function UI.ToggleLangPicker()
+	if not panel then return end
+	if widgets.langPicker and widgets.langPicker:IsShown() then
+		widgets.langPicker:Hide()
+		return
+	end
+	if not widgets.langPicker then
+		local box = CreateFrame("Frame", nil, panel)
+		box:SetFrameStrata("DIALOG")
+		box:SetSize(WIDTH - 16, 24 + 11 * 18 + 16)
+		box:SetPoint("TOPLEFT", panel, "TOPLEFT", 8, -(34 + 5 * OPT_H + 22))
+		local T = Theme()
+		if T then pcall(T.Skin, box, "panel")
+		elseif box.SetBackdrop then
+			box:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+				tile = true, tileSize = 16, edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+			box:SetBackdropColor(0.07, 0.08, 0.12, 0.97)
+		end
+		local title = font(box:CreateFontString(nil, "OVERLAY"), "caption", GameFontNormalSmall)
+		title:SetPoint("TOPLEFT", 8, -8)
+		title:SetText(L.LANGS)
+		box.langs = {}
+		box.all = langCheck(box, L.LANG_ALL, function() return ns.Lang.AcceptsAll() end, function(on) ns.Lang.SetAcceptAll(on) end)
+		box.all:SetPoint("TOPLEFT", box, "TOPLEFT", 6, -24)
+		for i, row in ipairs(ns.Lang.ALL) do
+			local code = row.code
+			local y = -(24 + i * 18)
+			local c = langCheck(box, ns.Lang.Name(code), function() return ns.Lang.HasSearch(code) end, function(on) ns.Lang.SetSearch(code, on) end)
+			c:SetPoint("TOPLEFT", box, "TOPLEFT", 6, y)
+			box.langs[#box.langs + 1] = c
+		end
+		widgets.langPicker = box
+	end
+	widgets.langPicker:Show()
+	UI.RefreshLangPicker()
+end
+
 local function build()
 	local useTheme = Theme() ~= nil
-	panel = CreateFrame("Frame", "PolestarGroupFinderPanel", UIParent, (not useTheme and BackdropTemplateMixin) and "BackdropTemplate" or nil)
+	panel = CreateFrame("Frame", "PSGroupFinderPanel", UIParent, (not useTheme and BackdropTemplateMixin) and "BackdropTemplate" or nil)
 	panel:SetSize(WIDTH, 300)
 	panel:SetFrameStrata("MEDIUM")
 	panel:SetClampedToScreen(true)
@@ -431,7 +498,7 @@ local function build()
 			tile = true, tileSize = 16, edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
 		panel:SetBackdropColor(0.05, 0.05, 0.08, 0.92)
 	end
-	table.insert(UISpecialFrames, "PolestarGroupFinderPanel")
+	table.insert(UISpecialFrames, "PSGroupFinderPanel")
 
 	local title = font(panel:CreateFontString(nil, "OVERLAY"), "title", GameFontNormalLarge)
 	title:SetPoint("TOPLEFT", PAD, -10)
@@ -449,16 +516,36 @@ local function build()
 	end
 	close:SetScript("OnClick", function() panel:Hide() end)
 
-	-- The four switches, 20 units apart, none touching the next.
+	-- The switches, 20 units apart, none touching the next.
 	widgets.enable = check(panel, L.ENABLE, L.ENABLE_TIP, "enabled", function(on) ns.SetEnabled(on) end)
 	widgets.auto = check(panel, L.AUTO_GROUP, L.AUTO_GROUP_TIP, "autoGroup")
+	widgets.header = check(panel, L.HEADER_BUTTON, L.HEADER_BUTTON_TIP, "headerButton")
 	widgets.coords = check(panel, L.SHARE_COORDS, nil, "shareCoords")
 	widgets.reply = check(panel, L.AUTO_REPLY, nil, "autoReply")
-	for i, c in ipairs({ widgets.enable, widgets.auto, widgets.coords, widgets.reply }) do
+	for i, c in ipairs({ widgets.enable, widgets.auto, widgets.header, widgets.coords, widgets.reply }) do
 		c:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - (useTheme and 0 or 4), -(34 + (i - 1) * OPT_H))
 	end
 
-	local by = 34 + 4 * OPT_H + 8
+	-- Languages: a compact summary; a click opens the picker.
+	local ly = 34 + 5 * OPT_H + 2
+	widgets.langLabel = font(panel:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
+	widgets.langLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -ly)
+	widgets.langLabel:SetText(L.LANGS)
+	widgets.langValue = font(panel:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
+	widgets.langValue:SetPoint("LEFT", widgets.langLabel, "RIGHT", 8, 0)
+	widgets.langHit = CreateFrame("Button", nil, panel)
+	widgets.langHit:SetPoint("TOPLEFT", widgets.langLabel, "TOPLEFT", 0, 4)
+	widgets.langHit:SetPoint("BOTTOMRIGHT", panel, "TOPRIGHT", -PAD, -(ly + 16))
+	widgets.langHit:SetScript("OnClick", function() UI.ToggleLangPicker() end)
+	widgets.langHit:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText(L.LANGS, 1, 1, 1)
+		GameTooltip:AddLine(L.LANGS_TIP, nil, nil, nil, true)
+		GameTooltip:Show()
+	end)
+	widgets.langHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+	local by = 34 + 5 * OPT_H + 22 + 8
 	widgets.search = button(panel, L.SEARCH, 168, function() ns.Search() UI.Refresh() end)
 	widgets.search:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -by)
 	widgets.stop = button(panel, L.STOP, 70, function()
@@ -538,7 +625,7 @@ function UI.IsShown() return panel and panel:IsShown() or false end
 ns.TogglePanel = UI.Toggle
 ns.ResetPanel = UI.Place
 
-for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION" }) do
+for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION", "LANG" }) do
 	ns.On(msg, function() UI.Refresh() end)
 end
 -- Someone new found within OPEN_AFTER seconds of your own search, while the

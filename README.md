@@ -1,20 +1,24 @@
-# Polestar Group Finder
+# Group Finder for Polestar (PSGroupFinder)
 
 Module **optionnel** pour [Polestar](https://github.com/fitzforge/polestar) (WoW: Forever 1.60.1) :
 trouve les joueurs qui font **la même quête que vous, près de vous** (mobs à tuer, élite nommé,
 objets à looter sur des monstres, quêtes de groupe) et propose de les **chuchoter** ou de les
-**inviter**. Depuis la v0.2, le groupage peut être **automatique** (option, désactivée par défaut).
+**inviter**. Le groupage peut être **automatique** (option, désactivée par défaut).
 
 Addon séparé : il ne modifie pas Polestar et fonctionne aussi sans lui (fenêtre autonome).
 Licence GPL-3.0-or-later (compatible avec Polestar, GPL-3.0).
 
 ## Installation
 
-1. Décompressez `Polestar_GroupFinder.zip` dans
+La procédure détaillée (chemins Windows et Mac, activation, premier test à deux
+comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
+
+1. Installez d'abord [Polestar](https://www.curseforge.com/wow/addons/polestar).
+2. Décompressez `PSGroupFinder-1.0.0.zip` dans
    `World of Warcraft/_forever_/Interface/AddOns/` : vous devez obtenir
-   `.../AddOns/Polestar_GroupFinder/Polestar_GroupFinder.toc`.
-2. Redémarrez complètement le jeu (un `/reload` ne charge pas un nouvel addon).
-3. Polestar est conseillé, pas obligatoire (`## OptionalDeps: Polestar`).
+   `.../AddOns/PSGroupFinder/PSGroupFinder.toc` (pas un dossier dans un dossier).
+   Si vous aviez l'ancienne version `Polestar_GroupFinder`, supprimez ce dossier.
+3. Redémarrez complètement le jeu (un `/reload` ne charge pas un nouvel addon).
 
 ## Utilisation
 
@@ -22,8 +26,11 @@ Licence GPL-3.0-or-later (compatible avec Polestar, GPL-3.0).
   **Désactivé par défaut** : tant que c’est coupé, l’addon ne rejoint aucun canal,
   n’envoie et n’écoute rien.
 - **Chercher un groupe** :
-  - le bouton **« Chercher un groupe »** accroché sous la fenêtre de guide Polestar
-    (clic gauche = chercher, clic droit = panneau) ;
+  - par défaut, une **icône dans l'en-tête** du guide Polestar, juste à gauche de la loupe
+    (clic gauche = chercher, clic droit = panneau ; grisée si l'addon est coupé, colorée
+    si une recherche est en cours). Option « Bouton dans l'en-tête de Polestar » : en la
+    décochant, l'ancien bouton sous la fenêtre réapparaît (c'est aussi le repli si
+    l'accroche d'en-tête échoue) ;
   - ou le bouton du panneau ;
   - ou un **raccourci** : Échap > Options > Raccourcis > *Polestar* >
     « Chercher un groupe pour mes quêtes » (et « Afficher ou masquer la recherche de groupe ») ;
@@ -39,8 +46,15 @@ Licence GPL-3.0-or-later (compatible avec Polestar, GPL-3.0).
 - **Résultats** : le panneau (collé à droite de la fenêtre Polestar, à gauche si l'écran n'a pas
   la place, sinon fenêtre déplaçable) liste les joueurs trouvés, triés par quêtes en commun
   (l'étape Polestar en cours d'abord), distance (mètres, sinon « même zone »), déjà groupé ou
-  non, état de l'invitation automatique. Boutons **Chuchoter** et **Inviter** (à votre clic).
-  Survol d'une ligne : toutes les quêtes communes.
+  non, état de l'invitation automatique. Chaque ligne indique la langue du joueur (ex. `FR`).
+  Boutons **Chuchoter** et **Inviter** (à votre clic). Survol d'une ligne : toutes les quêtes communes.
+- **Langues de recherche** : par défaut, seule la langue du client (`GetLocale()`, ex. frFR →
+  Français) est cochée. Vous pouvez en cocher d'autres une par une. « Toutes les langues »
+  (décochée par défaut) grise les autres cases et affiche tout le monde. Le filtrage est
+  **unilatéral** : un joueur apparaît chez vous si sa langue de jeu est dans votre recherche
+  (ou si vous avez coché Toutes). Chacun filtre de son côté ; pour le groupage automatique,
+  il faut donc que chacun apparaisse chez l'autre. Un peer v0.2 sans langue n'est visible
+  que si Toutes est cochée. Réglable dans le panneau et dans les options Polestar.
 - **Groupage automatique** (option « Grouper automatiquement (même quête) », **désactivée par
   défaut**) : après *votre* recherche, l'addon invite le joueur trouvé (ou lui demande de vous
   inviter) et accepte son invitation, sans clic. Il faut que **les deux** aient l'option. Qui
@@ -49,10 +63,12 @@ Licence GPL-3.0-or-later (compatible avec Polestar, GPL-3.0).
   faction obligatoire, groupe de 5 maximum, jamais en instance. Une invitation n'est acceptée
   que d'un joueur *attendu* (qui a lancé une recherche avec l'option et à qui vous avez répondu,
   ou à qui vous avez demandé).
-- **Options** (sauvegardées dans `PolestarGroupFinderDB`), dans le panneau **et**, avec Polestar,
+- **Options** (sauvegardées dans `PSGroupFinderDB`), dans le panneau **et**, avec Polestar,
   dans une page « Recherche de groupe » des options de Polestar (activer, grouper automatiquement,
-  position, répondre, raccourcis, test des canaux) :
+  bouton d'en-tête, langues, position, répondre, raccourcis, test des canaux) :
   - activer / désactiver ; grouper automatiquement ;
+  - bouton dans l'en-tête de Polestar (activé par défaut) ;
+  - langues de recherche (défaut : langue du jeu seulement ; « Toutes » est opt-in) ;
   - partager ma position (sinon seule la zone est envoyée) ;
   - répondre aux recherches sur mes quêtes.
 - **Commandes** : `/psgf` (panneau), `/psgf search`, `/psgf stop`, `/psgf on|off`, `/psgf test`
@@ -64,8 +80,8 @@ Seulement quand c’est activé, en messages d’addon cachés (préfixe `PSGF`,
 
 | Message | Quand | Contenu |
 |---|---|---|
-| Recherche `S` | votre clic / raccourci, au plus toutes les 20 s ; renvoyée **sans clic** (canal caché, guilde, chuchotement aux joueurs trouvés) quand un objectif est terminé | jusqu’à ~12 IDs de quêtes restantes avec leur type (kill, élite nommé, loot, groupe), carte, x/y (si partagé), niveau, classe, taille du groupe, drapeaux (`g` groupage auto, faction `A`/`H`) |
-| Réponse `R` | en chuchotement d’addon au chercheur, au plus 1×/20 s par joueur | uniquement les IDs des quêtes **en commun**, votre carte/position, niveau, classe, drapeaux |
+| Recherche `S` | votre clic / raccourci, au plus toutes les 20 s ; renvoyée **sans clic** (canal caché, guilde, chuchotement aux joueurs trouvés) quand un objectif est terminé | jusqu’à ~12 IDs de quêtes restantes avec leur type (kill, élite nommé, loot, groupe), carte, x/y (si partagé), niveau, classe, taille du groupe, drapeaux (`g` groupage auto, faction `A`/`H`), langue du client (ex. `f`) |
+| Réponse `R` | en chuchotement d’addon au chercheur, au plus 1×/20 s par joueur | uniquement les IDs des quêtes **en commun**, votre carte/position, niveau, classe, drapeaux, langue du client |
 | Fin `X` | dernière quête terminée, arrêt, groupe complet | votre identifiant de session : les autres vous retirent de leur liste |
 | Demande `G` | option groupage auto, chuchoté au joueur qui doit vous inviter | les IDs des quêtes en commun |
 | Test `T` | `/psgf test`, ou une fois après activation | un identifiant aléatoire (on écoute son propre écho) |
@@ -144,9 +160,9 @@ fenêtre autonome.
 ## Développement
 
 ```
-luacheck Polestar_GroupFinder      # lint (config .luacheckrc)
+luacheck PSGroupFinder      # lint (config .luacheckrc)
 lua5.1 tests/sim.lua               # simulation multi-clients
-./build.sh                         # zip dans ../polestar-groupfinder-release/
+./build.sh                         # zip versionné dans ../polestar-groupfinder-release/
 ```
 
 Inspiré par les descriptions publiques de Group Up, QuestScout et Group Quest Finder
