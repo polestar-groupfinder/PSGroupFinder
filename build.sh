@@ -10,8 +10,11 @@ zipname="PSGroupFinder-${ver}.zip"
 dest="$out"
 if [[ -d "$out/v${ver}" ]]; then
   dest="$out/v${ver}"
-  mkdir -p "$dest"
+elif [[ -d "$out/v${ver%.*}" ]]; then
+  # toc 1.0.0 lives in the unpublished v1.0 folder
+  dest="$out/v${ver%.*}"
 fi
+mkdir -p "$dest"
 rm -f "$dest/$zipname"
 if command -v zip >/dev/null; then
   zip -qr "$dest/$zipname" PSGroupFinder -x '*.DS_Store'

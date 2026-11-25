@@ -1,5 +1,5 @@
 """v1.0.0 mock-ups: header icon left of Lookup, grouping languages (default = client locale)."""
-import os
+import os, math
 from PIL import Image, ImageDraw
 from common import *
 
@@ -29,8 +29,20 @@ def e(s):
     return html.escape(s)
 
 
+def tint_icon(src, fill, size):
+    """White-on-transparent glyph, tinted with a Theme colour (idle / accent / muted)."""
+    im = Image.open(src).convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
+    r, g, b, a = fill if len(fill) == 4 else (*fill, 255)
+    px = im.load()
+    for y in range(im.size[1]):
+        for x in range(im.size[0]):
+            _, _, _, aa = px[x, y]
+            px[x, y] = (r, g, b, int(aa * (a / 255.0)))
+    return im
+
+
 def bake_guide(name, fill):
-    """Shift Skip / Nearby / AllSteps 24 CSS px left and draw our 24px two-person glyph."""
+    """Shift Skip / Nearby / AllSteps 24 CSS px left and draw our 14px monochrome eye."""
     im = Image.open(SRC_GUIDE).convert("RGBA")
     scale = im.size[0] / 353.0  # asset is 2x
     def P(css):
@@ -52,23 +64,15 @@ def bake_guide(name, fill):
         x += w
     im.paste(src, (dest_l, dest_t))
 
-    # Two-person glyph (same geometry as Polestar.lua makeGlyph), centered on our button.
+    # Our monochrome eye, at IconButton's 14 px glyph size, tinted like the other header icons.
     cx, cy = P(OUR_CX), P(OUR_CY)
+    eye_src = os.path.join(ASSETS, "psgf-icon-eye.png")
+    glyph = int(round(14 * scale))
+    icon = tint_icon(eye_src, fill, glyph)
     overlay = Image.new("RGBA", im.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(overlay)
-
-    def rect(w, h, x, y):
-        pw, ph = w * scale, h * scale
-        px = cx + x * scale - pw / 2
-        py = cy - y * scale - ph / 2  # WoW y is up; CSS/PIL y is down — makeGlyph y is offset in WoW (up)
-        # In WoW SetPoint CENTER, x, y: y is upward. In the image, up is negative screen y.
-        # makeGlyph: heads at y=+3.5 (up), bodies at y=-2 (down). PIL: subtract y.
-        d.rectangle([px, py, px + pw - 1, py + ph - 1], fill=fill)
-
-    rect(4, 4, -3.5, 3.5)
-    rect(5, 6, -3.5, -2)
-    rect(4, 4, 3.5, 3.5)
-    rect(5, 6, 3.5, -2)
+    px = int(round(cx - icon.size[0] / 2))
+    py = int(round(cy - icon.size[1] / 2))
+    overlay.paste(icon, (px, py), icon)
     im = Image.alpha_composite(im, overlay)
     path = os.path.join(ASSETS, name)
     im.save(path)
@@ -238,7 +242,7 @@ def s1():
     p, H = panel(px, WIN[1], enabled=False, auto=False, header=True, channels=None, options_btn=True)
     body = guide("polestar-guide-header-off.png") + p
     body += caption(
-        "État 1 · addon désactivé : l'icône (deux silhouettes) est dans l'en-tête, juste à gauche de la loupe, "
+        "État 1 · addon désactivé : l'icône œil est dans l'en-tête, juste à gauche de la loupe, "
         "grisée (textMuted). Le bouton sous la fenêtre est masqué. Clic droit sur l'icône ouvre le panneau.",
         H=H)
     return page(body, BANNER)
@@ -299,7 +303,7 @@ def sw(x, y, on, dim=False):
 
 
 def options_page(all_on=False):
-    """Polestar options, one 'Search languages' section. all_on: Toutes greys the other switches."""
+    """Polestar options, one 'Search languages' section. all_on: the language list is folded and hidden."""
     L, T, W, Hh = 80, 28, 1120, 668
     side = ["Guide", "Quêtes", "Carte", "Qualité de vie", "Recherche de groupe", "Apparence", "Profils", "À propos"]
     h = [f'<div class="abs set" style="left:{L}px;top:{T}px;width:{W}px;height:{Hh}px">']
@@ -311,9 +315,9 @@ def options_page(all_on=False):
     h.append(f'<div class="abs card" style="left:{cx}px;top:74px;width:{cw}px;height:268px">')
     h.append(f'<div class="sec" style="top:8px">RECHERCHE DE GROUPE</div>')
     rows = [
-        ("Activer la recherche de groupe", "Rejoint le canal caché, répond aux recherches sur vos quêtes communes. Désactivé : rien n'est envoyé.", True),
-        ("Grouper automatiquement (même quête)", "Invite ou accepte sans clic après votre recherche. L'autre joueur doit l'avoir aussi.", False),
-        ("Bouton dans l'en-tête de Polestar", "Place une petite icône juste à gauche de la loupe : clic gauche pour chercher, clic droit pour le panneau. Désactivé : le bouton reste sous la fenêtre de guide.", True),
+        ("Activer la recherche de groupe", "Interrupteur général. Désactivé : rien n'est envoyé et l'addon ne répond à personne.", True),
+        ("Grouper automatiquement (même quête)", "Invite et accepte tout seul un joueur qui a une quête en commun. Sinon, vous choisissez dans la liste.", False),
+        ("Bouton dans l'en-tête de Polestar", "Affiche l'icône œil à gauche de la loupe : clic gauche pour chercher, clic droit pour le panneau.", True),
         ("Partager ma position sur la carte", None, True),
         ("Répondre aux recherches sur mes quêtes", None, True),
     ]
@@ -329,30 +333,34 @@ def options_page(all_on=False):
     y += 28
     h.append(f'<div class="rowl" style="top:{y+3}px">Afficher ou masquer la recherche de groupe</div>'
              f'<div class="key" style="left:{cw-14-120}px;top:{y}px">Non assigné</div>')
+    first_h = y + 28
     h.append("</div>")
-    # One section: search languages (Toutes first, then each language).
-    ly, ch = 354, 300
+    # Search languages: folded (only "All languages") or unfolded (one language per row).
+    ly = 74 + first_h + 16
+    y_langs = 28 + 40
+    ch = (y_langs + 16) if all_on else (y_langs + math.ceil(len(LANGS) / 2) * 24 + 16)
     h.append(f'<div class="abs card" style="left:{cx}px;top:{ly}px;width:{cw}px;height:{ch}px">')
     h.append(f'<div class="sec" style="top:8px">LANGUES DE RECHERCHE</div>')
     y = 28
     h.append(f'<div class="rowl" style="top:{y}px">Toutes les langues</div>')
-    h.append(f'<div class="help" style="top:{y+16}px;right:54px">Cochée, elle grise les autres cases et affiche tous les joueurs. Décochée par défaut.</div>')
+    h.append(f'<div class="help" style="top:{y+16}px;right:54px">Cochée, elle replie la liste et cherche parmi tout le monde. Décochée par défaut.</div>')
     h.append(sw(cw - 14 - 34, y, all_on))
-    y += 40
-    for lab, on in LANGS:
-        dim = all_on
-        # Saved tick (Français) stays visible but greyed when Toutes is on.
-        h.append(f'<div class="rowl" style="top:{y}px;{"opacity:.45" if dim else ""}">{lab}</div>')
-        h.append(sw(cw - 14 - 34, y, on, dim=dim))
-        y += 24
+    if not all_on:
+        y = y_langs
+        col_w = cw // 2
+        for i, (lab, on) in enumerate(LANGS):
+            col, row = i % 2, i // 2
+            yy = y + row * 24
+            h.append(f'<div class="rowl" style="left:{14 + col * col_w}px;top:{yy}px">{lab}</div>')
+            h.append(sw(col * col_w + col_w - 14 - 34, yy, on))
     h.append("</div></div>")
     body = "".join(h)
     if all_on:
-        cap = ("État 5 · options Polestar, « Toutes les langues » cochée : les autres langues sont grisées "
-               "(et désactivées). Le payload reste la langue du client (ici FR). APPROXIMATION visuelle.")
+        cap = ("État 5 · options Polestar, « Toutes les langues » cochée : la liste des langues est repliée et masquée "
+               "(plus de grisage). La section se réduit, sans trou. Le payload reste la langue du client (ici FR).")
     else:
-        cap = ("État 4 · options Polestar (approximation). Client frFR : seule Français est cochée dans "
-               "Langues de recherche ; « Toutes les langues » est décochée. Bouton d'en-tête activé par défaut.")
+        cap = ("État 4 · options Polestar, liste dépliée. En jeu : une langue par ligne (la fenêtre défile si besoin) ; "
+               "ici deux colonnes pour tout montrer. Client frFR : seule Français est cochée. Infobulle au survol de chaque réglage.")
     body += f'<div class="caption" style="left:{L}px;top:{T+Hh+4}px;width:1120px">{cap}</div>'
     return page(body, BANNER, OPT_CSS)
 
@@ -365,17 +373,25 @@ def s5():
     return options_page(all_on=True)
 
 
+def lang_picker_height(all_on=False):
+    rows = 1 if all_on else 1 + math.ceil(len(LANGS) / 2)
+    return 24 + rows * 18 + 16
+
+
 def lang_picker(panel_left, panel_top, all_on=False):
-    """Single-column picker, matching UI.ToggleLangPicker geometry."""
+    """Language picker: folded when All is on; two columns when unfolded."""
     box_l = panel_left + 8
     box_t = panel_top + (34 + 5 * OPT_H + 22)
     box_w = PW - 16
-    box_h = 24 + 11 * 18 + 16
+    box_h = lang_picker_height(all_on)
     h = [f'<div class="abs" style="left:{box_l}px;top:{box_t}px;width:{box_w}px;height:{box_h}px;z-index:10;background:#181d2d;box-shadow:0 0 0 1px rgba(0,0,5,.42),inset 0 0 0 1px rgba(255,255,255,.10),0 8px 18px rgba(0,0,5,.55);overflow:hidden">']
     h.append(f'<div class="t" style="left:8px;top:8px;font-size:11px;font-weight:600;color:{MUTED}">Langues de recherche</div>')
     h.append(pcheck(6, 24, "Toutes les langues", all_on))
-    for i, (lab, on) in enumerate(LANGS):
-        h.append(pcheck(6, 42 + i * 18, lab, on, enabled=not all_on))
+    if not all_on:
+        col_w = box_w // 2
+        for i, (lab, on) in enumerate(LANGS):
+            col, row = i % 2, i // 2
+            h.append(pcheck(6 + col * col_w, 42 + row * 18, lab, on))
     h.append("</div>")
     return "".join(h)
 
@@ -385,9 +401,9 @@ def s7():
     p, H = panel(px, WIN[1], enabled=True, auto=False, header=True, channels=CH, peers=[], options_btn=True)
     body = guide("polestar-guide-header-idle.png") + p + lang_picker(px, WIN[1], all_on=False)
     body += caption(
-        "État 7 · sélecteur « Langues de recherche » du panneau (client frFR). Français est coché ; "
-        "« Toutes les langues » est décochée par défaut.",
-        y=WIN[1] + 34 + 5 * OPT_H + 22 + (24 + 11 * 18 + 16) + 16)
+        "État 7 · sélecteur « Langues de recherche » du panneau, liste dépliée en deux colonnes (client frFR). "
+        "Français est coché ; « Toutes les langues » est décochée par défaut.",
+        y=WIN[1] + 34 + 5 * OPT_H + 22 + lang_picker_height(False) + 16)
     return page(body, BANNER)
 
 
@@ -397,9 +413,9 @@ def s8():
                  lang_summary="Toutes")
     body = guide("polestar-guide-header-idle.png") + p + lang_picker(px, WIN[1], all_on=True)
     body += caption(
-        "État 8 · même sélecteur, « Toutes les langues » cochée : les autres cases sont grisées et désactivées. "
-        "Tous les joueurs apparaissent, y compris un peer v0.2 sans langue.",
-        y=WIN[1] + 34 + 5 * OPT_H + 22 + (24 + 11 * 18 + 16) + 16)
+        "État 8 · même sélecteur, « Toutes les langues » cochée : la liste des langues est repliée et masquée "
+        "(le cadre se réduit, sans trou). Tous les joueurs apparaissent, y compris un peer v0.2 sans langue.",
+        y=WIN[1] + 34 + 5 * OPT_H + 22 + lang_picker_height(True) + 16)
     return page(body, BANNER)
 
 

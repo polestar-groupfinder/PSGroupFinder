@@ -363,16 +363,64 @@ def m8():
         ry += 36
     body.append('</div></div>')
     cap = caption(
-        "Barre latérale des options Polestar (page groupée, section Guiding) : l'entrée Group Finder a la même icône "
-        "que le bouton d'en-tête (deux silhouettes), 16×16, monochrome comme Guide (fenêtre), Map (boussole), Questing (« ! ») et Discovery (loupe). "
-        "Plus d'espace vide devant le libellé. Schéma : la fenêtre Polestar n'est pas reproduite à l'identique.",
+        "Barre latérale des options Polestar (page groupée, section Guiding) : l'entrée Group Finder porte l'icône "
+        "à deux silhouettes (Media/icon-group), 16×16, monochrome comme Guide (fenêtre), Map (boussole), Questing (« ! ») et Discovery (loupe). "
+        "L'icône d'en-tête du guide, elle, est l'œil. Schéma : la fenêtre Polestar n'est pas reproduite à l'identique.",
         T + Hh + 12, left=L, w=1100)
     return wrap("".join(body) + cap, V.OPT_CSS)
+
+
+def m9():
+    """Header button: our monochrome eye, three states, left of Lookup."""
+    states = [
+        ("polestar-guide-header-off.png", "Désactivé", "œil atténué, encore cliquable"),
+        ("polestar-guide-header-idle.png", "Repos", "même teinte que les autres icônes d'en-tête"),
+        ("polestar-guide-header-active.png", "Recherche en cours", "teinte accent"),
+    ]
+    body = []
+    x, y = 48, 36
+    for src, title, note in states:
+        body.append(f'<div class="abs" style="left:{x}px;top:{y}px;width:353px;height:80px;overflow:hidden;'
+                    f'box-shadow:0 0 0 1px rgba(255,255,255,.12),0 8px 18px rgba(0,0,5,.45)">')
+        body.append(f'<img src="../assets/{src}" style="width:353px;height:318px;display:block">')
+        body.append('</div>')
+        body.append(f'<div class="t" style="left:{x}px;top:{y+88}px;font-size:13px;font-weight:600">{title}</div>')
+        body.append(f'<div class="t" style="left:{x}px;top:{y+106}px;width:353px;font-size:11px;color:{MUTED}">{note}</div>')
+        x += 353 + 24
+    # One full idle window for context, with a mark on the eye.
+    gx, gy = 48, 160
+    body.append(V.guide("polestar-guide-header-idle.png", x=gx+6, y=gy+6))
+    # ring around the 24px button: OUR_CX, OUR_CY are in the 353x318 guide; guide() places it at gx, gy.
+    # guide() subtracts 6 from x,y if we pass WIN, but we passed gx+6 so the img is at gx, gy.
+    bx = gx + V.OUR_CX - 12
+    by = gy + V.OUR_CY - 12
+    body.append(f'<div class="ring" style="left:{bx-3}px;top:{by-3}px;width:30px;height:30px"></div>')
+    body.append(f'<div class="note" style="left:{bx+34}px;top:{by+4}px">œil (14 px), à gauche de la loupe</div>')
+    cap = caption(
+        "Bouton d'en-tête : notre icône œil monochrome (Media/icon-eye.tga), à gauche de la loupe de Polestar. "
+        "Repos, survol (iconHover, non montré) et recherche active suivent les teintes des autres icônes d'en-tête ; "
+        "addon désactivé, l'œil est atténué mais reste cliquable. Repli si le fichier manque : les deux silhouettes de la barre latérale. "
+        "L'icône de la barre latérale des options n'est pas changée.",
+        gy + 318 + 16, left=48, w=1100)
+    return wrap("".join(body) + cap, EXTRA)
+
+
+def m10():
+    """Search languages unfolded (All off)."""
+    return V.s4()
+
+
+def m11():
+    """Search languages folded (All on): the list is hidden, the section shrinks."""
+    return V.s5()
 
 
 if __name__ == "__main__":
     for n, f in (("01-emplacement1-fenetre-guide-objectif", m1), ("02-emplacement2-infobulle-alt-clic", m2),
                  ("03-emplacement3-journal-de-quetes-forever", m3), ("04-liste-par-quete", m4),
                  ("05-liste-par-quete-recherche-en-cours", lambda: m4(True)), ("06-quitter-le-groupe-popup", m6),
-                 ("07-options-quitter-le-groupe", m7), ("08-options-barre-laterale-icone", m8)):
+                 ("07-options-quitter-le-groupe", m7), ("08-options-barre-laterale-icone", m8),
+                 ("09-entete-icone-oeil", m9),
+                 ("10-langues-depliees", m10),
+                 ("11-langues-repliees", m11)):
         print(render(n, f(), OUT))

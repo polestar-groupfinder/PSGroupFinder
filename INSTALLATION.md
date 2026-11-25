@@ -44,8 +44,8 @@ Si les dossiers `Interface` ou `AddOns` n'existent pas encore, créez-les en res
 4. Assignez un raccourci : Échap > Options > Raccourcis, catégorie **Polestar** :
    - « Chercher un groupe pour mes quêtes »
    - « Afficher ou masquer la recherche de groupe »
-5. Tapez `/psgf test` : le chat indique, au bout de quelques secondes, quels canaux fonctionnent (vert = OK). Par défaut, une petite icône (deux silhouettes) est accrochée dans l'en-tête du guide Polestar, **juste à gauche de la loupe** : clic gauche = chercher, clic droit = panneau. Si vous préférez l'ancien bouton sous la fenêtre, décochez « Bouton dans l'en-tête de Polestar ». Commande du panneau : `/psgf`.
-6. **Langues de recherche** : par défaut, seule **la langue de votre jeu** (par exemple frFR → Français) est cochée. Vous pouvez en cocher d'autres une par une, ou cocher **Toutes les langues** (les autres cases se grisent alors, et tout le monde apparaît). Un joueur apparaît dans *votre* liste si sa langue de jeu est parmi celles que vous avez cochées (ou si vous avez coché Toutes).
+5. Tapez `/psgf test` : le chat indique, au bout de quelques secondes, quels canaux fonctionnent (vert = OK). Par défaut, une petite icône **œil** est accrochée dans l'en-tête du guide Polestar, **juste à gauche de la loupe** : clic gauche = chercher, clic droit = panneau. Si vous préférez l'ancien bouton sous la fenêtre, décochez « Bouton dans l'en-tête de Polestar ». Commande du panneau : `/psgf`.
+6. **Langues de recherche** : par défaut, seule **la langue de votre jeu** (par exemple frFR → Français) est cochée. Vous pouvez en cocher d'autres une par une, ou cocher **Toutes les langues** (la liste se replie alors, et tout le monde apparaît). Un joueur apparaît dans *votre* liste si sa langue de jeu est parmi celles que vous avez cochées (ou si vous avez coché Toutes). Chaque réglage des options a une infobulle au survol.
 
 ## Utilisation
 

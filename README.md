@@ -26,8 +26,8 @@ comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
   **Désactivé par défaut** : tant que c’est coupé, l’addon ne rejoint aucun canal,
   n’envoie et n’écoute rien.
 - **Chercher un groupe** :
-  - par défaut, une **icône dans l'en-tête** du guide Polestar, juste à gauche de la loupe
-    (clic gauche = chercher, clic droit = panneau ; grisée si l'addon est coupé, colorée
+  - par défaut, une **icône œil** dans l'en-tête du guide Polestar, juste à gauche de la loupe
+    (clic gauche = chercher, clic droit = panneau ; atténuée si l'addon est coupé, colorée
     si une recherche est en cours). Option « Bouton dans l'en-tête de Polestar » : en la
     décochant, l'ancien bouton sous la fenêtre réapparaît (c'est aussi le repli si
     l'accroche d'en-tête échoue) ;
@@ -50,7 +50,7 @@ comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
   Boutons **Chuchoter** et **Inviter** (à votre clic). Survol d'une ligne : toutes les quêtes communes.
 - **Langues de recherche** : par défaut, seule la langue du client (`GetLocale()`, ex. frFR →
   Français) est cochée. Vous pouvez en cocher d'autres une par une. « Toutes les langues »
-  (décochée par défaut) grise les autres cases et affiche tout le monde. Le filtrage est
+  (décochée par défaut) replie et masque la liste des langues, et affiche tout le monde. Le filtrage est
   **unilatéral** : un joueur apparaît chez vous si sa langue de jeu est dans votre recherche
   (ou si vous avez coché Toutes). Chacun filtre de son côté ; pour le groupage automatique,
   il faut donc que chacun apparaisse chez l'autre. Un peer v0.2 sans langue n'est visible
@@ -65,7 +65,8 @@ comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
   ou à qui vous avez demandé).
 - **Options** (sauvegardées dans `PSGroupFinderDB`), dans le panneau **et**, avec Polestar,
   dans une page « Recherche de groupe » des options de Polestar (activer, grouper automatiquement,
-  bouton d'en-tête, langues, position, répondre, raccourcis, test des canaux) :
+  bouton d'en-tête, langues, position, répondre, raccourcis, test des canaux).
+  Chaque réglage a une infobulle au survol :
   - activer / désactiver ; grouper automatiquement ;
   - bouton dans l'en-tête de Polestar (activé par défaut) ;
   - langues de recherche (défaut : langue du jeu seulement ; « Toutes » est opt-in) ;

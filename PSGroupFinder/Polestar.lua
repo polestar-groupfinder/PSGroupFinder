@@ -88,13 +88,17 @@ local function bindFinderClicks(b)
 	end)
 end
 
--- Custom get/set option rows do not fire Polestar SETTING_CHANGED, so a
--- sibling's `disabled` function would not be re-evaluated until the page
--- was rebuilt. RefreshAll is Polestar's native pass (the same one
--- SETTING_CHANGED runs for every `disabled` row).
+-- Custom get/set option rows do not fire Polestar SETTING_CHANGED, so the
+-- language accordion (`needs` hides the individual rows while "All
+-- languages" is on) would stay stale until the page was rebuilt.
+-- RefreshAll updates bound widgets; Relayout (under pcall) rebuilds the
+-- page so the section shrinks without a hole. Greying (`disabled`) is
+-- kept as a last resort on a build that does not honour `needs`.
 local function refreshOptionsLangs()
 	local W = P and P.Widgets
 	if W and W.RefreshAll then pcall(W.RefreshAll) end
+	local O = P and P.UI and P.UI.Options
+	if O and O.Relayout then pcall(O.Relayout) end
 end
 ns.On("LANG", refreshOptionsLangs)
 
@@ -173,40 +177,52 @@ local function makeLauncher(window)
 end
 
 
--- A 24x24 group glyph (two people), tinted with a Theme colour token.
--- No addon texture file: Theme.Media("white") or a solid colour.
-local function paintGlyph(b, token, alpha)
-	local r, g, bl, a = 0.85, 0.88, 0.95, alpha or 1
+-- Header button: a 24 px control in the guide window's nav (to the left
+-- of Lookup), same IconButton as Polestar's own header icons. The glyph
+-- is our monochrome eye (Media/icon-eye.tga), tinted like the other
+-- header icons (idle / hover / active / finder off). The options
+-- silhouette (OPTIONS_ICON) is the fallback if the eye path cannot be
+-- applied. Left click starts or stops the search; right click opens or
+-- closes the panel. The button stays in the header when the finder is
+-- off (dimmed): a left click still prints DISABLED.
+--
+-- Our textures, full addon paths so Theme.Media / an IconButton Painter
+-- keep them (a short name such as "search" would be remapped to Polestar's
+-- own loupe, which some clients read as binoculars).
+local HEADER_ICON  = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-eye"
+local OPTIONS_ICON = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-group"
+
+function ns.HeaderIcon()
+	return HEADER_ICON
+end
+
+function ns.OptionsIcon()
+	return OPTIONS_ICON
+end
+
+local function colorHeaderIcon(b, token, alpha)
+	if not (b and b.Icon) then return end
+	local W = P and P.Widgets
+	if W and W.Color then
+		pcall(W.Color, b.Icon, token, alpha or 1)
+		return
+	end
 	local T = P and P.Theme
 	if T and T.Color then
 		local ok, cr, cg, cb, ca = pcall(T.Color, token)
-		if ok and cr then r, g, bl, a = cr, cg, cb, (ca or 1) * (alpha or 1) end
-	end
-	for _, t in ipairs(b.psGlyph or {}) do
-		t:SetVertexColor(r, g, bl, a)
+		if ok and cr then
+			b.Icon:SetVertexColor(cr, cg, cb, (ca or 1) * (alpha or 1))
+		end
 	end
 end
 
-local function makeGlyph(b)
-	local function tex(w, h, x, y)
-		local t = b:CreateTexture(nil, "ARTWORK")
-		local T = P and P.Theme
-		if T and T.Media then
-			local ok, path = pcall(T.Media, "white")
-			if ok and path then t:SetTexture(path) else t:SetColorTexture(1, 1, 1, 1) end
-		else
-			t:SetColorTexture(1, 1, 1, 1)
-		end
-		t:SetSize(w, h)
-		t:SetPoint("CENTER", b, "CENTER", x, y)
-		return t
+local function applyHeaderIcon(b, path)
+	if not b then return end
+	b.psIconName = path
+	if b.Icon and b.Icon.SetTexture then
+		b.Icon:SetTexture(path)
+		if b.Icon.Show then b.Icon:Show() end
 	end
-	-- Two people, readable at 24 px: heads + short bodies.
-	b.psGlyph = {
-		tex(4, 4, -3.5, 3.5), tex(5, 6, -3.5, -2),
-		tex(4, 4, 3.5, 3.5), tex(5, 6, 3.5, -2),
-	}
-	paintGlyph(b, "icon", 1)
 end
 
 local function paintHeader()
@@ -214,44 +230,51 @@ local function paintHeader()
 	local on = ns.Get("enabled") and true or false
 	local active = ns.Session and ns.Session.Active()
 	local W = P and P.Widgets
+	if header.Icon and header.Icon.Show then header.Icon:Show() end
+	-- SetIconState is what Polestar itself uses on these buttons (accent
+	-- when the tool is the one in use, EnableMouse kept on). Our psIconName
+	-- is the eye path, so this tints our texture and does not restore the
+	-- loupe.
 	if W and W.SetIconState then
 		pcall(W.SetIconState, header, active, true)
-		if not on and not active then header:SetAlpha(0.45) else header:SetAlpha(1) end
-		return
+	else
+		local token = (not on and not active) and "textMuted" or (active and "accent" or "icon")
+		colorHeaderIcon(header, token, (not on and not active) and 0.55 or 1)
 	end
-	header:SetAlpha(1)
-	if not on and not active then paintGlyph(header, "textMuted", 0.55)
-	elseif active then paintGlyph(header, "accent", 1)
-	else paintGlyph(header, "icon", 1) end
+	if not on and not active then header:SetAlpha(0.45) else header:SetAlpha(1) end
 end
 
 local function makeHeader(nav)
 	local b
 	local W = P and P.Widgets
-	-- Same constructor as Lookup / Menu when it exists, then we draw our
-	-- own glyph over it so we do not depend on a Polestar icon file.
+	local icon = HEADER_ICON
 	if W and W.IconButton then
-		local ok, btn = pcall(W.IconButton, nav, "search", 24, L.TITLE, nil)
+		local ok, btn = pcall(W.IconButton, nav, icon, 24, L.TITLE, nil)
 		if ok and btn then
 			b = btn
-			if b.Icon then b.Icon:Hide() end
 		end
 	end
 	if not b then
 		b = CreateFrame("Button", "PSGroupFinderHeader", nav)
 		b:SetSize(24, 24)
+		b.Icon = b:CreateTexture(nil, "ARTWORK")
+		b.Icon:SetSize(14, 14)
+		b.Icon:SetPoint("CENTER")
 		local T = P and P.Theme
 		if T and T.Skin then pcall(T.Skin, b, "button") end
 	end
-	makeGlyph(b)
+	applyHeaderIcon(b, icon)
 	bindFinderClicks(b)
 	b:SetScript("OnEnter", function(self)
-		if ns.Session and ns.Session.Active() then paintGlyph(self, "accent", 1)
-		else paintGlyph(self, "iconHover", 1) end
+		colorHeaderIcon(self, (ns.Session and ns.Session.Active()) and "accent" or "iconHover", 1)
+		self:SetAlpha(1)
 		GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
 		GameTooltip:SetText(L.TITLE, 1, 1, 1)
 		GameTooltip:AddLine(L.BINDING_SEARCH .. " (clic gauche / left click)", nil, nil, nil, true)
 		GameTooltip:AddLine(L.BINDING_PANEL .. " (clic droit / right click)", nil, nil, nil, true)
+		if not ns.Get("enabled") then
+			GameTooltip:AddLine(L.DISABLED, 1, 0.4, 0.4, true)
+		end
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function()
@@ -381,17 +404,11 @@ end
 -- Our page in Polestar's settings window
 ---------------------------------------------------------------------------
 
--- Sidebar glyph: a two-person icon shipped with this addon (same idea as the
--- header button). RegisterOptions' `icon` field is public (ARCHITECTURE.md).
--- A name alone ("icon-group") is looked up in Polestar's own Media/UI; we
--- pass a full path so the texture is ours and does not depend on Polestar
--- shipping that file. Theme.Media returns a path that already has a slash
--- unchanged, so the settings window paints it like any other page icon.
-local OPTIONS_ICON = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-group"
-
-function ns.OptionsIcon()
-	return OPTIONS_ICON
-end
+-- Sidebar glyph: OPTIONS_ICON (defined with the header eye above). A name
+-- alone ("icon-group") is looked up in Polestar's own Media/UI; the full
+-- path is what RegisterOptions and the Grouped hook already use.
+-- Theme.Media returns a path that already has a slash unchanged, so the
+-- settings window paints it like any other page icon.
 
 -- The grouped settings layout (0.4.2, "New settings page") builds its
 -- sidebar from Grouped.NavItems: in the copy we read, those rows get a
@@ -469,15 +486,18 @@ local function registerOptions()
 			toggle(L.ENABLE, L.ENABLE_TIP, "enabled", ns.SetEnabled),
 			toggle(L.AUTO_GROUP, L.AUTO_GROUP_TIP, "autoGroup"),
 			toggle(L.HEADER_BUTTON, L.HEADER_BUTTON_TIP, "headerButton"),
-			toggle(L.SHARE_COORDS, nil, "shareCoords"),
-			toggle(L.AUTO_REPLY, nil, "autoReply"),
+			toggle(L.SHARE_COORDS, L.SHARE_COORDS_TIP, "shareCoords"),
+			toggle(L.AUTO_REPLY, L.AUTO_REPLY_TIP, "autoReply"),
 			toggle(L.LEAVE_OFFER, L.LEAVE_OFFER_TIP, "leaveOffer"),
 			toggle(L.LEAVE_MSG, L.LEAVE_MSG_TIP, "leaveMsgOn"),
-			{ kind = "button", label = L.LEAVE_DIALOG .. "…", onClick = function() if ns.UI then ns.UI.EditLeaveMessage() end end },
-			{ kind = "binding", action = "PSGF_SEARCH", label = L.BINDING_SEARCH },
-			{ kind = "binding", action = "PSGF_TOGGLE_PANEL", label = L.BINDING_PANEL },
-			{ kind = "button", label = L.TEST, onClick = function() if ns.TestChannels then ns.TestChannels(true) end end },
-			{ kind = "button", label = L.OPEN_PANEL, onClick = function() ns.UI.Show() end },
+			{ kind = "button", label = L.LEAVE_DIALOG .. "…", help = L.LEAVE_DIALOG_TIP,
+				onClick = function() if ns.UI then ns.UI.EditLeaveMessage() end end },
+			{ kind = "binding", action = "PSGF_SEARCH", label = L.BINDING_SEARCH, help = L.BINDING_SEARCH_TIP },
+			{ kind = "binding", action = "PSGF_TOGGLE_PANEL", label = L.BINDING_PANEL, help = L.BINDING_PANEL_TIP },
+			{ kind = "button", label = L.TEST, help = L.TEST_TIP,
+				onClick = function() if ns.TestChannels then ns.TestChannels(true) end end },
+			{ kind = "button", label = L.OPEN_PANEL, help = L.OPEN_PANEL_TIP,
+				onClick = function() ns.UI.Show() end },
 		},
 	}
 	local function register(extra)
@@ -486,8 +506,9 @@ local function registerOptions()
 		return ok and res ~= false
 	end
 	if register(spec) then optionsRegistered = true end
-	-- Search languages: one toggle a row (no multi-select control).
-	-- "All languages" greys out the individual boxes (disabled = true).
+	-- Search languages: "All languages" folds the list (needs = false
+	-- drops the rows from visible(); Relayout shrinks the card). disabled
+	-- is only a fallback on a Polestar that ignores needs.
 	local langs = {
 		page = L.OPT_SECTION, key = "groupfinder", icon = OPTIONS_ICON, tab = L.OPT_SECTION, section = L.LANGS,
 		controls = {
@@ -499,9 +520,12 @@ local function registerOptions()
 	for _, row in ipairs(ns.Lang.ALL) do
 		local code = row.code
 		langs.controls[#langs.controls + 1] = {
-			kind = "toggle", label = ns.Lang.Name(code), search = "language langue",
+			kind = "toggle", label = ns.Lang.Name(code),
+			help = string.format(L.LANG_ONE_TIP, ns.Lang.Name(code)),
+			search = "language langue",
 			get = function() return ns.Lang.HasSearch(code) end,
 			set = function(v) ns.Lang.SetSearch(code, v) end,
+			needs = function() return not ns.Lang.AcceptsAll() end,
 			disabled = function() return ns.Lang.AcceptsAll() end,
 		}
 	end

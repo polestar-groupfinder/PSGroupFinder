@@ -446,25 +446,40 @@ end
 -- Language picker (search languages), opened from the compact summary.
 ---------------------------------------------------------------------------
 
-local function langCheck(parent, label, getter, setter)
-	local c = check(parent, label, nil, nil, function(on) setter(on) UI.RefreshLangPicker() UI.Refresh() end)
+local function langCheck(parent, label, getter, setter, help)
+	local c = check(parent, label, help, nil, function(on) setter(on) UI.RefreshLangPicker() UI.Refresh() end)
 	c.psGet = getter
 	return c
+end
+
+-- Height of the language picker: title + "All languages" + the language
+-- grid when it is unfolded (two columns), plus padding. Folded, the
+-- individual languages are hidden and the box shrinks, no empty strip.
+local function langPickerHeight(folded, nLangs)
+	local rows = 1 -- All languages
+	if not folded then
+		rows = rows + math.ceil((nLangs or 0) / 2)
+	end
+	return 24 + rows * 18 + 16
 end
 
 function UI.RefreshLangPicker()
 	local box = widgets.langPicker
 	if not box then return end
 	if box.all then box.all:SetChecked(ns.Lang.AcceptsAll()) end
-	local locked = ns.Lang.AcceptsAll()
+	local folded = ns.Lang.AcceptsAll()
 	for _, c in ipairs(box.langs or {}) do
-		-- Uniform: memorised ticks stay, every row (on or off) is faded and
-		-- not clickable while "All languages" is on.
 		c:SetChecked(c.psGet and c.psGet())
-		c:SetEnabled(not locked)
-		c:SetAlpha(locked and 0.45 or 1)
-		if c.EnableMouse then c:EnableMouse(not locked) end
+		if folded then
+			c:Hide()
+		else
+			c:Show()
+			c:SetEnabled(true)
+			c:SetAlpha(1)
+			if c.EnableMouse then c:EnableMouse(true) end
+		end
 	end
+	box:SetHeight(langPickerHeight(folded, #(box.langs or {})))
 end
 
 function UI.ToggleLangPicker()
@@ -476,7 +491,8 @@ function UI.ToggleLangPicker()
 	if not widgets.langPicker then
 		local box = CreateFrame("Frame", nil, panel)
 		box:SetFrameStrata("DIALOG")
-		box:SetSize(WIDTH - 16, 24 + 11 * 18 + 16)
+		local nLangs = #(ns.Lang.ALL or {})
+		box:SetSize(WIDTH - 16, langPickerHeight(ns.Lang.AcceptsAll(), nLangs))
 		box:SetPoint("TOPLEFT", panel, "TOPLEFT", 8, -(TOP + 22))
 		local T = Theme()
 		if T then pcall(T.Skin, box, "panel")
@@ -489,19 +505,27 @@ function UI.ToggleLangPicker()
 		title:SetPoint("TOPLEFT", 8, -8)
 		title:SetText(L.LANGS)
 		box.langs = {}
-		box.all = langCheck(box, L.LANG_ALL, function() return ns.Lang.AcceptsAll() end, function(on) ns.Lang.SetAcceptAll(on) end)
+		box.all = langCheck(box, L.LANG_ALL, function() return ns.Lang.AcceptsAll() end, function(on) ns.Lang.SetAcceptAll(on) end, L.LANGS_TIP)
 		box.all:SetPoint("TOPLEFT", box, "TOPLEFT", 6, -24)
+		local colW = math.floor((WIDTH - 16) / 2)
 		for i, row in ipairs(ns.Lang.ALL) do
 			local code = row.code
-			local y = -(24 + i * 18)
-			local c = langCheck(box, ns.Lang.Name(code), function() return ns.Lang.HasSearch(code) end, function(on) ns.Lang.SetSearch(code, on) end)
-			c:SetPoint("TOPLEFT", box, "TOPLEFT", 6, y)
+			local col = (i - 1) % 2
+			local r = math.floor((i - 1) / 2)
+			local x = 6 + col * colW
+			local y = -(24 + 18 + r * 18)
+			local c = langCheck(box, ns.Lang.Name(code), function() return ns.Lang.HasSearch(code) end, function(on) ns.Lang.SetSearch(code, on) end, string.format(L.LANG_ONE_TIP, ns.Lang.Name(code)))
+			c:SetPoint("TOPLEFT", box, "TOPLEFT", x, y)
 			box.langs[#box.langs + 1] = c
 		end
 		widgets.langPicker = box
 	end
 	widgets.langPicker:Show()
 	UI.RefreshLangPicker()
+end
+
+function UI.LangPicker()
+	return widgets.langPicker
 end
 
 local function build()
@@ -547,8 +571,8 @@ local function build()
 	widgets.enable = check(panel, L.ENABLE, L.ENABLE_TIP, "enabled", function(on) ns.SetEnabled(on) end)
 	widgets.auto = check(panel, L.AUTO_GROUP, L.AUTO_GROUP_TIP, "autoGroup")
 	widgets.header = check(panel, L.HEADER_BUTTON, L.HEADER_BUTTON_TIP, "headerButton")
-	widgets.coords = check(panel, L.SHARE_COORDS, nil, "shareCoords")
-	widgets.reply = check(panel, L.AUTO_REPLY, nil, "autoReply")
+	widgets.coords = check(panel, L.SHARE_COORDS, L.SHARE_COORDS_TIP, "shareCoords")
+	widgets.reply = check(panel, L.AUTO_REPLY, L.AUTO_REPLY_TIP, "autoReply")
 	widgets.leave = check(panel, L.LEAVE_OFFER, L.LEAVE_OFFER_TIP, "leaveOffer")
 	widgets.leaveMsg = check(panel, L.LEAVE_MSG, L.LEAVE_MSG_TIP, "leaveMsgOn")
 	for i, c in ipairs({ widgets.enable, widgets.auto, widgets.header, widgets.coords, widgets.reply, widgets.leave, widgets.leaveMsg }) do

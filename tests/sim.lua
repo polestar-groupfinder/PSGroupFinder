@@ -25,11 +25,16 @@ local function newClient(name, quests, opts)
 	local function frameStub()
 		local f = {}
 		return setmetatable(f, { __index = function(t, k)
-			if k == "IsShown" then return function() return t._shown end end
+			if k == "IsShown" then return function() return rawget(t, "_shown") and true or false end end
 			if k == "Show" then return function() t._shown = true end end
 			if k == "Hide" then return function() t._shown = false end end
 			if k == "GetChecked" then return function() return false end end
-			if k == "GetStringWidth" or k == "GetWidth" then return function() return 100 end end
+			if k == "GetStringWidth" then return function() return 100 end end
+			if k == "GetWidth" then return function() return rawget(t, "_w") or 100 end end
+			if k == "GetHeight" then return function() return rawget(t, "_h") or 100 end end
+			if k == "SetSize" then return function(_, w, h) t._w, t._h = w, h end end
+			if k == "SetWidth" then return function(_, w) t._w = w end end
+			if k == "SetHeight" then return function(_, h) t._h = h end end
 			if k == "GetFrameLevel" then return function() return t._level or 1 end end
 			if k == "SetFrameLevel" then return function(_, n) t._level = n end end
 			if k == "GetNumChildren" then return function() return #(t._kids or {}) end end
@@ -41,7 +46,10 @@ local function newClient(name, quests, opts)
 			if k == "GetPoint" then return function() return t._point or "CENTER", t._rel, t._relPoint, t._x or 0, t._y or 0 end end
 			if k == "IsMovable" then return function() return true end end
 			if k == "CreateTexture" then return function() return frameStub() end end
-			if k == "SetColorTexture" or k == "SetVertexColor" or k == "SetTexture" then return function() end end
+			if k == "SetColorTexture" then return function() end end
+			if k == "SetVertexColor" then return function() end end
+			if k == "SetTexture" then return function(_, path) t._texture = path end end
+			if k == "GetTexture" then return function() return t._texture end end
 			if k == "RegisterForClicks" then return function() end end
 			if k == "CreateFontString" or k == "CreateTexture" then return function() return frameStub() end end
 			if k == "SetText" then return function(_, s) t._text = s end end
@@ -273,6 +281,10 @@ check(hasButton, "launcher button painted through Polestar.Theme.Skin")
 check(dee.ns.headerButtonFrame ~= nil, "header icon created on the step bar (left of Lookup)")
 local _, headerRel = dee.ns.headerButtonFrame:GetPoint(1)
 check(headerRel == nav.Lookup, "header icon is anchored to Lookup (the magnifying glass)")
+check(dee.ns.HeaderIcon() and dee.ns.HeaderIcon():find("PSGroupFinder") and dee.ns.HeaderIcon():find("icon%-eye"),
+	"the header icon is a full path to our Media/icon-eye texture")
+check(dee.ns.headerButtonFrame.psIconName == dee.ns.HeaderIcon() and dee.ns.headerButtonFrame.psIconName ~= "search",
+	"the header button uses the eye, not Polestar's search/loupe icon")
 -- Clicks: left starts a search without opening the panel; right toggles it.
 dee.ns.SetEnabled(true)
 run(15)
@@ -830,6 +842,108 @@ fp4.RegisterOptions = function() return true end
 local ico2 = newClient("Ico Two", { hogger }, { polestar = fp4 })
 check(ico2.ns.HookOptionsIcon and (function() ico2.ns.HookOptionsIcon() return true end)(),
 	"the icon hook is silent when the grouped layout is absent")
+
+-- Header eye stays on the button when SetIconState / a Painter would have
+-- restored Polestar's "search" icon (the binoculars/loupe the player saw).
+local iconBtnName, setIconStateOn
+local fpEye = {}
+for k, v in pairs(fakePolestar) do fpEye[k] = v end
+fpEye.Widgets = {
+	IconButton = function(parent, icon, size)
+		iconBtnName = icon
+		local b = parent -- reuse a stub-like frame
+		b = (parent and parent) or {}
+		-- a fresh button
+		local btn = { Icon = { SetTexture = function(_, path) btn.Icon._texture = path end, Show = function() end, Hide = function() end, SetSize = function() end, SetPoint = function() end },
+			SetAlpha = function() end, SetScript = function(self, ev, fn) self["_" .. ev] = fn end,
+			SetSize = function() end, EnableMouse = function() end, RegisterForClicks = function() end,
+			ClearAllPoints = function() end, SetPoint = function() end, SetFrameLevel = function() end,
+			GetFrameLevel = function() return 1 end, Show = function() end, Hide = function() end,
+			GetPoint = function() return "RIGHT", nil, "LEFT", 0, 0 end,
+			GetCenter = function() return 1, 1 end,
+		}
+		btn.Icon.SetTexture(btn.Icon, icon)
+		btn.psIconName = icon
+		return btn
+	end,
+	SetIconState = function(b, active, enabled)
+		setIconStateOn = { active = active, enabled = enabled, name = b.psIconName }
+		-- must not rewrite the texture; only tint
+	end,
+	Color = function() end,
+	RefreshAll = function() end,
+}
+-- GuideParts on the copied Theme still returns dee's window; attach() would
+-- skip a new header if lookup is already bound. Give this client its own nav.
+local eyeNav = { Lookup = { psIconName = "search", GetFrameLevel = function() return 5 end, SetPoint = function() end, GetPoint = function() return "RIGHT", nil, "RIGHT", 0, 0 end, GetNumChildren = function() return 0 end, GetChildren = function() end } }
+local eyeWin = { HookScript = function() end, SetPoint = function() end, GetFrameLevel = function() return 1 end, IsShown = function() return true end }
+fpEye.Theme = {}
+for k, v in pairs(fakePolestar.Theme) do fpEye.Theme[k] = v end
+fpEye.Theme.GuideParts = function() return { window = eyeWin, nav = eyeNav } end
+local eyeCli = newClient("Eye Vale", { hogger }, { polestar = fpEye })
+check(iconBtnName == eyeCli.ns.HeaderIcon(), "IconButton is constructed with our eye path, not \"search\"")
+check(eyeCli.ns.headerButtonFrame and eyeCli.ns.headerButtonFrame.psIconName == eyeCli.ns.HeaderIcon(),
+	"header psIconName stays on the eye so a Painter cannot restore the loupe")
+eyeCli.ns.PaintHeader()
+check(setIconStateOn and setIconStateOn.enabled == true and setIconStateOn.name == eyeCli.ns.HeaderIcon(),
+	"SetIconState tints the eye and is not given the search icon")
+check(eyeCli.ns.headerButtonFrame.psIconName ~= "search", "paintHeader does not retarget the button to search")
+
+-- Every RegisterOptions control has a non-empty help (tooltip).
+local missingHelp = {}
+for _, spec in ipairs(capturedOpts) do
+	for _, c in ipairs(spec.controls or {}) do
+		if type(c.help) ~= "string" or c.help == "" then
+			missingHelp[#missingHelp + 1] = tostring(c.label or c.kind or c.action or "?")
+		end
+	end
+end
+check(#missingHelp == 0, "every options control has a tooltip (help): " .. table.concat(missingHelp, ", "))
+
+-- Language accordion: needs hides the rows while All is on; Relayout is
+-- called so the section shrinks (disabled remains as a last-resort grey).
+local langSpec
+for _, spec in ipairs(capturedOpts) do
+	if spec.section == ico.ns.L.LANGS then langSpec = spec end
+end
+check(langSpec and #langSpec.controls >= 2, "the languages section is registered")
+check(langSpec.controls[1].help and langSpec.controls[1].help ~= "", "All languages has a tooltip")
+local relayouts = 0
+fp3.UI.Options.Relayout = function() relayouts = relayouts + 1 end
+ico.ns.Lang.SetAcceptAll(true)
+check(relayouts >= 1, "toggling All languages calls Options.Relayout (under pcall)")
+for i = 2, #langSpec.controls do
+	local c = langSpec.controls[i]
+	check(type(c.needs) == "function" and c.needs() == false, "needs hides " .. tostring(c.label) .. " when All is on")
+	check(type(c.disabled) == "function" and c.disabled() == true, "disabled still greys " .. tostring(c.label) .. " as a last resort")
+	check(type(c.help) == "string" and c.help ~= "", "each language has a tooltip (" .. tostring(c.label) .. ")")
+end
+ico.ns.Lang.SetAcceptAll(false)
+for i = 2, #langSpec.controls do
+	local c = langSpec.controls[i]
+	check(c.needs() == true and c.disabled() == false, "needs shows " .. tostring(c.label) .. " when All is off")
+end
+
+-- Panel language picker: folded hides the language checks and shrinks the box.
+ico.ns.UI.Show()
+ico.ns.Lang.SetAcceptAll(true)
+ico.ns.UI.ToggleLangPicker()
+local box = ico.ns.UI.LangPicker()
+check(box and box:IsShown(), "the language picker opens")
+local foldedH = box:GetHeight()
+local hidden = 0
+for _, c in ipairs(box.langs or {}) do
+	if not c:IsShown() then hidden = hidden + 1 end
+end
+check(hidden == #box.langs and #box.langs > 0, "when All is on the language list is hidden, not greyed")
+ico.ns.Lang.SetAcceptAll(false)
+ico.ns.UI.RefreshLangPicker()
+local shown = 0
+for _, c in ipairs(box.langs or {}) do
+	if c:IsShown() then shown = shown + 1 end
+end
+check(shown == #box.langs, "when All is off the language list is shown")
+check(box:GetHeight() > foldedH, "the picker grows when the list unfolds, with no leftover gap")
 
 
 ana.ns.SetEnabled(false)
