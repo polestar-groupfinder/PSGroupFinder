@@ -105,6 +105,31 @@ end
 
 function Quests.Has(id) return Quests.Log()[id] ~= nil end
 
+-- The kind of quest `id` while it is worth a group ("g", "n", "k", "l"), nil
+-- when it is gone from the log, complete, or has no open objective left.
+function Quests.Kind(id)
+	local q = Quests.Log()[id]
+	if not q then return nil end
+	return kindOf(q)
+end
+
+-- True while there is still something to do for `id`: in the log, not
+-- complete (nor ready to hand in, as Polestar sees it), at least one
+-- objective open. This is what keeps a quest in a search.
+function Quests.Pending(id)
+	local q = Quests.Log()[id]
+	if not q or q.complete then return false end
+	local C = Polestar and Polestar.Compat
+	if C and C.IsQuestReadyForTurnIn then
+		local ok, ready = pcall(C.IsQuestReadyForTurnIn, id)
+		if ok and ready then return false end
+	end
+	local objs = q.objectives or {}
+	if #objs == 0 then return true end
+	for _, o in ipairs(objs) do if not o.done then return true end end
+	return false
+end
+
 function Quests.Title(id)
 	local q = Quests.Log()[id]
 	if q and q.title then return q.title end

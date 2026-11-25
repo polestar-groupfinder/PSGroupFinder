@@ -2,11 +2,22 @@
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 -- Prefix "PSGF". Messages (fields split by "|", at most 255 bytes):
---   S|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<quest>:<kind>,...
---       a search, broadcast from a click or a key press
---   R|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<quest>,...
+--   S|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<quest>:<kind>,...
+--       a search, broadcast from a click or a key press; sent again (Update)
+--       with the quests left whenever an objective is done, from the channels
+--       that need no key press and by whisper to the players found
+--   R|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<quest>,...
 --       the answer, whispered to the searcher, naming only the quests both
 --       have
+--   X|<sid>
+--       the search is over (last objective done, stopped, group full): the
+--       players who listed us drop us
+--   G|<sid>|<quest>,...
+--       whispered when auto-group is on and the other player should invite
+--       us (see Group.lua)
+-- <flags>: "g" auto-group is on, "A" / "H" the faction (Alliance / Horde),
+-- empty when unknown. A search with no quest in common with the receiver
+-- removes the sender from the receiver's list.
 --   T|<sid>|<nonce>
 --       a channel probe: nobody answers it, we only listen for our own echo
 -- <sid> is a random id for this session: a message carrying ours is our
@@ -33,7 +44,7 @@ Comm.CHANNEL_NAME = "PSGroupFinder"
 Comm.ORDER = { "CHANNEL", "YELL", "SAY", "GUILD" }
 Comm.status = {}   -- chatType -> { state, code, at }
 local SEARCH_GAP = 20       -- seconds between two searches of yours
-local REPLY_GAP = 60        -- seconds between two answers to the same player
+local REPLY_GAP = 20        -- seconds between two answers to the same player (a searcher's own gap)
 local PROBE_WAIT = 4        -- seconds to wait for a probe's echo
 local JOIN_DELAY = 6        -- seconds after login before joining the channel (keeps /1, /2 for the game's)
 
@@ -150,20 +161,27 @@ local function coords(x)
 	return tostring(math.floor(x * 1000 + 0.5))
 end
 
+local function flags()
+	local f = ns.Get("autoGroup") and "g" or ""
+	local faction = UnitFactionGroup and select(1, UnitFactionGroup("player"))
+	if faction == "Alliance" then f = f .. "A" elseif faction == "Horde" then f = f .. "H" end
+	return f
+end
+
 local function me()
 	local map, x, y = ns.Quests.Position()
 	local level = UnitLevel and UnitLevel("player") or 0
 	local class
 	if UnitClass then class = select(2, UnitClass("player")) end
 	local size = (GetNumGroupMembers and GetNumGroupMembers()) or 0
-	return tostring(map or 0), coords(x), coords(y), tostring(level or 0), class or "", tostring(size)
+	return tostring(map or 0), coords(x), coords(y), tostring(level or 0), class or "", tostring(size), flags()
 end
 
 -- Builds the search text for `quests` ({ id, kind }), cutting quests until
 -- it fits 255 bytes.
 function Comm.EncodeSearch(quests)
-	local map, x, y, lvl, class, size = me()
-	local head = table.concat({ "S", sid, map, x, y, lvl, class, size }, "|") .. "|"
+	local map, x, y, lvl, class, size, fl = me()
+	local head = table.concat({ "S", sid, map, x, y, lvl, class, size, fl }, "|") .. "|"
 	local parts = {}
 	for _, q in ipairs(quests) do
 		local entry = q.id .. ":" .. q.kind
@@ -173,9 +191,18 @@ function Comm.EncodeSearch(quests)
 	return head .. table.concat(parts, ","), #parts
 end
 
+function Comm.EncodeGroupRequest(ids)
+	local parts = {}
+	for _, id in ipairs(ids) do
+		if 2 + #sid + 2 + #table.concat(parts, ",") + #tostring(id) + 1 > 255 then break end
+		parts[#parts + 1] = tostring(id)
+	end
+	return "G|" .. sid .. "|" .. table.concat(parts, ",")
+end
+
 function Comm.EncodeReply(ids)
-	local map, x, y, lvl, class, size = me()
-	local head = table.concat({ "R", sid, map, x, y, lvl, class, size }, "|") .. "|"
+	local map, x, y, lvl, class, size, fl = me()
+	local head = table.concat({ "R", sid, map, x, y, lvl, class, size, fl }, "|") .. "|"
 	local parts = {}
 	for _, id in ipairs(ids) do
 		if #head + #table.concat(parts, ",") + #tostring(id) + 1 > 255 then break end
@@ -187,13 +214,21 @@ end
 -- Splits a message; nil for anything malformed.
 function Comm.Decode(text)
 	if type(text) ~= "string" or #text > 255 then return nil end
-	local kind, msid, map, x, y, lvl, class, size, list = text:match("^([SR])|(%x+)|(%d+)|(%d*)|(%d*)|(%d+)|(%u*)|(%d+)|(.*)$")
+	local kind, msid, map, x, y, lvl, class, size, fl, list = text:match("^([SR])|(%x+)|(%d+)|(%d*)|(%d*)|(%d+)|(%u*)|(%d+)|([gAH]*)|(.*)$")
 	if not kind then
 		local tsid, nonce = text:match("^T|(%x+)|(%w+)$")
 		if tsid then return { kind = "T", sid = tsid, nonce = nonce } end
+		local xsid = text:match("^X|(%x+)$")
+		if xsid then return { kind = "X", sid = xsid } end
+		local gsid, ids = text:match("^G|(%x+)|([%d,]*)$")
+		if gsid then
+			local m = { kind = "G", sid = gsid, quests = {} }
+			for id in ids:gmatch("%d+") do m.quests[#m.quests + 1] = { id = tonumber(id) } end
+			return m
+		end
 		return nil
 	end
-	local m = { kind = kind, sid = msid, map = tonumber(map), level = tonumber(lvl), class = class, size = tonumber(size), quests = {} }
+	local m = { kind = kind, sid = msid, map = tonumber(map), level = tonumber(lvl), class = class, size = tonumber(size), flags = fl, quests = {} }
 	if m.map == 0 then m.map = nil end
 	if x ~= "" and y ~= "" then m.x, m.y = tonumber(x) / 1000, tonumber(y) / 1000 end
 	for entry in list:gmatch("[^,]+") do
@@ -229,7 +264,7 @@ function Comm.Search()
 	if #sentOn == 0 then ns.Print(L.NO_CHANNEL) return false end
 	lastSearch = ns.Now()
 	ns.searchedAt = lastSearch
-	ns.searchedQuests = quests
+	ns.Session.Start(quests)
 	ns.Print(L.SENT, table.concat(sentOn, ", "), count)
 	ns.Fire("SEARCHED", quests, sentOn)
 	return true
@@ -237,6 +272,41 @@ end
 
 function Comm.SearchCooldown()
 	return math.max(0, SEARCH_GAP - (ns.Now() - lastSearch))
+end
+
+-- Sends `text` with no key press behind it: only the channels that need
+-- none (CHANNEL, GUILD) and a whisper to each player found. SAY and YELL
+-- need a hardware event, so the players only they reached keep the old
+-- list until their entry expires.
+local MAX_WHISPERS = 8
+local function broadcastQuiet(text)
+	registerPrefix()
+	local sent = false
+	for _, ct in ipairs(searchChannels()) do
+		if ct == "CHANNEL" or ct == "GUILD" then
+			if trySend(ct, text) then sent = true end
+			if ct == "CHANNEL" then break end
+		end
+	end
+	local names = ns.Matcher.Names()
+	for i = 1, math.min(#names, MAX_WHISPERS) do
+		Throttle.Send(Comm.PREFIX, text, "WHISPER", names[i])
+		sent = true
+	end
+	return sent
+end
+
+-- The search changed (an objective is done): say what is left.
+function Comm.Update()
+	if not (ns.Get("enabled") and ns.Session.Active()) then return end
+	local text = Comm.EncodeSearch(ns.Session.List())
+	broadcastQuiet(text)
+end
+
+-- The search is over: tell the players who listed us.
+function Comm.Stop()
+	if not ns.Get("enabled") then return end
+	broadcastQuiet("X|" .. sid)
 end
 
 ---------------------------------------------------------------------------
@@ -315,27 +385,46 @@ local function onMessage(_, prefix, text, chatType, sender)
 	end
 	if m.kind == "T" or ignored(sender) then return end
 	if IsInInstance and IsInInstance() then return end
-	if m.kind == "S" then
-		local common = {}
-		for _, q in ipairs(m.quests) do
-			if ns.Quests.Has(q.id) then common[#common + 1] = q.id end
+	local Matcher = ns.Matcher
+	-- A player of the other faction cannot group with us (Forever).
+	local theirs, mine = m.flags and m.flags:match("[AH]"), flags():match("[AH]")
+	if theirs and mine and theirs ~= mine then return end
+	if m.kind == "X" then
+		Matcher.Remove(sender)
+		return
+	elseif m.kind == "G" then
+		ns.Group.OnRequest(sender, m)
+		return
+	end
+	-- `listed`: quests of my active search (else any open one) they share;
+	-- `answer`: every open quest of mine they look for, which is worth a reply.
+	local listed, answer = {}, {}
+	for _, q in ipairs(m.quests) do
+		if ns.Quests.Pending(q.id) then
+			answer[#answer + 1] = q.id
+			if Matcher.Mine(q.id) then listed[#listed + 1] = q.id end
 		end
-		if #common == 0 then return end
-		ns.Matcher.Add(sender, m, common, "asking")
-		if ns.Get("autoReply") and ns.Now() - (lastReply[sender] or -math.huge) >= REPLY_GAP then
+	end
+	if m.kind == "S" then
+		if #listed == 0 then
+			-- Their search no longer covers anything we look for.
+			Matcher.Remove(sender)
+		else
+			Matcher.Add(sender, m, listed, "asking")
+		end
+		if #answer == 0 then return end
+		if ns.Get("autoGroup") and m.flags and m.flags:find("g", 1, true) then ns.Group.Expect(sender) end
+		-- A whispered search is an update to a player already found: no new answer.
+		if ns.Get("autoReply") and chatType ~= "WHISPER" and ns.Now() - (lastReply[sender] or -math.huge) >= REPLY_GAP then
 			lastReply[sender] = ns.Now()
 			registerPrefix()
 			-- A short random wait spreads the answers of a crowd.
 			ns.After(0.5 + math.random() * 2, function()
-				Throttle.Send(Comm.PREFIX, Comm.EncodeReply(common), "WHISPER", sender)
+				Throttle.Send(Comm.PREFIX, Comm.EncodeReply(answer), "WHISPER", sender)
 			end)
 		end
 	elseif m.kind == "R" then
-		local common = {}
-		for _, q in ipairs(m.quests) do
-			if ns.Quests.Has(q.id) then common[#common + 1] = q.id end
-		end
-		if #common > 0 then ns.Matcher.Add(sender, m, common, "reply") end
+		if #listed > 0 then Matcher.Add(sender, m, listed, "reply") end
 	end
 end
 

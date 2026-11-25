@@ -1,12 +1,16 @@
 -- Polestar Group Finder: the panel.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
--- One panel: the on/off switch and its two options, Find a group, Test
--- channels, what each channel did, and the players found, each with
--- Whisper and Invite (only ever on your click). With Polestar it is painted
--- by Polestar's Theme API (Theme.Skin, Theme.Font, Theme.OnChanged) and sits
--- against the guide window's right edge (Polestar.lua hands that window
--- over); without it, it is a plain movable window of its own.
+-- One panel, from top to bottom: the four switches (the finder, grouping
+-- without a click, sharing the position, answering searches), Find a group /
+-- Stop (/ Options when Polestar's settings have our page), the search in
+-- progress (its quests leave it as their objectives are done), the channels
+-- with their legend, and the players found, each with Whisper and Invite
+-- (only ever on your click). The panel is as tall as what it shows.
+-- With Polestar it is painted by Polestar's Theme API (Theme.Skin, Font,
+-- Color, OnChanged) and sits against the guide window's right edge (left edge
+-- when the right one has no room), following the window when it hides;
+-- without it, it is a plain movable window of its own.
 
 local _, ns = ...
 local L = ns.L
@@ -14,9 +18,19 @@ local L = ns.L
 local UI = {}
 ns.UI = UI
 
-local WIDTH, ROW_H, ROWS = 300, 38, 7
+local WIDTH, PAD = 340, 12
+local ROW_H, ROWS = 42, 6
+local OPT_H = 20          -- pitch of the switches
+local BTN_COL = 84        -- width of the Whisper / Invite column
+local SESSION_LINES = 4
 local panel, rows, host
 local widgets = {}
+local checks = {}
+local docked, dockedHidden = false, false
+
+---------------------------------------------------------------------------
+-- Theme helpers (Polestar's Theme API when it runs, the game's look else)
+---------------------------------------------------------------------------
 
 local function Theme()
 	local P = Polestar
@@ -37,11 +51,24 @@ local function font(fs, role, fallback)
 	return fs
 end
 
-local function button(parent, text, width, onClick)
+-- "|cffrrggbb" for a Polestar colour token, else `fallback`.
+local function hex(token, fallback)
+	local T = Theme()
+	if T and T.Hex then
+		local ok, h = pcall(T.Hex, token)
+		if ok and type(h) == "string" then return "|c" .. h end
+	end
+	return "|c" .. fallback
+end
+local function dim() return hex("textMuted", "ff9a9aa6") end
+local function soft() return hex("textDim", "ffc8c8d0") end
+
+local function button(parent, text, width, onClick, height)
 	local b
+	height = height or 22
 	if Theme() then
 		b = CreateFrame("Button", nil, parent)
-		b:SetSize(width, 22)
+		b:SetSize(width, height)
 		b.psTextButton = true
 		local fs = b:CreateFontString(nil, "OVERLAY")
 		font(fs, "label", GameFontNormalSmall)
@@ -50,36 +77,55 @@ local function button(parent, text, width, onClick)
 		skin(b, "button")
 	else
 		b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-		b:SetSize(width, 22)
+		b:SetSize(width, height)
 	end
 	b:SetText(text)
 	b:SetScript("OnClick", onClick)
 	return b
 end
 
-local function check(parent, label, tip, key, onToggle)
-	local c = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-	c:SetSize(22, 22)
+local function tip(frame, title, body, anchor)
+	frame:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, anchor or "ANCHOR_TOP")
+		GameTooltip:SetText(title, 1, 1, 1)
+		if body then GameTooltip:AddLine(body, nil, nil, nil, true) end
+		GameTooltip:Show()
+	end)
+	frame:HookScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
+-- A switch: Polestar's own checkbox when it runs, the game's else. The label
+-- is part of the hit area, and the tooltip opens above it so it never
+-- covers its own label (v0.1's opened beside the box, on top of the text).
+local function check(parent, label, help, key, onToggle)
+	local c
+	if Theme() then
+		c = CreateFrame("CheckButton", nil, parent)
+		c:SetSize(18, 18)
+		skin(c, "checkbox")
+	else
+		c = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+		c:SetSize(22, 22)
+	end
 	local fs = c:CreateFontString(nil, "OVERLAY")
 	font(fs, "label", GameFontHighlightSmall)
-	fs:SetPoint("LEFT", c, "RIGHT", 2, 0)
+	fs:SetPoint("LEFT", c, "RIGHT", 4, 0)
 	fs:SetText(label)
+	c.label = fs
+	c:SetHitRectInsets(0, -(fs:GetStringWidth() + 8), 0, 0)
 	c:SetScript("OnClick", function(self)
 		local on = self:GetChecked() and true or false
 		if onToggle then onToggle(on) else ns.Set(key, on) end
 	end)
-	if tip then
-		c:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetText(label, 1, 1, 1)
-			GameTooltip:AddLine(tip, nil, nil, nil, true)
-			GameTooltip:Show()
-		end)
-		c:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	end
+	if help then tip(c, label, help) end
 	c.key = key
+	checks[#checks + 1] = c
 	return c
 end
+
+---------------------------------------------------------------------------
+-- Small helpers
+---------------------------------------------------------------------------
 
 local function classColor(class)
 	local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
@@ -107,39 +153,70 @@ local function invite(name)
 	end
 end
 
+local function kindTag(kind)
+	return kind and ("(" .. L["KIND_" .. kind] .. ") ") or ""
+end
+
+local function distanceText(e)
+	if e.yards then return string.format(L.NEAR_YD, math.floor(e.yards + 0.5)) end
+	if e.sameZone then return L.SAME_ZONE end
+	return L.OTHER_ZONE
+end
+
+---------------------------------------------------------------------------
+-- Rows: name and level on the first line, at its right the state (invited,
+-- waiting, in a group) or else the distance, the
+-- quests on the second, Whisper / Invite stacked in the right column.
+---------------------------------------------------------------------------
+
 local function makeRow(i)
 	local r = CreateFrame("Frame", nil, panel)
-	r:SetSize(WIDTH - 20, ROW_H)
-	r:SetPoint("TOPLEFT", widgets.listTop, "BOTTOMLEFT", 0, -(i - 1) * ROW_H - 4)
+	r:SetSize(WIDTH - 2 * PAD, ROW_H)
+	r:EnableMouse(true)
+	r.dist = font(r:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
+	r.dist:SetPoint("TOPRIGHT", r, "TOPRIGHT", -(BTN_COL + 8), -3)
+	r.dist:SetJustifyH("RIGHT")
 	r.name = font(r:CreateFontString(nil, "OVERLAY"), "body", GameFontNormal)
 	r.name:SetPoint("TOPLEFT", 0, -2)
-	r.name:SetPoint("RIGHT", r, "RIGHT", -120, 0)
+	r.name:SetPoint("RIGHT", r.dist, "LEFT", -6, 0)
 	r.name:SetJustifyH("LEFT")
+	r.name:SetWordWrap(false)
 	r.info = font(r:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
-	r.info:SetPoint("TOPLEFT", r.name, "BOTTOMLEFT", 0, -2)
-	r.info:SetPoint("RIGHT", r, "RIGHT", -120, 0)
+	r.info:SetPoint("TOPLEFT", r.name, "BOTTOMLEFT", 0, -3)
+	r.info:SetPoint("RIGHT", r, "RIGHT", -(BTN_COL + 8), 0)
 	r.info:SetJustifyH("LEFT")
 	r.info:SetWordWrap(false)
-	r.invite = button(r, L.INVITE, 56, function(self) if self.who then invite(self.who) end end)
-	r.invite:SetPoint("RIGHT", r, "RIGHT", 0, 0)
-	r.whisper = button(r, L.WHISPER, 60, function(self) if self.who then whisper(self.who) end end)
-	r.whisper:SetPoint("RIGHT", r.invite, "LEFT", -4, 0)
+	r.whisper = button(r, L.WHISPER, BTN_COL, function(self) if self.who then whisper(self.who) end end, 19)
+	r.whisper:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -1)
+	r.invite = button(r, L.INVITE, BTN_COL, function(self) if self.who then invite(self.who) end end, 19)
+	r.invite:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 0, 1)
+	r:SetScript("OnEnter", function(self)
+		local e = self.entry
+		if not e then return end
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText(short(e.name), 1, 1, 1)
+		for _, id in ipairs(e.quests) do
+			GameTooltip:AddLine(kindTag(e.kinds and e.kinds[id]) .. ns.Quests.Title(id), nil, nil, nil, true)
+		end
+		GameTooltip:AddLine(distanceText(e), 0.6, 0.6, 0.65)
+		GameTooltip:Show()
+	end)
+	r:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	return r
 end
 
-local function questLine(e)
-	local parts = {}
-	for i, id in ipairs(e.quests) do
-		if i > 2 then parts[#parts + 1] = "+" .. (#e.quests - 2) break end
-		local kind = e.kinds and e.kinds[id]
-		parts[#parts + 1] = ns.Quests.Title(id) .. (kind and (" (" .. L["KIND_" .. kind] .. ")") or "")
-	end
-	local where
-	if e.yards then where = string.format(L.NEAR_YD, math.floor(e.yards + 0.5))
-	elseif e.sameZone then where = L.SAME_ZONE
-	else where = L.OTHER_ZONE end
-	return table.concat(parts, ", ") .. " · " .. where
+-- The right-hand slot of the first line: what is happening with this player
+-- (invited, waiting for their invitation, already in a group), else how far.
+local function rightText(e)
+	if e.state == "invited" then return hex("success", "ff6bd999") .. L.STATE_INVITED .. "|r" end
+	if e.state == "asked" then return hex("warning", "fffabf4d") .. L.STATE_ASKED .. "|r" end
+	if (e.size or 0) > 0 then return dim() .. L.GROUPED .. "|r" end
+	return dim() .. distanceText(e) .. "|r"
 end
+
+---------------------------------------------------------------------------
+-- Channels: the four names coloured by what each did, with a legend
+---------------------------------------------------------------------------
 
 local STATE_COLOR = { ok = "ff40ff40", sent = "ffffd100", fail = "ffff5050", skip = "ff909090" }
 
@@ -153,47 +230,153 @@ local function channelLine()
 	return table.concat(parts, "  ")
 end
 
+local function channelTip(self)
+	GameTooltip:SetOwner(self, "ANCHOR_TOP")
+	GameTooltip:SetText(L.LEGEND_TITLE, 1, 1, 1)
+	GameTooltip:AddLine(L.LEGEND_BODY, nil, nil, nil, true)
+	local best = ns.Comm.BestChannel()
+	if best then GameTooltip:AddLine(string.format(L.LEGEND_BEST, best), 0.25, 1, 0.25) end
+	for _, ct in ipairs(ns.Comm.ORDER) do
+		local s = ns.Comm.status[ct]
+		if s and (s.state == "fail" or s.state == "skip") and s.code then
+			GameTooltip:AddLine(ct .. ": " .. tostring(s.code), 1, 0.4, 0.4)
+		end
+	end
+	GameTooltip:Show()
+end
+
+---------------------------------------------------------------------------
+-- Layout and refresh
+---------------------------------------------------------------------------
+
+local function at(frame, y, x, point)
+	frame:ClearAllPoints()
+	frame:SetPoint(point or "TOPLEFT", panel, point or "TOPLEFT", x or PAD, -y)
+end
+
 function UI.Refresh()
 	if not (panel and panel:IsShown()) then return end
 	local on = ns.Get("enabled") and true or false
 	widgets.enable:SetChecked(on)
+	widgets.auto:SetChecked(ns.Get("autoGroup") and true or false)
 	widgets.coords:SetChecked(ns.Get("shareCoords") and true or false)
 	widgets.reply:SetChecked(ns.Get("autoReply") and true or false)
-	widgets.coords:SetEnabled(on)
-	widgets.reply:SetEnabled(on)
+	for _, c in ipairs({ widgets.auto, widgets.coords, widgets.reply }) do
+		c:SetEnabled(on)
+		c:SetAlpha(on and 1 or 0.5)
+	end
+
+	-- Buttons.
+	local active = ns.Session.Active()
 	local cd = ns.Comm.SearchCooldown()
 	widgets.search:SetEnabled(on and cd == 0)
-	widgets.search:SetText(cd > 0 and string.format("%s (%d)", L.SEARCH, math.ceil(cd)) or L.SEARCH)
-	widgets.test:SetEnabled(on)
-	widgets.channels:SetText(on and channelLine() or "")
-	local list = on and ns.Matcher.List() or {}
-	widgets.empty:SetShown(on and #list == 0)
+	widgets.search:SetText(cd > 0 and string.format("%s (%d)", L.SEARCH, math.ceil(cd)) or (active and L.SEARCH_AGAIN or L.SEARCH))
+	widgets.stop:SetShown(active)
+
+	-- Off: only the switches and the buttons; the rest has nothing to say.
+	local y = 34 + 4 * OPT_H + 8 + 22 + 10
+	local list = ns.Session.List()
+	widgets.sessionTitle:SetShown(on)
+	widgets.chLabel:SetShown(on)
+	widgets.channels:SetShown(on)
+	widgets.test:SetShown(on)
+	widgets.chHit:SetShown(on)
+	for i = 1, SESSION_LINES do widgets.quest[i]:Hide() end
+	widgets.none:Hide()
+	if on then
+		-- The search in progress.
+		widgets.sessionTitle:SetText(dim() .. L.SESSION_TITLE .. "|r")
+		at(widgets.sessionTitle, y)
+		y = y + 14
+		for i = 1, SESSION_LINES do
+			local fs = widgets.quest[i]
+			local q = active and list[i]
+			if q then
+				if i == SESSION_LINES and #list > SESSION_LINES then
+					fs:SetText(dim() .. string.format(L.SESSION_MORE, #list - SESSION_LINES + 1) .. "|r")
+				else
+					fs:SetText(soft() .. kindTag(q.kind) .. "|r" .. ns.Quests.Title(q.id))
+				end
+				at(fs, y, PAD + 4)
+				fs:Show()
+				y = y + 14
+			end
+		end
+		if not active then
+			widgets.none:SetText(dim() .. L.SESSION_NONE .. "|r")
+			at(widgets.none, y, PAD + 4)
+			widgets.none:Show()
+			y = y + 14
+		end
+		y = y + 6
+
+		-- Channels.
+		widgets.chLabel:SetText(dim() .. L.CHANNELS .. "|r")
+		at(widgets.chLabel, y + 4)
+		widgets.channels:SetText(channelLine())
+		widgets.channels:ClearAllPoints()
+		widgets.channels:SetPoint("LEFT", widgets.chLabel, "RIGHT", 8, 0)
+		at(widgets.test, y, WIDTH - PAD - 56, "TOPLEFT")
+		widgets.chHit:ClearAllPoints()
+		widgets.chHit:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -y)
+		widgets.chHit:SetPoint("BOTTOMRIGHT", panel, "TOPLEFT", WIDTH - PAD - 62, -(y + 22))
+		y = y + 22 + 6
+	end
+
+	-- Players found.
+	local found = on and ns.Matcher.List() or {}
+	local n = math.min(#found, ROWS)
 	rows = rows or {}
+	widgets.empty:SetShown(on and n == 0)
+	if on and n == 0 then
+		at(widgets.empty, y + 2, PAD + 2)
+		y = y + 38
+	end
 	for i = 1, ROWS do
-		local e = list[i]
+		local e = found[i]
 		local r = rows[i] or makeRow(i)
 		rows[i] = r
-		if e then
-			r.name:SetText(string.format("|c%s%s|r  %s%s", classColor(e.class), short(e.name),
-				e.level and e.level > 0 and ("|cffaaaaaa" .. e.level .. "|r") or "",
-				(e.size or 0) > 0 and (" |cffaaaaaa· " .. L.GROUPED .. "|r") or ""))
-			r.info:SetText(questLine(e))
+		if e and on then
+			r.entry = e
+			r.name:SetText(string.format("|c%s%s|r  %s", classColor(e.class), short(e.name),
+				e.level and e.level > 0 and (dim() .. e.level .. "|r") or ""))
+			r.dist:SetText(rightText(e))
+			local first = e.quests[1]
+			local more = #e.quests > 1 and ("  " .. dim() .. "+" .. (#e.quests - 1) .. "|r") or ""
+			r.info:SetText(soft() .. kindTag(e.kinds and e.kinds[first]) .. "|r" .. ns.Quests.Title(first) .. more)
 			r.whisper.who, r.invite.who = e.name, e.name
+			at(r, y)
 			r:Show()
+			y = y + ROW_H
 		else
+			r.entry = nil
 			r:Hide()
 		end
 	end
+	panel:SetHeight(y + PAD - 2)
 end
+
+---------------------------------------------------------------------------
+-- Placement
+---------------------------------------------------------------------------
 
 function UI.Place()
 	if not panel then return end
 	panel:ClearAllPoints()
 	if host and host:IsShown() then
-		panel:SetPoint("TOPLEFT", host, "TOPRIGHT", 6, 0)
+		docked = true
+		-- Right of the guide window; left of it when the screen has no room.
+		local right, scale = host.GetRight and host:GetRight(), host.GetEffectiveScale and host:GetEffectiveScale() or 1
+		local room = UIParent:GetWidth() - ((right or 0) * scale) / (UIParent:GetEffectiveScale() or 1)
+		if right and room < WIDTH + 10 then
+			panel:SetPoint("TOPRIGHT", host, "TOPLEFT", -6, 0)
+		else
+			panel:SetPoint("TOPLEFT", host, "TOPRIGHT", 6, 0)
+		end
 		panel:SetMovable(false)
 		return
 	end
+	docked = false
 	local pos = ns.Get("panelPos")
 	if type(pos) == "table" then
 		panel:SetPoint(pos[1] or "CENTER", UIParent, pos[1] or "CENTER", pos[2] or 0, pos[3] or 0)
@@ -209,10 +392,28 @@ function UI.SetHost(frame)
 	UI.Place()
 end
 
+-- Polestar.lua: the guide window was shown or hidden. A docked panel is part
+-- of the window: it goes with it and comes back with it, instead of jumping
+-- to the middle of the screen (v0.1).
+function UI.HostShown(shown)
+	if not panel then return end
+	if shown then
+		if dockedHidden then dockedHidden = false panel:Show() end
+		UI.Place()
+	elseif docked and panel:IsShown() then
+		dockedHidden = true
+		panel:Hide()
+	end
+end
+
+---------------------------------------------------------------------------
+-- Build
+---------------------------------------------------------------------------
+
 local function build()
 	local useTheme = Theme() ~= nil
 	panel = CreateFrame("Frame", "PolestarGroupFinderPanel", UIParent, (not useTheme and BackdropTemplateMixin) and "BackdropTemplate" or nil)
-	panel:SetSize(WIDTH, 168 + ROWS * ROW_H)
+	panel:SetSize(WIDTH, 300)
 	panel:SetFrameStrata("MEDIUM")
 	panel:SetClampedToScreen(true)
 	panel:EnableMouse(true)
@@ -233,35 +434,71 @@ local function build()
 	table.insert(UISpecialFrames, "PolestarGroupFinderPanel")
 
 	local title = font(panel:CreateFontString(nil, "OVERLAY"), "title", GameFontNormalLarge)
-	title:SetPoint("TOPLEFT", 12, -10)
+	title:SetPoint("TOPLEFT", PAD, -10)
 	title:SetText(L.TITLE)
 
-	local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
-	close:SetPoint("TOPRIGHT", 2, 2)
+	local close
+	if useTheme then
+		close = CreateFrame("Button", nil, panel)
+		close:SetSize(18, 18)
+		close:SetPoint("TOPRIGHT", -8, -8)
+		skin(close, "close")
+	else
+		close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
+		close:SetPoint("TOPRIGHT", 2, 2)
+	end
 	close:SetScript("OnClick", function() panel:Hide() end)
 
+	-- The four switches, 20 units apart, none touching the next.
 	widgets.enable = check(panel, L.ENABLE, L.ENABLE_TIP, "enabled", function(on) ns.SetEnabled(on) end)
-	widgets.enable:SetPoint("TOPLEFT", 10, -32)
+	widgets.auto = check(panel, L.AUTO_GROUP, L.AUTO_GROUP_TIP, "autoGroup")
 	widgets.coords = check(panel, L.SHARE_COORDS, nil, "shareCoords")
-	widgets.coords:SetPoint("TOPLEFT", widgets.enable, "BOTTOMLEFT", 0, 2)
 	widgets.reply = check(panel, L.AUTO_REPLY, nil, "autoReply")
-	widgets.reply:SetPoint("TOPLEFT", widgets.coords, "BOTTOMLEFT", 0, 2)
+	for i, c in ipairs({ widgets.enable, widgets.auto, widgets.coords, widgets.reply }) do
+		c:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - (useTheme and 0 or 4), -(34 + (i - 1) * OPT_H))
+	end
 
-	widgets.search = button(panel, L.SEARCH, 160, function() ns.Search() UI.Refresh() end)
-	widgets.search:SetPoint("TOPLEFT", widgets.reply, "BOTTOMLEFT", 2, -6)
-	widgets.test = button(panel, L.TEST, 110, function() ns.TestChannels(true) end)
-	widgets.test:SetPoint("LEFT", widgets.search, "RIGHT", 6, 0)
+	local by = 34 + 4 * OPT_H + 8
+	widgets.search = button(panel, L.SEARCH, 168, function() ns.Search() UI.Refresh() end)
+	widgets.search:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -by)
+	widgets.stop = button(panel, L.STOP, 70, function()
+		ns.Comm.Stop()
+		ns.Session.Stop("manual")
+		ns.Print(L.SEARCH_STOPPED)
+		UI.Refresh()
+	end)
+	widgets.stop:SetPoint("LEFT", widgets.search, "RIGHT", 6, 0)
+	widgets.stop:Hide()
+	-- Opens Polestar's settings on our page (Polestar.lua sets ns.OpenOptions).
+	widgets.options = button(panel, L.OPTIONS_SHORT, 64, function() if ns.OpenOptions then ns.OpenOptions() end end)
+	widgets.options:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -by)
+	widgets.options:Hide()
 
+	widgets.sessionTitle = font(panel:CreateFontString(nil, "OVERLAY"), "caption", GameFontNormalSmall)
+	widgets.sessionTitle:SetJustifyH("LEFT")
+	widgets.quest = {}
+	for i = 1, SESSION_LINES do
+		local fs = font(panel:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
+		fs:SetJustifyH("LEFT")
+		fs:SetWordWrap(false)
+		fs:SetWidth(WIDTH - 2 * PAD - 4)
+		widgets.quest[i] = fs
+	end
+	widgets.none = font(panel:CreateFontString(nil, "OVERLAY"), "small", GameFontDisableSmall)
+	widgets.none:SetJustifyH("LEFT")
+
+	widgets.chLabel = font(panel:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
+	widgets.chLabel:SetJustifyH("LEFT")
 	widgets.channels = font(panel:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
-	widgets.channels:SetPoint("TOPLEFT", widgets.search, "BOTTOMLEFT", 0, -6)
-
-	widgets.listTop = CreateFrame("Frame", nil, panel)
-	widgets.listTop:SetSize(1, 1)
-	widgets.listTop:SetPoint("TOPLEFT", widgets.channels, "BOTTOMLEFT", 0, -4)
+	widgets.channels:SetJustifyH("LEFT")
+	widgets.chHit = CreateFrame("Frame", nil, panel)
+	widgets.chHit:EnableMouse(true)
+	widgets.chHit:SetScript("OnEnter", channelTip)
+	widgets.chHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	widgets.test = button(panel, L.TEST_SHORT, 56, function() ns.TestChannels(true) end, 20)
 
 	widgets.empty = font(panel:CreateFontString(nil, "OVERLAY"), "note", GameFontDisableSmall)
-	widgets.empty:SetPoint("TOPLEFT", widgets.listTop, "BOTTOMLEFT", 0, -8)
-	widgets.empty:SetWidth(WIDTH - 24)
+	widgets.empty:SetWidth(WIDTH - 2 * PAD - 4)
 	widgets.empty:SetJustifyH("LEFT")
 	widgets.empty:SetText(L.EMPTY)
 
@@ -270,7 +507,7 @@ local function build()
 		elapsed = elapsed + dt
 		if elapsed >= 1 then elapsed = 0 UI.Refresh() end
 	end)
-	panel:SetScript("OnShow", UI.Refresh)
+	panel:SetScript("OnShow", function() UI.Place() UI.Refresh() end)
 	panel:Hide()
 
 	local T = Theme()
@@ -278,8 +515,15 @@ local function build()
 	UI.Place()
 end
 
+-- Polestar.lua: whether Polestar's settings have our page (shows Options).
+function UI.SetHasOptions(has)
+	UI.hasOptions = has and true or false
+	if widgets.options then widgets.options:SetShown(UI.hasOptions) end
+end
+
 function UI.Show()
 	if not panel then build() end
+	widgets.options:SetShown(UI.hasOptions == true)
 	UI.Place()
 	panel:Show()
 	UI.Refresh()
@@ -294,7 +538,7 @@ function UI.IsShown() return panel and panel:IsShown() or false end
 ns.TogglePanel = UI.Toggle
 ns.ResetPanel = UI.Place
 
-for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED" }) do
+for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION" }) do
 	ns.On(msg, function() UI.Refresh() end)
 end
 -- Someone new found within OPEN_AFTER seconds of your own search, while the

@@ -12,7 +12,7 @@ local _, ns = ...
 local Matcher = {}
 ns.Matcher = Matcher
 
-local MAX_AGE = 600
+local MAX_AGE = { reply = 600, asking = 300 } -- seconds before an entry is dropped
 local peers = {} -- sender -> entry
 
 local function stepQuests()
@@ -27,6 +27,10 @@ function Matcher.Add(sender, m, common, source)
 	e.map, e.x, e.y = m.map, m.x, m.y
 	e.quests = common
 	e.source = source
+	e.sid = m.sid
+	e.flags = m.flags or ""
+	e.autoGroup = e.flags:find("g", 1, true) ~= nil
+	e.faction = e.flags:match("[AH]")
 	e.at = ns.Now()
 	local kinds = {}
 	for _, q in ipairs(m.quests or {}) do if q.kind then kinds[q.id] = q.kind end end
@@ -39,6 +43,23 @@ function Matcher.Add(sender, m, common, source)
 	end
 	ns.Fire("PEERS")
 	if isNew then ns.Fire("PEER_NEW", e) end
+	if ns.Group then ns.Group.Consider(e) end
+end
+
+function Matcher.Get(sender) return peers[sender] end
+
+function Matcher.Remove(sender)
+	if peers[sender] then
+		peers[sender] = nil
+		ns.Fire("PEERS")
+	end
+end
+
+-- The names of the players found, for an update whispered to them.
+function Matcher.Names()
+	local out = {}
+	for name in pairs(peers) do out[#out + 1] = name end
+	return out
 end
 
 function Matcher.Clear()
@@ -49,6 +70,14 @@ end
 local function inMyGroup(name)
 	return UnitInParty and (UnitInParty(name) or (UnitInRaid and UnitInRaid(name))) and true or false
 end
+Matcher.InGroup = function(name) local ok, r = pcall(inMyGroup, name) return ok and r end
+
+-- What counts as "my" quests: those of the active search, else any with an
+-- open objective in the log.
+function Matcher.Mine(id)
+	if ns.Session and ns.Session.Active() then return ns.Session.Has(id) end
+	return ns.Quests.Pending(id)
+end
 
 -- The list to show: entries with `yards` (or nil), `sameZone` and `score`.
 function Matcher.List()
@@ -58,12 +87,12 @@ function Matcher.List()
 	local list = {}
 	for name, e in pairs(peers) do
 		local ok, grouped = pcall(inMyGroup, name)
-		if now - e.at > MAX_AGE or (ok and grouped) then
+		if now - e.at > (MAX_AGE[e.source] or 300) or (ok and grouped) then
 			peers[name] = nil
 		else
 			-- Quests that left our log since no longer count.
 			local still = {}
-			for _, id in ipairs(e.quests) do if ns.Quests.Has(id) then still[#still + 1] = id end end
+			for _, id in ipairs(e.quests) do if Matcher.Mine(id) then still[#still + 1] = id end end
 			if #still > 0 then
 				e.quests = still
 				e.yards = ns.Quests.Yards(map, x, y, e.map, e.x, e.y)
@@ -76,6 +105,8 @@ function Matcher.List()
 				score = score - (now - e.at) / 10
 				e.score = score
 				list[#list + 1] = e
+			else
+				peers[name] = nil -- nothing in common any more
 			end
 		end
 	end
@@ -84,4 +115,5 @@ function Matcher.List()
 end
 
 ns.RegisterEvent("GROUP_ROSTER_UPDATE", function() ns.Fire("PEERS") end)
+ns.On("SESSION", function() ns.Fire("PEERS") end)
 ns.On("ENABLED", function(on) if not on then Matcher.Clear() end end)

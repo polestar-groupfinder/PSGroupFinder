@@ -10,6 +10,12 @@
 --     GuideParts().window (capability guideParts) to sit against the guide
 --     window and hang the "Find a group" button under it. Promised by the
 --     Skin API within its API_VERSION.
+--   Polestar.RegisterOptions (docs ARCHITECTURE.md, "Options registry": not in
+--     docs/API.md): our page in Polestar's settings window, rows with
+--     get/set, a binding row, buttons. Called once under pcall; when it is
+--     missing or refuses, the panel keeps every option.
+--   Polestar.UI.ShowOptions(pageKey): INTERNAL, under pcall, for the
+--     panel's Options button, which only shows when it exists.
 --   Polestar.Engine.GetGuide / GetLiveStep and the step's goals' `quest`:
 --     INTERNAL (not in docs/API.md), read under pcall, to know the quests
 --     of the live step. When they move, the addon falls back to the quest
@@ -70,11 +76,28 @@ local function guideWindow()
 	return ok and type(parts) == "table" and parts.window or nil
 end
 
+-- How far the window's own parts (bottom-edge tabs) stand under it.
+local function reach(window)
+	local T = P and P.Theme
+	if not (T and T.GuideReach) then return 0 end
+	if T.HasCapability and not T.HasCapability("guideReach") then return 0 end
+	local ok, _, bottom = pcall(T.GuideReach, window)
+	if not ok then return 0 end
+	-- One number is the bottom's only when the answer has no second one.
+	local r = tonumber(bottom) or 0
+	return r > 0 and r or 0
+end
+
+local function placeLauncher(b, window)
+	b:ClearAllPoints()
+	b:SetPoint("TOPRIGHT", window, "BOTTOMRIGHT", 0, -2 - reach(window))
+end
+
 local function makeLauncher(window)
 	local T = P.Theme
 	local b = CreateFrame("Button", "PolestarGroupFinderLauncher", window)
 	b:SetSize(132, 20)
-	b:SetPoint("TOPRIGHT", window, "BOTTOMRIGHT", 0, -2)
+	placeLauncher(b, window)
 	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	b.psTextButton = true
 	local fs = b:CreateFontString(nil, "OVERLAY")
@@ -91,6 +114,11 @@ local function makeLauncher(window)
 			ns.UI.Show()
 		end
 	end)
+	-- Greyed while the finder is off: a click then only opens the panel.
+	local function dimmed() b:SetAlpha(ns.Get("enabled") and 1 or 0.55) end
+	ns.On("ENABLED", dimmed)
+	ns.On("SETTING", dimmed)
+	dimmed()
 	b:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
 		GameTooltip:SetText(L.TITLE, 1, 1, 1)
@@ -112,11 +140,13 @@ local function attach()
 			launcher = makeLauncher(window)
 		else
 			launcher:SetParent(window)
-			launcher:ClearAllPoints()
-			launcher:SetPoint("TOPRIGHT", window, "BOTTOMRIGHT", 0, -2)
+			placeLauncher(launcher, window)
 		end
-		window:HookScript("OnShow", function() if ns.UI then ns.UI.Place() end end)
-		window:HookScript("OnHide", function() if ns.UI then ns.UI.Place() end end)
+		window:HookScript("OnShow", function()
+			if launcher then placeLauncher(launcher, window) end
+			if ns.UI then ns.UI.HostShown(true) end
+		end)
+		window:HookScript("OnHide", function() if ns.UI then ns.UI.HostShown(false) end end)
 		if ns.UI then ns.UI.SetHost(window) end
 	end
 	return true
@@ -131,9 +161,59 @@ local function retry()
 	ns.After(3, retry)
 end
 
+---------------------------------------------------------------------------
+-- Our page in Polestar's settings window
+---------------------------------------------------------------------------
+
+local optionsRegistered = false
+
+local function registerOptions()
+	if optionsRegistered or type(P.RegisterOptions) ~= "function" then return end
+	local function toggle(label, help, key, onSet)
+		return {
+			kind = "toggle", label = label, help = help, search = "group finder party quest lfg groupe",
+			get = function() return ns.Get(key) and true or false end,
+			set = function(v) if onSet then onSet(v and true or false) else ns.Set(key, v and true or false) end end,
+		}
+	end
+	local spec = {
+		page = L.OPT_SECTION, key = "groupfinder", icon = "icon-group", group = "guiding", order = 45,
+		tab = L.OPT_SECTION, section = L.OPT_SECTION,
+		controls = {
+			toggle(L.ENABLE, L.ENABLE_TIP, "enabled", ns.SetEnabled),
+			toggle(L.AUTO_GROUP, L.AUTO_GROUP_TIP, "autoGroup"),
+			toggle(L.SHARE_COORDS, nil, "shareCoords"),
+			toggle(L.AUTO_REPLY, nil, "autoReply"),
+			{ kind = "binding", action = "PSGF_SEARCH", label = L.BINDING_SEARCH },
+			{ kind = "binding", action = "PSGF_TOGGLE_PANEL", label = L.BINDING_PANEL },
+			{ kind = "button", label = L.TEST, onClick = function() if ns.TestChannels then ns.TestChannels(true) end end },
+			{ kind = "button", label = L.OPEN_PANEL, onClick = function() ns.UI.Show() end },
+		},
+	}
+	local ok, res, err = pcall(P.RegisterOptions, spec)
+	if ok and res ~= false then
+		optionsRegistered = true
+	else
+		ns.Debug("RegisterOptions: %s", tostring(ok and err or res))
+	end
+end
+
+-- The panel's Options button: Polestar's settings window on our page.
+function ns.OpenOptions()
+	local U = P and P.UI
+	if U and type(U.ShowOptions) == "function" then
+		local ok = pcall(U.ShowOptions, "groupfinder")
+		if ok then return true end
+	end
+	return false
+end
+
 ns.On("LOGIN", function()
 	if not usable() then return end
 	P = Polestar
+	registerOptions()
+	local U = P.UI
+	if ns.UI and optionsRegistered and U and type(U.ShowOptions) == "function" then ns.UI.SetHasOptions(true) end
 	local function changed()
 		stepDirty = true
 		attach()

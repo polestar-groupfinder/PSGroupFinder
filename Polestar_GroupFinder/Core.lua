@@ -17,6 +17,7 @@ ns.version = (C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata or func
 local DEFAULTS = {
 	enabled = false,     -- the whole feature, off until the player turns it on
 	autoReply = true,    -- answer searches for quests we have (only while enabled)
+	autoGroup = false,   -- invite / accept without a click after a search (opt-in)
 	shareCoords = true,  -- send x/y with the map; off: the map only
 	panelPos = false,    -- { point, x, y } of the standalone panel
 	debug = false,
@@ -132,6 +133,12 @@ SlashCmdList.POLESTARGROUPFINDER = function(msg)
 		PolestarGroupFinder_TogglePanel()
 	elseif cmd == "search" then
 		PolestarGroupFinder_Search()
+	elseif cmd == "stop" then
+		if ns.Session and ns.Session.Active() then
+			ns.Comm.Stop()
+			ns.Session.Stop("manual")
+			ns.Print(L.SEARCH_STOPPED)
+		end
 	elseif cmd == "on" then
 		ns.SetEnabled(true)
 	elseif cmd == "off" then

@@ -4,7 +4,7 @@
 ## Notes: Optional Polestar module: find players on the same kill, named, loot or group quest near you.
 ## Notes-frFR: Module optionnel de Polestar : trouve les joueurs sur la même quête (kill, élite nommé, loot, groupe) près de vous.
 ## Author: PSGroupFinder contributors
-## Version: 0.1.0
+## Version: 0.2.0
 ## X-License: GPL-3.0-or-later
 ## Category: Polestar
 ## OptionalDeps: Polestar
@@ -15,7 +15,9 @@ Locales.lua
 Core.lua
 Throttle.lua
 Quests.lua
+Session.lua
 Comm.lua
 Matcher.lua
+Group.lua
 UI.lua
 Polestar.lua

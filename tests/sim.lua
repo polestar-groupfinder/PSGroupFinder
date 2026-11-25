@@ -1,10 +1,11 @@
 -- Two simulated clients exchanging Polestar Group Finder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Throttle", "Quests", "Comm", "Matcher", "UI", "Polestar" }
+local FILES = { "Locales", "Core", "Throttle", "Quests", "Session", "Comm", "Matcher", "Group", "UI", "Polestar" }
 local DIR = "Polestar_GroupFinder/"
 local bus = {}      -- every client's env
 local now = 0
 local timers = {}
+local party = {}   -- client name -> shared { members... } (first = leader)
 
 local function newClient(name, quests, opts)
 	opts = opts or {}
@@ -29,6 +30,7 @@ local function newClient(name, quests, opts)
 			if k == "Hide" then return function() t._shown = false end end
 			if k == "GetChecked" then return function() return false end end
 			if k == "GetPoint" then return function() return "CENTER", nil, nil, 0, 0 end end
+			if k == "GetStringWidth" or k == "GetWidth" then return function() return 100 end end
 			if k == "IsMovable" then return function() return true end end
 			if k == "CreateFontString" or k == "CreateTexture" then return function() return frameStub() end end
 			if k == "SetScript" then return function(_, ev, fn) t["_" .. ev] = fn end end
@@ -62,7 +64,42 @@ local function newClient(name, quests, opts)
 	env.IsInInstance = function() return false end
 	env.UnitLevel = function() return 20 end
 	env.UnitClass = function() return "Guerrier", opts.class or "WARRIOR" end
-	env.GetNumGroupMembers = function() return 0 end
+	env.GetNumGroupMembers = function() local p = party[name] return p and #p or 0 end
+	env.IsInGroup = function() return party[name] ~= nil end
+	env.UnitIsGroupLeader = function() local p = party[name] return p ~= nil and p[1] == name end
+	env.UnitInParty = function(n)
+		local p = party[name]
+		if not p then return false end
+		for _, m in ipairs(p) do if m == n then return true end end
+		return false
+	end
+	env.UnitFactionGroup = function() return opts.faction or "Alliance" end
+	env.invited = {}
+	env.popupShown = false
+	env.StaticPopup_Hide = function() env.popupShown = false end
+	env.StaticPopup_Visible = function() return env.popupShown and "x" or nil end
+	env.AcceptGroup = function()
+		if opts.noAccept or env.refuseAccept then return end -- the client refuses (hardware event needed)
+		local inviter = env.pendingInviter
+		if not inviter then return end
+		local p = party[inviter] or { inviter }
+		party[inviter] = p
+		p[#p + 1] = name
+		party[name] = p
+		env.pendingInviter = nil
+	end
+	env.C_PartyInfo = { InviteUnit = function(target)
+		env.invited[#env.invited + 1] = target
+		for _, other in ipairs(bus) do
+			if other.me == target then
+				timers[#timers + 1] = { at = now + 0.2, fn = function()
+					other.pendingInviter = name
+					other.popupShown = true
+					other.fire("PARTY_INVITE_REQUEST", name)
+				end }
+			end
+		end
+	end, CanInvite = function() local p = party[name] return p == nil or p[1] == name end }
 	env.C_Map = {
 		GetBestMapForUnit = function() return opts.map or 1436 end,
 		GetPlayerMapPosition = function() return { GetXY = function() return opts.x or 0.5, opts.y or 0.5 end } end,
@@ -70,10 +107,12 @@ local function newClient(name, quests, opts)
 	}
 	env.CreateVector2D = function(x, y) return { x = x, y = y } end
 	env.GetNumQuestLogEntries = function() return #quests end
-	env.GetQuestLogTitle = function(i) local q = quests[i] return q.title, 20, q.group or 0, false, false, nil, 0, q.id end
+	env.GetQuestLogTitle = function(i) local q = quests[i] return q.title, 20, q.group or 0, false, false, q.complete and 1 or nil, 0, q.id end
 	env.GetNumQuestLeaderBoards = function(i) return #(quests[i].obj or {}) end
-	env.GetQuestLogLeaderBoard = function(j, i) local o = quests[i].obj[j] return o[1], o[2], false end
+	env.GetQuestLogLeaderBoard = function(j, i) local o = quests[i].obj[j] return o[1], o[2], o[3] or false end
+	env.QuestLogUpdate = function() env.fire("QUEST_LOG_UPDATE") end
 	env.Polestar = opts.polestar
+	env.quests = quests
 	env.me = name
 	env.guild = opts.guild
 	env.blocked = opts.blocked
@@ -149,6 +188,11 @@ check(#cid.ns.Matcher.List() == 0, "Cid (no shared quest) sees nobody and answer
 ana.PolestarGroupFinder_Search()
 check(ana.printed[#ana.printed]:find("Attendez"), "search cooldown enforced")
 
+-- The panel builds and refreshes with a session and a player found (stub frames).
+ana.ns.UI.Show()
+ana.ns.UI.Refresh()
+check(ana.ns.UI.IsShown(), "panel builds and refreshes with a search and a player found")
+
 -- Message size and decode round trip.
 local many = {}
 for i = 1, 40 do many[i] = { id = 100000 + i, kind = "k" } end
@@ -181,6 +225,120 @@ check(hasButton, "launcher button painted through Polestar.Theme.Skin")
 fakePolestar.Engine.GetGuide = function() error("internal API moved") end
 handlers.STEP_CHANGED()
 check(#dee.ns.Quests.Relevant() == 2, "Engine failure falls back to the quest log")
+
+
+---------------------------------------------------------------------------
+-- v0.2: a search is a session, objectives leave it, auto-group
+---------------------------------------------------------------------------
+local function collect(c) local t = {} for _, q in ipairs(c.ns.Session.List()) do t[#t + 1] = q.id end return t end
+
+-- Eve: three quests (A kill, B kill, C loot); Finn: A and B; Gus: B only.
+local qa = { id = 5001, title = "Kobold Camp Cleanup", obj = { { "Kobold Vermin slain: 3/10", "monster" } } }
+local qb = { id = 5002, title = "Wolves Across the Border", obj = { { "Tough Wolf Meat: 1/8", "item" } } }
+local qc = { id = 5003, title = "Investigate the Camp", obj = { { "Searched: 0/1", "monster" } } }
+local function copyQ(q) return { id = q.id, title = q.title, obj = { { q.obj[1][1], q.obj[1][2] } } } end
+local eve = newClient("Eve Dawn", { copyQ(qa), copyQ(qb), copyQ(qc) }, { x = 0.30, y = 0.30 })
+local finn = newClient("Finn Roe", { copyQ(qa), copyQ(qb) }, { x = 0.31, y = 0.30, class = "MAGE" })
+local gus = newClient("Gus Hale", { copyQ(qb) }, { x = 0.32, y = 0.30, class = "ROGUE" })
+for _, c in ipairs({ eve, finn, gus }) do c.ns.SetEnabled(true) end
+run(15)
+eve.ns.Comm.TestChannels(true) run(6)
+check(not eve.ns.Session.Active(), "no session before a search")
+run(30)
+eve.PolestarGroupFinder_Search()
+run(5)
+check(eve.ns.Session.Active() and #collect(eve) == 3, "a search opens a session on its 3 quests")
+check(#eve.ns.Matcher.List() == 2, "Eve found Finn and Gus")
+local function peerQuests(c, who) local e = c.ns.Matcher.Get(who) return e and #e.quests or 0 end
+check(peerQuests(eve, "Finn Roe") == 2 and peerQuests(eve, "Gus Hale") == 1, "Finn shares 2 quests with Eve, Gus 1")
+
+-- Objective A done on Eve: removed from the session, Finn's entry shrinks.
+eve.quests[1].obj[1][3] = true
+eve.QuestLogUpdate()
+run(0.5)
+check(#collect(eve) == 3, "no pruning before the 1 s debounce")
+run(3)
+local left = collect(eve)
+table.sort(left)
+check(#left == 2 and left[1] == 5002 and left[2] == 5003, "quest A removed from the search, B and C stay")
+check(eve.printed[#eve.printed - 1]:find("Objectif terminé") ~= nil, "the player is told (objective done)")
+check(peerQuests(finn, "Eve Dawn") == 1, "Finn's list of Eve updated to the quests left (B only)")
+check(peerQuests(gus, "Eve Dawn") == 1, "Gus still shares B with Eve")
+
+-- Objective B done on Eve (item turned ready): Finn and Gus no longer match.
+eve.quests[2].complete = true
+eve.QuestLogUpdate()
+run(3)
+check(#collect(eve) == 1 and collect(eve)[1] == 5003, "quest B removed, only C left")
+check(finn.ns.Matcher.Get("Eve Dawn") == nil and gus.ns.Matcher.Get("Eve Dawn") == nil, "players with no quest in common drop Eve")
+check(eve.ns.Matcher.Get("Gus Hale") == nil, "Eve's list drops Gus (B is no longer searched)")
+
+-- Last objective: the search ends and X goes out.
+eve.quests[3].obj[1][3] = true
+eve.QuestLogUpdate()
+run(3)
+check(not eve.ns.Session.Active(), "last quest done: search stopped")
+check(eve.printed[#eve.printed]:find("Tous les objectifs") ~= nil, "the player is told the search is over")
+
+-- Auto group.
+local function mk(name, opts, quests)
+	local c = newClient(name, quests, opts)
+	c.ns.SetEnabled(true)
+	return c
+end
+local function q1() return { copyQ({ id = 6001, title = "Mine Pest Control", obj = { { "Pest slain: 0/6", "monster" } } }) } end
+local hal = mk("Hal Orn", { x = 0.60, y = 0.60 }, q1())
+local ivy = mk("Ivy Kerr", { x = 0.61, y = 0.60, class = "PRIEST" }, q1())
+local jon = mk("Jon Pike", { x = 0.62, y = 0.60, faction = "Horde" }, q1())
+run(15)
+hal.ns.Comm.TestChannels(true) run(6)
+run(30)
+-- Option off (default): nothing automatic.
+check(hal.ns.Get("autoGroup") == false, "autoGroup is off by default")
+hal.PolestarGroupFinder_Search()
+run(8)
+check(#hal.invited == 0 and #ivy.invited == 0 and party["Hal Orn"] == nil, "autoGroup off: nobody invited, nobody grouped")
+check(#hal.ns.Matcher.List() >= 1, "players still listed for manual Invite")
+for _, c in ipairs({ hal, ivy, jon }) do c.ns.Matcher.Clear() c.ns.Session.Stop("x") end
+
+-- Both on: after Hal's search, a group forms with no click on Invite.
+hal.ns.Set("autoGroup", true) ivy.ns.Set("autoGroup", true) jon.ns.Set("autoGroup", true)
+run(30)
+hal.PolestarGroupFinder_Search()
+run(10)
+check(party["Hal Orn"] ~= nil and party["Ivy Kerr"] == party["Hal Orn"], "autoGroup on: Hal and Ivy are grouped without a click")
+check(party["Jon Pike"] == nil and #hal.invited + #ivy.invited <= 2, "the other faction (Horde) is never invited")
+local inviterName = party["Hal Orn"][1]
+check(#(inviterName == "Hal Orn" and hal or ivy).invited == 1, "exactly one side invited: the deterministic one (" .. inviterName .. ")")
+
+-- A stranger's invite is not accepted.
+local kay = mk("Kay Lund", {}, { copyQ({ id = 7001, title = "Other", obj = { { "x: 0/1", "monster" } } }) })
+kay.ns.Set("autoGroup", true)
+run(5)
+kay.pendingInviter = "Zed Rook"
+kay.popupShown = true
+kay.fire("PARTY_INVITE_REQUEST", "Zed Rook")
+check(party["Kay Lund"] == nil and kay.popupShown, "an invitation from someone unexpected is left to the player")
+
+-- Client refuses AcceptGroup: the player is told to accept by hand.
+local lou = mk("Lou Vance", { x = 0.7, y = 0.7 }, { copyQ({ id = 8001, title = "Boar Hunt", obj = { { "Boar slain: 0/8", "monster" } } }) })
+local max = mk("Max Teal", { x = 0.71, y = 0.7 }, { copyQ({ id = 8001, title = "Boar Hunt", obj = { { "Boar slain: 0/8", "monster" } } }) })
+lou.ns.Set("autoGroup", true) max.ns.Set("autoGroup", true)
+-- The one with the higher sid is the one invited: its client refuses AcceptGroup.
+local invitee, inviter = lou, max
+if lou.ns.Comm.sid < max.ns.Comm.sid then invitee, inviter = max, lou end
+invitee.refuseAccept = true
+run(30)
+inviter.PolestarGroupFinder_Search()
+run(10)
+local told = false
+for _, p in ipairs(invitee.printed) do if p:find("à la main") then told = true end end
+check(party["Lou Vance"] == nil and party["Max Teal"] == nil and told, "AcceptGroup refused by the client: popup stays, the player is told to click")
+
+-- A full party ends the search (5 members).
+party["Hal Orn"] = { "Hal Orn", "a", "b", "c", "d" }
+hal.fire("GROUP_ROSTER_UPDATE")
+check(not hal.ns.Session.Active(), "party of 5: search stopped")
 
 ana.ns.SetEnabled(false)
 check(#ana.ns.Matcher.List() == 0 and ana.joined == false, "turning off clears the list and leaves the channel")

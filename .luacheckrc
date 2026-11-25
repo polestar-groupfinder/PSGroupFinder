@@ -19,5 +19,5 @@ read_globals = {
 	"UnitInParty", "UnitInRaid", "GameFontHighlightSmall", "GameFontNormalSmall", "GameFontNormal",
 	"GameFontNormalLarge", "GameFontDisableSmall", "GameTooltip", "RAID_CLASS_COLORS",
 	"ChatFrame_SendTell", "ChatFrame_OpenChat", "C_PartyInfo", "InviteUnit", "UIParent",
-	"BackdropTemplateMixin", "_G",
+	"BackdropTemplateMixin", "_G", "UnitIsGroupLeader", "AcceptGroup", "StaticPopup_Hide", "StaticPopup_Visible", "IsInGroup", "UnitFactionGroup",
 }
