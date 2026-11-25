@@ -64,6 +64,40 @@ function ns.PolestarStepQuests()
 end
 
 ---------------------------------------------------------------------------
+-- Left click: start or restart the search, never open the panel (the
+-- search already prints a short chat line; the icon turns accent while
+-- a session is active). Right click: open or close the panel.
+-- The button argument is required: without RegisterForClicks for the
+-- right button, or if OnClick is called without it, a right click would
+-- fall through to the left-click action.
+local function bindFinderClicks(b)
+	if not b then return end
+	if b.EnableMouse then b:EnableMouse(true) end
+	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	b:SetScript("OnClick", function(_, button)
+		if button == "RightButton" then
+			if ns.TogglePanel then ns.TogglePanel() end
+			return
+		end
+		if ns.Get("enabled") then
+			if ns.Search then ns.Search() end
+		else
+			ns.Print(L.DISABLED)
+		end
+		if ns.PaintHeader then ns.PaintHeader() end
+	end)
+end
+
+-- Custom get/set option rows do not fire Polestar SETTING_CHANGED, so a
+-- sibling's `disabled` function would not be re-evaluated until the page
+-- was rebuilt. RefreshAll is Polestar's native pass (the same one
+-- SETTING_CHANGED runs for every `disabled` row).
+local function refreshOptionsLangs()
+	local W = P and P.Widgets
+	if W and W.RefreshAll then pcall(W.RefreshAll) end
+end
+ns.On("LANG", refreshOptionsLangs)
+
 -- The guide window: an icon in the header (left of Lookup), or the
 -- "Find a group" button under the window when the header is off or
 -- cannot be attached.
@@ -121,14 +155,7 @@ local function makeLauncher(window)
 	b:SetFontString(fs)
 	b:SetText(L.SEARCH)
 	if T.Skin then pcall(T.Skin, b, "button") end
-	b:SetScript("OnClick", function(_, mouse)
-		if mouse == "RightButton" then
-			ns.TogglePanel()
-		else
-			if ns.Get("enabled") then ns.Search() end
-			ns.UI.Show()
-		end
-	end)
+	bindFinderClicks(b)
 	-- Greyed while the finder is off: a click then only opens the panel.
 	local function dimmed() b:SetAlpha(ns.Get("enabled") and 1 or 0.55) end
 	ns.On("ENABLED", dimmed)
@@ -217,15 +244,7 @@ local function makeHeader(nav)
 		if T and T.Skin then pcall(T.Skin, b, "button") end
 	end
 	makeGlyph(b)
-	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	b:SetScript("OnClick", function(_, mouse)
-		if mouse == "RightButton" then
-			ns.TogglePanel()
-		else
-			if ns.Get("enabled") then ns.Search() end
-			ns.UI.Show()
-		end
-	end)
+	bindFinderClicks(b)
 	b:SetScript("OnEnter", function(self)
 		if ns.Session and ns.Session.Active() then paintGlyph(self, "accent", 1)
 		else paintGlyph(self, "iconHover", 1) end

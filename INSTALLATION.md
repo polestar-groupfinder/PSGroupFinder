@@ -1,4 +1,4 @@
-# Installation — Group Finder for Polestar (PSGroupFinder) 1.0.0
+# Installation — Group Finder for Polestar (PSGroupFinder) 1.0.1
 
 Companion de [Polestar](https://www.curseforge.com/wow/addons/polestar) pour WoW: Forever 1.60.1.
 **Cet addon n'a pas encore été testé dans le client de jeu.**
@@ -29,10 +29,10 @@ Si les dossiers `Interface` ou `AddOns` n'existent pas encore, créez-les en res
 ## Installer
 
 1. Fermez complètement le jeu.
-2. Décompressez `PSGroupFinder-1.0.0.zip`. Vous devez obtenir un dossier `PSGroupFinder` qui contient le fichier `PSGroupFinder.toc`.
+2. Décompressez `PSGroupFinder-1.0.1.zip`. Vous devez obtenir un dossier `PSGroupFinder` qui contient le fichier `PSGroupFinder.toc`.
 3. Placez ce dossier `PSGroupFinder` **directement** dans le dossier `AddOns` ci-dessus. Le chemin final doit être :
    `.../_forever_/Interface/AddOns/PSGroupFinder/PSGroupFinder.toc`
-   (pas `AddOns/PSGroupFinder/PSGroupFinder/PSGroupFinder.toc`, ni un dossier `PSGroupFinder-1.0.0` autour).
+   (pas `AddOns/PSGroupFinder/PSGroupFinder/PSGroupFinder.toc`, ni un dossier `PSGroupFinder-1.0.1` autour).
 4. Si un ancien dossier `Polestar_GroupFinder` est encore là (versions 0.x), **supprimez-le** pour éviter que les deux addons se chargent ensemble.
 5. Relancez **complètement** le jeu. Un `/reload` ne suffit pas pour un nouvel addon.
 

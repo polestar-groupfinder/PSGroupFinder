@@ -44,6 +44,8 @@ local function newClient(name, quests, opts)
 			if k == "SetColorTexture" or k == "SetVertexColor" or k == "SetTexture" then return function() end end
 			if k == "RegisterForClicks" then return function() end end
 			if k == "CreateFontString" or k == "CreateTexture" then return function() return frameStub() end end
+			if k == "SetText" then return function(_, s) t._text = s end end
+			if k == "GetText" then return function() return t._text end end
 			if k == "SetScript" then return function(_, ev, fn) t["_" .. ev] = fn end end
 			if k == "RegisterEvent" then return function(_, ev) frames[#frames + 1] = { t, ev } end end
 			return function() end
@@ -252,6 +254,45 @@ check(hasButton, "launcher button painted through Polestar.Theme.Skin")
 check(dee.ns.headerButtonFrame ~= nil, "header icon created on the step bar (left of Lookup)")
 local _, headerRel = dee.ns.headerButtonFrame:GetPoint(1)
 check(headerRel == nav.Lookup, "header icon is anchored to Lookup (the magnifying glass)")
+-- Clicks: left starts a search without opening the panel; right toggles it.
+dee.ns.SetEnabled(true)
+run(15)
+dee.ns.Comm.TestChannels(true)
+run(6)
+check(not dee.ns.UI.IsShown(), "panel is closed before a header click")
+local hdr = dee.ns.headerButtonFrame
+check(type(hdr._OnClick) == "function", "header OnClick is set (RegisterForClicks Left/Right)")
+hdr:_OnClick("LeftButton")
+check(dee.ns.Session.Active(), "left click on the header starts a search")
+check(not dee.ns.UI.IsShown(), "left click does not open the panel")
+local sawSent = false
+for _, p in ipairs(dee.printed) do
+	if p:find("Recherche envoyée") or p:find("Search sent") then sawSent = true end
+end
+check(sawSent, "left click prints a short search confirmation in chat")
+if dee.ns.UI.IsShown() then dee.ns.UI.Toggle() end
+hdr:_OnClick("RightButton")
+check(dee.ns.UI.IsShown(), "right click opens the panel")
+hdr:_OnClick("RightButton")
+check(not dee.ns.UI.IsShown(), "right click again closes the panel")
+-- Active search, no one found yet: a lone player with a unique quest.
+local loneQ = { id = 4242, title = "Supplies to Auberdine", obj = { { "Bundle of Furs: 0/1", "item" } } }
+local lea = newClient("Lea Grove", { loneQ }, { x = 0.5, y = 0.5 })
+lea.ns.SetEnabled(true)
+run(15)
+lea.ns.Comm.TestChannels(true)
+run(6)
+lea.PSGroupFinder_Search()
+lea.ns.UI.Show()
+lea.ns.UI.Refresh()
+check(lea.ns.Session.Active() and #lea.ns.Matcher.List() == 0, "Lea is searching and has no one yet")
+check(lea.ns.UI.EmptyCaption() == "Recherche en cours… aucun joueur pour l'instant.",
+	"active search with no one found uses the searching-empty caption")
+lea.ns.Session.Stop("manual")
+lea.ns.UI.Refresh()
+check(lea.ns.UI.EmptyCaption() == "Personne pour l'instant. Cliquez sur Chercher un groupe.",
+	"with no search in progress the empty caption invites to search")
+lea.ns.UI.Toggle()
 fakePolestar.Engine.GetGuide = function() error("internal API moved") end
 handlers.STEP_CHANGED()
 check(#dee.ns.Quests.Relevant() == 2, "Engine failure falls back to the quest log")

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1 — 2026-11-25
+
+- Options Polestar : cocher « Toutes les langues » grise immédiatement **toutes** les autres langues (cochées ou non), via le `disabled` natif de Polestar et un `Widgets.RefreshAll` (les toggles `get`/`set` ne déclenchent pas `SETTING_CHANGED`, donc les lignes sœurs ne se redessinaient pas au clic). L'état mémorisé reste visible, atténué. Même comportement dans le sélecteur du panneau.
+- Clic gauche sur l'icône d'en-tête (et le bouton sous la fenêtre) : lance ou relance la recherche **sans** ouvrir le panneau (icône accent + message de chat). Clic droit : ouvre ou ferme le panneau.
+- Pendant une recherche active sans résultat, le panneau affiche « Recherche en cours… aucun joueur pour l'instant » (au lieu d'inviter à cliquer sur Chercher un groupe).
+
 ## 1.0.0 — 2026-11-25
 
 Première version destinée à être installée en jeu (non testée dans le client).

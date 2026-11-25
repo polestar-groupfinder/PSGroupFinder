@@ -335,6 +335,7 @@ function UI.Refresh()
 	rows = rows or {}
 	widgets.empty:SetShown(on and n == 0)
 	if on and n == 0 then
+		widgets.empty:SetText((active and L.EMPTY_SEARCHING or L.EMPTY) or L.EMPTY)
 		at(widgets.empty, y + 2, PAD + 2)
 		y = y + 38
 	end
@@ -419,7 +420,7 @@ end
 
 
 ---------------------------------------------------------------------------
--- Language picker (spoken + accepted), opened from the compact summary.
+-- Language picker (search languages), opened from the compact summary.
 ---------------------------------------------------------------------------
 
 local function langCheck(parent, label, getter, setter)
@@ -434,9 +435,12 @@ function UI.RefreshLangPicker()
 	if box.all then box.all:SetChecked(ns.Lang.AcceptsAll()) end
 	local locked = ns.Lang.AcceptsAll()
 	for _, c in ipairs(box.langs or {}) do
+		-- Uniform: memorised ticks stay, every row (on or off) is faded and
+		-- not clickable while "All languages" is on.
 		c:SetChecked(c.psGet and c.psGet())
 		c:SetEnabled(not locked)
 		c:SetAlpha(locked and 0.45 or 1)
+		if c.EnableMouse then c:EnableMouse(not locked) end
 	end
 end
 
@@ -621,6 +625,10 @@ function UI.Toggle()
 end
 
 function UI.IsShown() return panel and panel:IsShown() or false end
+
+function UI.EmptyCaption()
+	return widgets.empty and widgets.empty.GetText and widgets.empty:GetText() or nil
+end
 
 ns.TogglePanel = UI.Toggle
 ns.ResetPanel = UI.Place

@@ -14,7 +14,7 @@ La procédure détaillée (chemins Windows et Mac, activation, premier test à d
 comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
 
 1. Installez d'abord [Polestar](https://www.curseforge.com/wow/addons/polestar).
-2. Décompressez `PSGroupFinder-1.0.0.zip` dans
+2. Décompressez `PSGroupFinder-1.0.1.zip` dans
    `World of Warcraft/_forever_/Interface/AddOns/` : vous devez obtenir
    `.../AddOns/PSGroupFinder/PSGroupFinder.toc` (pas un dossier dans un dossier).
    Si vous aviez l'ancienne version `Polestar_GroupFinder`, supprimez ce dossier.
