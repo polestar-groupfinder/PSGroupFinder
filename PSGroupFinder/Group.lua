@@ -76,6 +76,7 @@ local function invite(e)
 	tried[k] = ns.Now()
 	pending[k] = e.name
 	pcall(fn, e.name)
+	if ns.Leave then ns.Leave.NoteInvite(e.name, e.quests) end
 	state(e, "invited")
 	ns.Print(L.AUTO_INVITED, Ambiguate and Ambiguate(e.name, "none") or e.name)
 end

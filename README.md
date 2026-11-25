@@ -14,7 +14,7 @@ La procédure détaillée (chemins Windows et Mac, activation, premier test à d
 comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
 
 1. Installez d'abord [Polestar](https://www.curseforge.com/wow/addons/polestar).
-2. Décompressez `PSGroupFinder-1.0.1.zip` dans
+2. Décompressez `PSGroupFinder-1.1.0.zip` dans
    `World of Warcraft/_forever_/Interface/AddOns/` : vous devez obtenir
    `.../AddOns/PSGroupFinder/PSGroupFinder.toc` (pas un dossier dans un dossier).
    Si vous aviez l'ancienne version `Polestar_GroupFinder`, supprimez ce dossier.
@@ -71,8 +71,22 @@ comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
   - langues de recherche (défaut : langue du jeu seulement ; « Toutes » est opt-in) ;
   - partager ma position (sinon seule la zone est envoyée) ;
   - répondre aux recherches sur mes quêtes.
+  - proposer de quitter quand les quêtes du groupe sont finies (activé par défaut), et dire un
+    message dans /p avant de quitter (désactivé par défaut, texte modifiable) ;
+- **Liste par quête** (1.1) : un petit bouton (deux silhouettes) ouvre le panneau en « mode quête »,
+  la liste des joueurs qui ont **cette** quête, où qu'ils soient, avec leur zone, leur progression,
+  Chuchoter et Inviter ; **Rechercher pour cette quête** les interroge (quête identifiée par son
+  numéro). Le bouton est :
+  1. dans la fenêtre de guide Polestar, sous l'icône de l'objectif, à gauche de la sous-ligne ;
+  2. proposé dans l'infobulle de l'objectif (« Alt-clic : voir les joueurs sur cette quête ») ;
+  3. dans le journal de quêtes du jeu, à droite de la case de suivi de chaque quête.
+  Sans Polestar il reste celui du journal et `/psgf quest <id>`.
+- **Quitter le groupe** (1.1) : pour un groupe formé via l'addon, quand toutes les quêtes pour
+  lesquelles vous vous êtes groupé sont finies, une fenêtre propose **Quitter** / **Rester**.
+  Le message dans /p (option) et la sortie du groupe ne se font **que dans le clic sur Quitter**.
 - **Commandes** : `/psgf` (panneau), `/psgf search`, `/psgf stop`, `/psgf on|off`, `/psgf test`
-  (teste les canaux), `/psgf reset` (replace le panneau), `/psgf debug`.
+  (teste les canaux), `/psgf reset` (replace le panneau), `/psgf quest <id>` (liste d'une quête),
+  `/psgf hooks` (ce qui a été trouvé chez Polestar et dans le journal), `/psgf debug`.
 
 ## Ce qui est envoyé
 
@@ -84,6 +98,8 @@ Seulement quand c’est activé, en messages d’addon cachés (préfixe `PSGF`,
 | Réponse `R` | en chuchotement d’addon au chercheur, au plus 1×/20 s par joueur | uniquement les IDs des quêtes **en commun**, votre carte/position, niveau, classe, drapeaux, langue du client |
 | Fin `X` | dernière quête terminée, arrêt, groupe complet | votre identifiant de session : les autres vous retirent de leur liste |
 | Demande `G` | option groupage auto, chuchoté au joueur qui doit vous inviter | les IDs des quêtes en commun |
+| Recherche de quête `Q` (1.1) | votre clic sur un bouton de quête, au plus toutes les 15 s | l'identifiant d'**une** quête, carte, x/y (si partagé), niveau, classe, taille du groupe, drapeaux, langue du client |
+| Réponse de quête `A` (1.1) | en chuchotement au demandeur, si vous avez la quête dans le journal (quelle que soit la zone), au plus 1×/20 s par demandeur et par quête | cet identifiant et votre progression en % (100 : terminée ou à rendre), votre position, niveau, classe, langue |
 | Test `T` | `/psgf test`, ou une fois après activation | un identifiant aléatoire (on écoute son propre écho) |
 
 Jamais de texte libre, jamais tout le journal de quêtes, rien en instance.
@@ -120,10 +136,24 @@ peuvent exiger une action matérielle).
 | `Polestar.UI.ShowOptions(clé)` | **interne**, sous `pcall` | bouton « Options » du panneau (masqué si absent) |
 | `Polestar.Engine.GetGuide()` / `GetLiveStep()` et `step.goals[].quest` | **interne**, appelé sous `pcall` | mettre les quêtes de l’étape en cours en tête |
 | `Polestar.Compat.GetPlayerMapPosition()` | **interne**, sous `pcall` | position (sinon `C_Map`) |
+| `Polestar.Theme.GuideParts().rows` (les lignes d'objectif, « pooled »), et sur chaque ligne `psGoal`, `Icon`, `Check`, `Alt` | `rows` documenté dans la référence des skins ; les champs de ligne sont **internes** | bouton de quête sous l'icône de l'objectif |
+| `Polestar.QuestClickTips(questID, lines)` et `Polestar.QuestRowClick(questID, button)` | **internes** (appelées par nom à chaque infobulle / clic) ; enveloppées sous `pcall`, l'original passe toujours en premier | ligne d'aide « Alt-clic » et Alt-clic |
 
 Si un élément interne change dans une version de Polestar, l’addon retombe sur le journal de
 quêtes du client et `C_Map`. Sans Polestar, ou avec une version d’API différente, c’est une
 fenêtre autonome.
+
+## Journal de quêtes du jeu (1.1)
+
+Le bouton par quête s'accroche à **`QuestScrollFrame.titleFramePool`** (le journal Carte et
+quêtes, boutons de titre avec `.questID` et `.Checkbox`), sinon aux enfants de son contenu qui
+portent un `questID`, sinon aux boutons `QuestLogTitle1…N` du journal classique. Le bouton est un
+**enfant** du bouton de titre (il suit les lignes recyclées) ; il est replacé après les
+fonctions de mise à jour du journal (`hooksecurefunc` seulement : on ne remplace rien, et on
+n'appelle jamais `QuestMapFrame_OpenToQuestDetails`, qui fait du taint chez Polestar, #2924) et
+toutes les 0,5 s tant qu'un journal est affiché. Les noms de frames de Forever n'ont **pas** pu
+être vérifiés hors jeu (ils viennent du code du journal de la version Retail et de ce que dit
+Questie) : `/psgf hooks` dit ce qui a été trouvé.
 
 ## Limites du groupage automatique (à confirmer en jeu)
 
@@ -154,7 +184,13 @@ fenêtre autonome.
 - Les noms Forever ont un nom de famille (« Ana Smith ») : le chuchotement et l’invitation
   utilisent le nom tel que le serveur l’envoie. À vérifier en jeu, surtout entre royaumes.
 - Seuls les autres joueurs **qui ont cet addon et l’ont activé** répondent.
-- Testé uniquement hors jeu : `luac` + `luacheck` + une simulation multi-clients (recherche, session, retrait des quêtes, groupage auto) avec un faux
+- **Fragilités de la 1.1** (rien n'a été vu dans le client) : noms des frames du journal de
+  Forever ; hauteur de ligne d'objectif Polestar (≥ 36 pour placer le bouton sous l'icône, sinon
+  à gauche de la case à cocher) ; `QuestClickTips` / `QuestRowClick` / `row.psGoal` sont internes à
+  Polestar (sans eux : ni ligne d'aide ni Alt-clic, le bouton reste) ; une version 1.0.x
+  ne répond pas aux recherches de quête (elle les ignore). Le message dans /p passe par
+  `SendChatMessage` dans le clic sur Quitter ; si Forever le refuse, le groupe est quand même quitté.
+- Testé uniquement hors jeu : `luac` + `luacheck` + une simulation multi-clients (recherche, session, retrait des quêtes, groupage auto, recherche de quête, boutons, offre de quitter) avec un faux
   API WoW et un faux Polestar (`lua5.1 tests/sim.lua`). Pas encore testé dans le client.
 
 ## Développement

@@ -1,6 +1,6 @@
 -- Two simulated clients exchanging PSGroupFinder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Comm", "Matcher", "Group", "UI", "Polestar" }
+local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Comm", "Matcher", "Group", "Leave", "UI", "Hooks", "Polestar" }
 local DIR = "PSGroupFinder/"
 local bus = {}      -- every client's env
 local now = 0
@@ -125,6 +125,25 @@ local function newClient(name, quests, opts)
 	env.GetQuestLogLeaderBoard = function(j, i) local o = quests[i].obj[j] return o[1], o[2], o[3] or false end
 	env.QuestLogUpdate = function() env.fire("QUEST_LOG_UPDATE") end
 	env.Polestar = opts.polestar
+	env.time = os.time
+	env.InCombatLockdown = function() return false end
+	env.chat = {}
+	env.SendChatMessage = function(m, t) env.chat[#env.chat + 1] = { m, t } end
+	env.leaves = 0
+	env.LeaveParty = function()
+		env.leaves = env.leaves + 1
+		local p = party[name]
+		party[name] = nil
+		if p then
+			for i, m in ipairs(p) do if m == name then table.remove(p, i) break end end
+			if #p < 2 then for _, m in ipairs(p) do party[m] = nil end end
+		end
+	end
+	env.IsAltKeyDown = function() return env.altDown end
+	env.hooksecurefunc = function(fname, fn)
+		local orig = env[fname]
+		env[fname] = function(...) local r = orig(...) fn(...) return r end
+	end
 	env.quests = quests
 	env.me = name
 	env.guild = opts.guild
@@ -449,6 +468,320 @@ pia.ns.Lang.SetSearch("e", false)
 check(not pia.ns.Lang.Compatible(nil), "a v0.2 peer with no language is hidden when we don't accept all")
 pia.ns.Lang.SetAcceptAll(true)
 check(pia.ns.Lang.Compatible(nil), "a v0.2 peer is visible when we accept all")
+
+---------------------------------------------------------------------------
+-- v1.1: quest search by quest id, the quest buttons, leaving a group
+---------------------------------------------------------------------------
+local kc = { id = 12345, title = "Kobold Camp Cleanup", obj = { { "Kobold Vermin slain: 8/10", "monster" } } }
+local function kq(have) return { id = 12345, title = kc.title, obj = { { "Kobold Vermin slain: " .. have .. "/10", "monster" } } } end
+local qua = newClient("Qua Dell", {}, { map = 1436 })
+local rex = newClient("Rex Holt", { kq(8) }, { map = 1429, class = "HUNTER" })
+local sue = newClient("Sue Park", { kq(2) }, { map = 1436, locale = "enUS" })
+local tom = newClient("Tom Gray", { { id = 31337, title = "Else", obj = { { "x: 0/1", "monster" } } } }, { map = 1436 })
+local uma = newClient("Uma Wood", { kq(1) }, { map = 1436 })
+for _, c in ipairs({ qua, rex, sue, tom, uma }) do c.ns.SetEnabled(true) end
+uma.ns.Set("autoReply", false)
+run(15)
+for _, c in ipairs({ qua, rex }) do c.ns.Comm.TestChannels(true) end
+run(6)
+run(30)
+
+-- Wire format: the new messages are invisible to a v1.0 reader and decode here.
+local qtext = qua.ns.Comm.EncodeQuestSearch(12345)
+check(qtext:match("^Q|") and #qtext < 80 and not qtext:match("^([SR])|"), "Q is a new message type a v1.0 client does not read")
+local qm = qua.ns.Comm.Decode(qtext)
+check(qm and qm.kind == "Q" and #qm.quests == 1 and qm.quests[1].id == 12345 and qm.langs and qm.langs.code == "f", "Q decodes with its quest and language")
+local am = qua.ns.Comm.Decode(qua.ns.Comm.EncodeQuestReply(12345, 80))
+check(am and am.kind == "A" and am.quests[1].id == 12345 and am.quests[1].pct == 80, "A decodes with the percent")
+check(qua.ns.Comm.Decode("S|abc123|1436|400|500|20|WARRIOR|0|gA|f|176:n").quests[1].pct == nil, "S quests carry no percent")
+
+-- Quest panel: opened with no result yet.
+qua.ns.QuestUI.Open(12345)
+check(qua.ns.QuestUI.IsShown() and qua.ns.QuestUI.Quest() == 12345 and not qua.ns.UI.IsShown(), "quest panel opens in quest mode, the main panel is not shown")
+check(qua.ns.QuestUI.EmptyCaption() == "Personne pour l'instant. Appuyez sur Rechercher pour cette quête.", "quest panel: empty caption before any search")
+check(#qua.ns.Matcher.QuestList(12345) == 0, "nobody known on the quest before searching")
+
+-- A targeted search by quest id: found in ANOTHER zone, language filter applied.
+check(qua.ns.Comm.SearchQuest(12345), "quest search goes out")
+run(6)
+local ql = qua.ns.Matcher.QuestList(12345)
+local byName = {}
+for _, e in ipairs(ql) do byName[e.name] = e end
+check(byName["Rex Holt"] and byName["Rex Holt"].map == 1429 and byName["Rex Holt"].pct == 80 and byName["Rex Holt"].class == "HUNTER",
+	"Rex answers from another zone (1429) with class and 80% progress")
+check(not byName["Sue Park"], "Sue (EN client) is not listed by a FR-only searcher")
+check(not byName["Tom Gray"] and not byName["Uma Wood"], "no answer from a player without the quest, or with replies off")
+check(not (byName["Rex Holt"].sameZone), "the other-zone answer is not flagged same zone")
+check(qua.ns.QuestUI.EmptyCaption() == nil or qua.ns.QuestUI.EmptyCaption() ~= "Personne pour l'instant. Appuyez sur Rechercher pour cette quête.", "panel no longer says nobody")
+qua.ns.QuestUI.Refresh()
+local qrowFrames = qua.ns.QuestUI.RowFrames()
+check(qrowFrames[1] and qrowFrames[1].entry and qrowFrames[1].entry.name ~= nil and qrowFrames[1].invite.who ~= nil, "quest panel shows a row with Whisper / Invite for the player")
+
+-- Throttle: one quest search every 15 s; replies answered once per asker.
+check(not qua.ns.Comm.SearchQuest(12345) and qua.printed[#qua.printed]:find("Patientez"), "second quest search within 15 s is refused")
+local rexAnswers = 0
+local sentA = rex.C_ChatInfo.SendAddonMessage
+rex.C_ChatInfo.SendAddonMessage = function(prefix, txt, chatType, target)
+	if txt:sub(1, 2) == "A|" then rexAnswers = rexAnswers + 1 end
+	return sentA(prefix, txt, chatType, target)
+end
+run(10)
+check(qua.ns.Comm.SearchQuest(12345), "after 15 s a new quest search goes out")
+run(6)
+check(rexAnswers == 0, "the same asker is not answered twice within the reply gap")
+run(25)
+qua.ns.Comm.SearchQuest(12345)
+run(6)
+check(rexAnswers == 1, "...and again after the gap")
+
+-- Language rules are unilateral on both sides: an EN-only player does not
+-- answer a FR asker (as for a search); once she accepts FR she answers, but a
+-- FR-only asker still does not list her, and one with All languages does.
+sue.ns.Lang.SetSearch("f", true)
+run(16)
+qua.ns.Comm.SearchQuest(12345)
+run(6)
+check(not qua.ns.Matcher.QuestList(12345)[2] or qua.ns.Matcher.QuestList(12345)[2].name ~= "Sue Park", "FR-only asker does not list Sue even though she answered")
+qua.ns.Lang.SetAcceptAll(true)
+run(25)
+qua.ns.Comm.SearchQuest(12345)
+run(6)
+local withAll = {}
+for _, e in ipairs(qua.ns.Matcher.QuestList(12345)) do withAll[e.name] = true end
+check(withAll["Sue Park"] and withAll["Rex Holt"], "with All languages the EN player is listed")
+qua.ns.Lang.SetAcceptAll(false)
+check(#qua.ns.Matcher.QuestList(12345) == 1, "back to FR only: the EN player drops out again")
+
+-- Answers nobody asked for, or whispered Q, are ignored.
+local before = #qua.ns.Matcher.QuestList(12345)
+qua.fire("CHAT_MSG_ADDON", "PSGF", qua.ns.Comm.EncodeQuestReply(777, 50):gsub("^A|%x+", "A|abcdef"), "WHISPER", "Zed Nobody")
+check(#qua.ns.Matcher.QuestList(777) == 0, "an answer to a quest we did not ask about is dropped")
+local rexAnswersBefore = rexAnswers
+rex.fire("CHAT_MSG_ADDON", "PSGF", qtext:gsub("^Q|%x+", "Q|abcdef"), "WHISPER", "Zed Nobody")
+run(5)
+check(rexAnswers == rexAnswersBefore, "a whispered Q is never answered")
+check(#qua.ns.Matcher.QuestList(12345) == before, "nothing changed")
+
+-- Disabled: nothing is sent.
+qua.ns.SetEnabled(false)
+check(not qua.ns.Comm.SearchQuest(12345), "quest search refused while the finder is off")
+qua.ns.SetEnabled(true)
+run(15)
+
+---------------------------------------------------------------------------
+-- The quest buttons (Polestar rows, tooltip + Alt-click, game quest log)
+---------------------------------------------------------------------------
+local gRows = {}
+local function fakeRow(goal, height, shown)
+	return { psGoal = goal, IsShown = function() return shown end, GetHeight = function() return height end,
+		Icon = {}, Check = {}, Alt = { IsShown = function() return false end } }
+end
+gRows[1] = fakeRow({ quest = 12345, status = "active", t = "kill" }, 40, true)  -- two-line row
+gRows[2] = fakeRow({ status = "active", t = "goto" }, 40, true)                 -- no quest
+gRows[3] = fakeRow({ quest = 5, status = "done", t = "kill" }, 40, true)        -- done
+gRows[4] = fakeRow({ quest = 12345, status = "active", t = "kill" }, 24, true)  -- one line
+gRows[5] = fakeRow({ quest = 12345, status = "active", t = "kill" }, 40, false) -- hidden (pooled)
+local origTipCalls, origClickCalls = 0, 0
+local fp2 = {}
+for k, v in pairs(fakePolestar) do fp2[k] = v end
+fp2.Theme = {}
+for k, v in pairs(fakePolestar.Theme) do fp2.Theme[k] = v end
+fp2.Theme.GuideParts = function() return { window = window, nav = nav, rows = gRows } end
+fp2.QuestClickTips = function(_, lines) origTipCalls = origTipCalls + 1 lines[#lines + 1] = { "Middle-click: show in quest log." } return lines end
+fp2.QuestRowClick = function(_, button) origClickCalls = origClickCalls + 1 return button == "MiddleButton" end
+local hal2 = newClient("Hal Two", { kq(3) }, { polestar = fp2 })
+hal2.ns.Hooks.Scan()
+check(gRows[1].psgfBtn and gRows[1].psgfBtn.questID == 12345, "a button on the goal row that names a quest")
+check(gRows[2].psgfBtn == nil and gRows[3].psgfBtn == nil and gRows[5].psgfBtn == nil, "none on a row without quest, a done goal or a pooled hidden row")
+check(gRows[4].psgfBtn and gRows[4].psgfBtn.questID == 12345, "one-line row gets one too (left of its checkbox)")
+local lines = fp2.QuestClickTips(12345, {})
+check(origTipCalls == 1 and #lines == 2 and lines[2][1] == "Alt-clic : voir les joueurs sur cette quête", "tooltip: Polestar's lines kept, our Alt-click help line added")
+check(#fp2.QuestClickTips("x", {}) == 1, "no help line for a goal without a quest id")
+hal2.altDown = false
+check(fp2.QuestRowClick(12345, "LeftButton") == false and origClickCalls == 1, "plain click: Polestar's own handler answers")
+check(fp2.QuestRowClick(12345, "MiddleButton") == true and origClickCalls == 2, "middle-click still goes to Polestar")
+check(not hal2.ns.QuestUI.IsShown(), "no quest panel without Alt")
+hal2.altDown = true
+check(fp2.QuestRowClick(12345, "LeftButton") == true and origClickCalls == 2, "Alt-click is consumed: Polestar's arrow handler does not run")
+check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 12345, "Alt-click opens the quest panel on that quest")
+hal2.altDown = false
+check(type(gRows[1].psgfBtn._OnClick) == "function", "the row button has a click handler")
+hal2.ns.QuestUI.Close()
+gRows[1].psgfBtn._OnClick(gRows[1].psgfBtn)
+check(hal2.ns.QuestUI.IsShown(), "clicking the row button opens the quest panel")
+
+-- The game's quest log: the pool of title buttons, Checkbox, recycled rows, hooks.
+local function titleButton(id, shown)
+	return { questID = id, IsShown = function() return shown end, Checkbox = { IsShown = function() return true end } }
+end
+local active = { titleButton(12345, true), titleButton(5001, true) }
+hal2.QuestScrollFrame = { titleFramePool = { EnumerateActive = function()
+	local i = 0
+	return function() i = i + 1 return active[i] end
+end } }
+hal2.QuestMapFrame = { IsVisible = function() return true end, HookScript = function() end }
+hal2.QuestLogQuests_Update = function() end
+hal2.ns.Hooks.Scan()
+check(active[1].psgfLogBtn and active[1].psgfLogBtn.questID == 12345 and active[2].psgfLogBtn.questID == 5001, "quest log (pool): a button on each quest title, any zone")
+-- The pool recycles a title button for another quest: our button follows its quest.
+active[1].questID = 777
+hal2.QuestLogQuests_Update()
+check(active[1].psgfLogBtn.questID == 777, "after the log's own update (hooksecurefunc) the recycled row's button points at its new quest")
+-- A header takes the recycled button: no quest, ours is hidden.
+active[1].questID = nil
+hal2.ns.Hooks.Scan()
+check(active[1].psgfLogBtn._shown == false, "a row that no longer holds a quest hides our button")
+-- Other builds: the children of the scroll contents, then the classic log.
+local child88 = titleButton(88, true)
+hal2.QuestScrollFrame = { Contents = { GetNumChildren = function() return 1 end, GetChildren = function() return child88 end } }
+hal2.ns.Hooks.Scan()
+check(child88.psgfLogBtn and child88.psgfLogBtn.questID == 88, "quest log (other build): title buttons found among the scroll contents' children")
+hal2.QuestScrollFrame = nil
+hal2.QuestMapFrame = nil
+hal2.QuestLogFrame = { IsVisible = function() return true end }
+hal2.QuestLogTitle1 = { IsShown = function() return true end, GetID = function() return 1 end }
+hal2.ns.Hooks.Scan()
+check(hal2.QuestLogTitle1.psgfLogBtn and hal2.QuestLogTitle1.psgfLogBtn.questID == 12345, "classic log: QuestLogTitle1's quest id is read from the log index")
+hal2.ns.Hooks.Report()
+
+-- Without Polestar and without any quest log, nothing breaks.
+rex.ns.Hooks.Scan()
+check(true, "scan with no Polestar and no quest log does nothing")
+
+---------------------------------------------------------------------------
+-- Leaving a group formed through the finder
+---------------------------------------------------------------------------
+local function lq(id, have) return { id = id, title = "Quest " .. id, obj = { { "Thing slain: " .. have .. "/6", "monster" } } } end
+local rae = newClient("Rae Fox", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.1 })
+local sam = newClient("Sam Lee", { lq(11001, 0), lq(11002, 0) }, { x = 0.11, y = 0.1 })
+local noa = newClient("Noa Bell", { lq(11001, 0) }, { x = 0.12, y = 0.1 })
+for _, c in ipairs({ rae, sam, noa }) do c.ns.SetEnabled(true) end
+run(15)
+rae.ns.Comm.TestChannels(true) run(6)
+run(30)
+check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "default leave message in French for a French client")
+check(ned.ns.Leave.Message() == "Thanks for the group, have fun!", "default leave message in English for an English client")
+check(rae.ns.Get("leaveOffer") == true and rae.ns.Get("leaveMsgOn") == false, "defaults: offer on, /p message off")
+rae.PSGroupFinder_Search()
+run(8)
+check(rae.ns.Matcher.Get("Sam Lee") ~= nil, "Rae found Sam")
+-- Rae clicks Invite on Sam's row (the handler records the quests); Sam accepts by hand.
+rae.ns.UI.Show()
+rae.ns.UI.Refresh()
+local inviteBtn
+for _, r in ipairs(rae.ns.UI.RowFrames()) do if r.invite.who == "Sam Lee" then inviteBtn = r.invite end end
+check(inviteBtn ~= nil, "Sam's row exists with its Invite button")
+inviteBtn._OnClick(inviteBtn)
+run(1)
+sam.AcceptGroup()
+rae.fire("GROUP_ROSTER_UPDATE") sam.fire("GROUP_ROSTER_UPDATE")
+run(2)
+local function qset(c) local t = {} for id in pairs((c.ns.char.party or { quests = {} }).quests) do t[#t + 1] = id end table.sort(t) return t end
+local rs, ss = qset(rae), qset(sam)
+check(#rs == 2 and rs[1] == 11001 and rs[2] == 11002, "inviter remembers the shared quests of the group")
+check(#ss == 2, "the player who accepted the invitation remembers them too")
+check(rae.ns.UI.LeaveShown() == false and rae.leaves == 0, "nothing offered while quests are open")
+
+-- One quest done: still one open, no offer. Both done: the offer, no automatic leave.
+rae.quests[1].obj[1][3] = true
+rae.QuestLogUpdate()
+run(5)
+check(not rae.ns.UI.LeaveShown(), "one quest of two done: no offer yet")
+rae.quests[2].complete = true
+rae.QuestLogUpdate()
+run(5)
+check(rae.ns.UI.LeaveShown(), "all the group's quests done (objectives / ready): the Leave / Stay window appears")
+run(120)
+check(rae.leaves == 0 and #rae.chat == 0, "nothing left and nothing said automatically (no click yet)")
+check(not sam.ns.UI.LeaveShown(), "Sam still has open quests: no window for him")
+-- Stay: not asked again.
+local _, stay = rae.ns.UI.LeaveButtons()
+stay._OnClick(stay)
+check(not rae.ns.UI.LeaveShown() and rae.leaves == 0 and #rae.chat == 0, "Stay closes the window and does nothing else")
+rae.QuestLogUpdate() run(5)
+check(not rae.ns.UI.LeaveShown(), "after Stay it is not offered again for this group")
+
+-- A second group: the /p message is said on the click, then the party is left.
+local tia = newClient("Tia Moon", { lq(11001, 0) }, { x = 0.1, y = 0.2 })
+tia.ns.SetEnabled(true) run(15) tia.ns.Comm.TestChannels(true) run(6) run(30)
+tia.ns.Set("leaveMsgOn", true)
+tia.ns.Set("leaveMsg", "Merci, à plus !")
+noa.PSGroupFinder_Search() run(8)
+check(noa.ns.Matcher.Get("Tia Moon") ~= nil, "Noa found Tia")
+noa.ns.Leave.NoteInvite("Tia Moon", noa.ns.Matcher.Get("Tia Moon").quests)
+noa.C_PartyInfo.InviteUnit("Tia Moon")
+run(1)
+tia.AcceptGroup()
+noa.fire("GROUP_ROSTER_UPDATE") tia.fire("GROUP_ROSTER_UPDATE") run(2)
+check(#qset(tia) == 1 and qset(tia)[1] == 11001, "Tia remembers quest 11001")
+tia.quests[1].obj[1][3] = true
+tia.QuestLogUpdate() run(5)
+check(tia.ns.UI.LeaveShown() and tia.leaves == 0 and #tia.chat == 0, "window shown, still nothing said or left")
+local tyes = tia.ns.UI.LeaveButtons()
+tyes._OnClick(tyes)
+check(#tia.chat == 1 and tia.chat[1][1] == "Merci, à plus !" and tia.chat[1][2] == "PARTY", "Leave click: the /p message is sent first (PARTY)")
+check(tia.leaves == 1 and party["Tia Moon"] == nil, "...then the party is left")
+check(tia.ns.char.party == nil, "the memory of the group is cleared")
+
+-- Without the message option the click only leaves.
+local uri = newClient("Uri Cole", { lq(11001, 0) }, { x = 0.1, y = 0.3 })
+uri.ns.SetEnabled(true) run(15) uri.ns.Comm.TestChannels(true) run(6) run(30)
+uri.PSGroupFinder_Search() run(8)
+local noaE = uri.ns.Matcher.Get("Noa Bell")
+check(noaE ~= nil, "Uri found Noa")
+party["Noa Bell"] = nil
+uri.ns.Leave.NoteInvite("Noa Bell", noaE.quests)
+uri.C_PartyInfo.InviteUnit("Noa Bell") run(1)
+noa.AcceptGroup()
+uri.fire("GROUP_ROSTER_UPDATE") noa.fire("GROUP_ROSTER_UPDATE") run(2)
+uri.quests[1].complete = true
+uri.QuestLogUpdate() run(5)
+local uyes = uri.ns.UI.LeaveButtons()
+uyes._OnClick(uyes)
+check(#uri.chat == 0 and uri.leaves == 1, "message option off: Leave only leaves, nothing is said")
+
+-- A group NOT formed through the finder is never offered, even with quests done.
+local vic = newClient("Vic Hale", { lq(11001, 0) }, {})
+local wyn = newClient("Wyn Cass", { lq(11001, 0) }, {})
+vic.ns.SetEnabled(true) wyn.ns.SetEnabled(true) run(15)
+party["Vic Hale"] = { "Vic Hale", "Wyn Cass" } party["Wyn Cass"] = party["Vic Hale"]
+vic.fire("GROUP_ROSTER_UPDATE") run(2)
+vic.quests[1].complete = true vic.QuestLogUpdate() run(5)
+check(vic.ns.char.party == nil and not vic.ns.UI.LeaveShown(), "a group formed by hand is not remembered or offered")
+
+-- Option off: nothing shown. Abandoned quests do not count as done.
+local xan = newClient("Xan Dyle", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.4 })
+local yui = newClient("Yui Reed", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.41 })
+xan.ns.SetEnabled(true) yui.ns.SetEnabled(true) run(15) xan.ns.Comm.TestChannels(true) run(6) run(30)
+xan.PSGroupFinder_Search() run(8)
+xan.ns.Leave.NoteInvite("Yui Reed", yui.ns.Matcher.Get("Xan Dyle") and { 11001, 11002 } or { 11001, 11002 })
+xan.C_PartyInfo.InviteUnit("Yui Reed") run(1)
+yui.AcceptGroup()
+xan.fire("GROUP_ROSTER_UPDATE") yui.fire("GROUP_ROSTER_UPDATE") run(2)
+xan.ns.Set("leaveOffer", false)
+xan.quests[1].complete = true xan.quests[2].complete = true
+xan.QuestLogUpdate() run(5)
+check(not xan.ns.UI.LeaveShown(), "leaveOffer off: no window")
+xan.ns.Set("leaveOffer", true)
+xan.QuestLogUpdate() run(5)
+check(xan.ns.UI.LeaveShown(), "...and back on, it is offered")
+-- Abandon: a quest that left the log without being done drops out of the memory.
+yui.quests[2] = nil
+yui.QuestLogUpdate() run(5)
+check(#qset(yui) == 1 and qset(yui)[1] == 11001, "an abandoned quest is forgotten, the other still counts")
+check(not yui.ns.UI.LeaveShown(), "...and nothing is offered while the other is open")
+-- Group ends: memory cleared.
+party["Yui Reed"] = nil
+yui.fire("GROUP_ROSTER_UPDATE") run(2)
+check(yui.ns.char.party == nil, "the memory goes when the group ends")
+
+-- The message editor saves, strips escapes, and the default comes back on empty.
+sam.ns.UI.EditLeaveMessage()
+check(sam.ns.UI.EditorShown(), "message dialog opens")
+sam.ns.Set("leaveMsg", "Salut |cffff0000!")
+check(sam.ns.Leave.Message() == "Salut |cffff0000!", "a saved message is used as is by Message()")
+sam.ns.Set("leaveMsg", false)
+check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "false brings the default text back")
 
 ana.ns.SetEnabled(false)
 check(#ana.ns.Matcher.List() == 0 and ana.joined == false, "turning off clears the list and leaves the channel")

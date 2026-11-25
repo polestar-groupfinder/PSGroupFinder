@@ -130,6 +130,43 @@ function Quests.Pending(id)
 	return false
 end
 
+-- 0-100: how far along `id` is (100 once complete or ready to hand in),
+-- nil when it is not in the log.
+function Quests.Progress(id)
+	local q = Quests.Log()[id]
+	if not q then return nil end
+	if not Quests.Pending(id) then return 100 end
+	local sum, n = 0, 0
+	for _, o in ipairs(q.objectives or {}) do
+		n = n + 1
+		if o.done then
+			sum = sum + 1
+		elseif (o.need or 0) > 0 and o.have then
+			sum = sum + math.min(1, o.have / o.need)
+		end
+	end
+	if n == 0 then return 0 end
+	return math.min(99, math.floor(sum / n * 100))
+end
+
+-- "open" (something left to do), "done" (objectives complete, ready to hand in
+-- or handed in), "gone" (not in the log and not turned in: abandoned).
+function Quests.State(id)
+	local q = Quests.Log()[id]
+	if not q then
+		local flagged = false
+		if C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted then
+			local ok, r = pcall(C_QuestLog.IsQuestFlaggedCompleted, id)
+			flagged = ok and r and true or false
+		elseif IsQuestFlaggedCompleted then
+			local ok, r = pcall(IsQuestFlaggedCompleted, id)
+			flagged = ok and r and true or false
+		end
+		return flagged and "done" or "gone"
+	end
+	return Quests.Pending(id) and "open" or "done"
+end
+
 function Quests.Title(id)
 	local q = Quests.Log()[id]
 	if q and q.title then return q.title end

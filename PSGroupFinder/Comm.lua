@@ -9,6 +9,13 @@
 --   R|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<langs>|<quest>,...
 --       the answer, whispered to the searcher, naming only the quests both
 --       have
+--   Q|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<langs>|<quest>
+--       (v1.1) "who has quest <quest>?", broadcast from a click on a quest's
+--       button; ONE quest id, any zone. Older versions ignore it.
+--   A|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<langs>|<quest>:<percent>
+--       (v1.1) the answer to Q, whispered to the asker by whoever has the
+--       quest in the log, whatever the zone; <percent> is 0-100 (100: done or
+--       ready to hand in).
 --   X|<sid>
 --       the search is over (last objective done, stopped, group full): the
 --       players who listed us drop us
@@ -56,6 +63,13 @@ Comm.sid = sid
 local prefixReady = false
 local lastSearch = -math.huge
 local lastReply = {} -- sender -> time
+local QUEST_GAP = 15        -- seconds between two quest searches of yours
+local QUEST_ASK_TTL = 180   -- seconds an answer to a quest search is still wanted
+local QUEST_ANSWERS = 6     -- answers to other players' quest searches per QUEST_WINDOW
+local QUEST_WINDOW = 30
+local lastQuestSearch = -math.huge
+local asked = {}            -- questID -> time of our quest search
+local answered = {}         -- times of our recent answers
 
 local function setStatus(chatType, state, code)
 	local old = Comm.status[chatType]
@@ -216,10 +230,23 @@ function Comm.EncodeReply(ids)
 	return head .. table.concat(parts, ",")
 end
 
+-- "Who has quest `id`?"
+function Comm.EncodeQuestSearch(id)
+	local map, x, y, lvl, class, size, fl = me()
+	return table.concat({ "Q", sid, map, x, y, lvl, class, size, fl, ns.Lang.Encode(), tostring(id) }, "|")
+end
+
+-- "I have it": `pct` 0-100.
+function Comm.EncodeQuestReply(id, pct)
+	local map, x, y, lvl, class, size, fl = me()
+	pct = math.max(0, math.min(100, math.floor(tonumber(pct) or 0)))
+	return table.concat({ "A", sid, map, x, y, lvl, class, size, fl, ns.Lang.Encode(), id .. ":" .. pct }, "|")
+end
+
 -- Splits a message; nil for anything malformed.
 function Comm.Decode(text)
 	if type(text) ~= "string" or #text > 255 then return nil end
-	local kind, msid, map, x, y, lvl, class, size, fl, list = text:match("^([SR])|(%x+)|(%d+)|(%d*)|(%d*)|(%d+)|(%u*)|(%d+)|([gAH]*)|(.*)$")
+	local kind, msid, map, x, y, lvl, class, size, fl, list = text:match("^([SRQA])|(%x+)|(%d+)|(%d*)|(%d*)|(%d+)|(%u*)|(%d+)|([gAH]*)|(.*)$")
 	if not kind then
 		local tsid, nonce = text:match("^T|(%x+)|(%w+)$")
 		if tsid then return { kind = "T", sid = tsid, nonce = nonce } end
@@ -245,9 +272,9 @@ function Comm.Decode(text)
 		list = rest
 	end
 	for entry in list:gmatch("[^,]+") do
-		local id, k = entry:match("^(%d+):?([gnkl]?)$")
+		local id, k, pct = entry:match("^(%d+):?([gnkl]?)(%d*)$")
 		id = tonumber(id)
-		if id then m.quests[#m.quests + 1] = { id = id, kind = k ~= "" and k or nil } end
+		if id then m.quests[#m.quests + 1] = { id = id, kind = k ~= "" and k or nil, pct = tonumber(pct) } end
 	end
 	return m
 end
@@ -285,6 +312,38 @@ end
 
 function Comm.SearchCooldown()
 	return math.max(0, SEARCH_GAP - (ns.Now() - lastSearch))
+end
+
+-- A quest search (v1.1), from a click on a quest's button: who has quest `id`,
+-- in any zone? Same channels and language rules as a search; the answers
+-- come whispered and are kept per quest (Matcher.QuestList). It is not a
+-- session: nothing is repeated and nobody is invited.
+function Comm.QuestCooldown()
+	return math.max(0, QUEST_GAP - (ns.Now() - lastQuestSearch))
+end
+
+function Comm.SearchQuest(id)
+	id = tonumber(id)
+	if not id or id <= 0 then return false end
+	if not ns.Get("enabled") then ns.Print(L.DISABLED) return false end
+	if IsInInstance and IsInInstance() then ns.Print(L.INSTANCE) return false end
+	local wait = Comm.QuestCooldown()
+	if wait > 0 then ns.Print(L.QUEST_COOLDOWN, math.ceil(wait)) return false end
+	registerPrefix()
+	local text = Comm.EncodeQuestSearch(id)
+	local sentOn, public = {}, false
+	for _, ct in ipairs(searchChannels()) do
+		if (ct == "GUILD" or not public) and trySend(ct, text) then
+			sentOn[#sentOn + 1] = ct
+			if ct ~= "GUILD" then public = true end
+		end
+	end
+	if #sentOn == 0 then ns.Print(L.NO_CHANNEL) return false end
+	lastQuestSearch = ns.Now()
+	asked[id] = lastQuestSearch
+	ns.Print(L.QUEST_SENT, table.concat(sentOn, ", "), ns.Quests.Title(id))
+	ns.Fire("QUEST_SEARCHED", id, sentOn)
+	return true
 end
 
 -- Sends `text` with no key press behind it: only the channels that need
@@ -404,6 +463,36 @@ local function onMessage(_, prefix, text, chatType, sender)
 	if theirs and mine and theirs ~= mine then return end
 	if (m.kind == "S" or m.kind == "R") and not ns.Lang.Compatible(m.langs) then
 		Matcher.Remove(sender)
+		return
+	end
+	if m.kind == "Q" or m.kind == "A" then
+		-- v1.1 quest search. Same language rule as a search; a Q is never
+		-- whispered and an A only answers a search we sent.
+		if not ns.Lang.Compatible(m.langs) then return end
+		local q = m.quests[1]
+		if not q then return end
+		local now = ns.Now()
+		if m.kind == "A" then
+			if chatType == "WHISPER" and asked[q.id] and now - asked[q.id] <= QUEST_ASK_TTL then
+				Matcher.AddQuest(sender, m, q.id, q.pct)
+			end
+			return
+		end
+		if chatType == "WHISPER" or not ns.Get("autoReply") or not ns.Quests.Has(q.id) then return end
+		local k = sender .. "#" .. q.id
+		if now - (lastReply[k] or -math.huge) < REPLY_GAP then return end
+		-- A crowd of askers cannot make us whisper without end.
+		local recent = {}
+		for _, t in ipairs(answered) do if now - t < QUEST_WINDOW then recent[#recent + 1] = t end end
+		answered = recent
+		if #answered >= QUEST_ANSWERS then return end
+		answered[#answered + 1] = now
+		lastReply[k] = now
+		registerPrefix()
+		local id = q.id
+		ns.After(0.5 + math.random() * 2, function()
+			Throttle.Send(Comm.PREFIX, Comm.EncodeQuestReply(id, ns.Quests.Progress(id) or 0), "WHISPER", sender)
+		end)
 		return
 	end
 	if m.kind == "X" then

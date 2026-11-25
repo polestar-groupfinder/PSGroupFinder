@@ -66,6 +66,7 @@ end
 
 function Matcher.Clear()
 	wipe(peers)
+	if Matcher.QuestClear then Matcher.QuestClear() return end
 	ns.Fire("PEERS")
 end
 
@@ -114,6 +115,92 @@ function Matcher.List()
 	end
 	table.sort(list, function(a, b) return a.score > b.score end)
 	return list
+end
+
+---------------------------------------------------------------------------
+-- By quest (v1.1): the players who said they have quest `id`, wherever
+-- they are (answers "A" to a quest search), plus those of the main list
+-- who share it. Kept apart from `peers`: they do not take part in grouping
+-- without a click, and the main list's own rules (a quest of my search) do
+-- not apply.
+---------------------------------------------------------------------------
+
+local qpeers = {} -- questID -> sender -> entry
+local QUEST_AGE = 600
+
+function Matcher.AddQuest(sender, m, id, pct)
+	local set = qpeers[id] or {}
+	qpeers[id] = set
+	local e = set[sender] or { name = sender }
+	e.level, e.class, e.size = m.level, m.class, m.size or 0
+	e.map, e.x, e.y = m.map, m.x, m.y
+	e.quests = { id }
+	e.kinds = {}
+	e.pct = pct
+	e.source = "quest"
+	e.sid = m.sid
+	e.flags = m.flags or ""
+	e.faction = e.flags:match("[AH]")
+	e.langs = m.langs
+	e.langTag = ns.Lang.Summary(m.langs)
+	e.at = ns.Now()
+	local isNew = set[sender] == nil
+	set[sender] = e
+	ns.Fire("PEERS")
+	if isNew then ns.Fire("QUEST_PEER_NEW", id, e) end
+end
+
+-- Every quest id this player is known to have, from either list.
+function Matcher.QuestsOf(sender)
+	local out, seen = {}, {}
+	local e = peers[sender]
+	if e then for _, id in ipairs(e.quests or {}) do if not seen[id] then seen[id] = true out[#out + 1] = id end end end
+	for id, set in pairs(qpeers) do
+		if set[sender] and not seen[id] then seen[id] = true out[#out + 1] = id end
+	end
+	return out
+end
+
+-- The list for quest `id`: best first (same zone / nearer, then not already
+-- grouped, then the freshest). Entries carry `pct` when the player told us.
+function Matcher.QuestList(id)
+	local now = ns.Now()
+	local map, x, y = ns.Quests.Position()
+	local merged = {}
+	for name, e in pairs(qpeers[id] or {}) do
+		if now - e.at > QUEST_AGE or not ns.Lang.Compatible(e.langs) then
+			qpeers[id][name] = nil
+		else
+			merged[name] = e
+		end
+	end
+	for name, e in pairs(peers) do
+		if not merged[name] and now - e.at <= (MAX_AGE[e.source] or 300) and ns.Lang.Compatible(e.langs) then
+			for _, q in ipairs(e.quests or {}) do
+				if q == id then merged[name] = e break end
+			end
+		end
+	end
+	local list = {}
+	for name, e in pairs(merged) do
+		local ok, grouped = pcall(inMyGroup, name)
+		if not (ok and grouped) then
+			e.yards = ns.Quests.Yards(map, x, y, e.map, e.x, e.y)
+			e.sameZone = map ~= nil and map == e.map
+			local score = 0
+			if e.yards then score = score + math.max(0, 300 - e.yards / 5) elseif e.sameZone then score = score + 120 end
+			if (e.size or 0) >= 5 then score = score - 500 elseif (e.size or 0) > 0 then score = score - 20 end
+			e.score = score - (now - e.at) / 10
+			list[#list + 1] = e
+		end
+	end
+	table.sort(list, function(a, b) return a.score > b.score end)
+	return list
+end
+
+function Matcher.QuestClear(id)
+	if id then qpeers[id] = nil else wipe(qpeers) end
+	ns.Fire("PEERS")
 end
 
 ns.RegisterEvent("GROUP_ROSTER_UPDATE", function() ns.Fire("PEERS") end)

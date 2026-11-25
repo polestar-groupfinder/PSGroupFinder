@@ -8,9 +8,11 @@ globals = {
 	"SLASH_PSGROUPFINDER1", "SLASH_PSGROUPFINDER2", "SLASH_PSGROUPFINDER3", "SlashCmdList",
 	"BINDING_HEADER_PSGROUPFINDER", "BINDING_CATEGORY_POLESTAR",
 	"BINDING_NAME_PSGF_SEARCH", "BINDING_NAME_PSGF_TOGGLE_PANEL", "UISpecialFrames",
+	"Polestar", -- Hooks.lua wraps two of its functions (under pcall)
 }
 read_globals = {
-	"Polestar", "PolestarGroupFinderDB", "PolestarGroupFinderCharDB", "C_AddOns", "GetAddOnMetadata", "GetLocale", "DEFAULT_CHAT_FRAME", "ChatFrame1",
+	"time", "InCombatLockdown", "IsQuestFlaggedCompleted", "GameFontHighlight", "SendChatMessage", "LeaveParty",
+	"IsAltKeyDown", "hooksecurefunc", "LE_PARTY_CATEGORY_INSTANCE", "PolestarGroupFinderDB", "PolestarGroupFinderCharDB", "C_AddOns", "GetAddOnMetadata", "GetLocale", "DEFAULT_CHAT_FRAME", "ChatFrame1",
 	"C_Timer", "GetTime", "issecretvalue", "CreateFrame", "C_ChatInfo", "Enum", "C_QuestLog",
 	"GetNumQuestLogEntries", "GetQuestLogTitle", "GetNumQuestLeaderBoards", "GetQuestLogLeaderBoard",
 	"C_Map", "CreateVector2D", "GetChannelName", "ChatFrame_RemoveChannel", "NUM_CHAT_WINDOWS",

@@ -23,6 +23,9 @@ local DEFAULTS = {
 	searchLangs = false, -- filled in Lang.Init: the client's language
 	acceptAll = false,   -- search every language (opt-in; greys out the individual boxes)
 	panelPos = false,    -- { point, x, y } of the standalone panel
+	leaveOffer = true,   -- offer to leave the group when its quests are done (never leaves by itself)
+	leaveMsgOn = false,  -- say leaveMsg in /p when you click Leave (opt-in)
+	leaveMsg = false,    -- false: the default text of the client's language
 	debug = false,
 }
 
@@ -162,6 +165,11 @@ SlashCmdList.PSGROUPFINDER = function(msg)
 	elseif cmd == "reset" then
 		ns.Set("panelPos", false)
 		if ns.ResetPanel then ns.ResetPanel() end
+	elseif cmd == "quest" then
+		local id = tonumber((msg or ""):match("%d+"))
+		if id and ns.QuestUI then ns.QuestUI.Open(id) else ns.Print(L.QUEST_USAGE) end
+	elseif cmd == "hooks" then
+		if ns.Hooks then ns.Hooks.Report() end
 	elseif cmd == "debug" then
 		ns.Set("debug", not ns.db.debug)
 		ns.Print("debug %s", ns.db.debug and "on" or "off")

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0 — 2026-11-25
+
+Non testée dans le client de jeu (voir « Fragilités » dans le README).
+
+- **Liste par quête** : un petit bouton « joueurs sur cette quête » à trois endroits ; il ouvre le panneau en « mode quête » (nom, niveau, classe, langue, zone, progression, distance ou « autre zone », Chuchoter / Inviter) avec un bouton **Rechercher pour cette quête**.
+  1. fenêtre de guide Polestar : sous l'icône de chaque objectif lié à une quête, à gauche de la sous-ligne (à gauche de la case à cocher pour une ligne d'une seule ligne) ;
+  2. infobulle d'un objectif Polestar : ligne d'aide « Alt-clic : voir les joueurs sur cette quête » et Alt-clic sur la ligne (Polestar garde clic, clic milieu, Maj-clic, clic droit) ;
+  3. journal de quêtes du jeu (Carte et journal de quêtes) : un bouton par quête, après la case de suivi, quelle que soit la zone de la quête.
+  Aussi `/psgf quest <id>` et `/psgf hooks` (dit ce qui a été trouvé : lignes Polestar, boutons du journal, accroches).
+- **Protocole** : deux nouveaux messages, `Q` (« qui a la quête N ? », un seul identifiant) et `A` (réponse chuchotée, avec le pourcentage de progression), répondus par tout joueur qui a la quête dans son journal, quelle que soit sa zone. Mêmes règles de langue que la recherche (chaque côté filtre pour lui), pause de 15 s entre deux recherches de quête, au plus une réponse par demandeur et par quête toutes les 20 s, 6 réponses par 30 s au total, un `A` n'est accepté que pour une recherche qu'on a lancée. Les versions 1.0.x ignorent `Q` / `A` sans erreur.
+- **Quitter le groupe quand les quêtes sont finies** : pour un groupe formé via l'addon (bouton Inviter, groupage auto, ou invitation acceptée d'un joueur trouvé), les quêtes communes sont mémorisées par personnage ; quand toutes sont terminées (objectifs remplis, prêtes à rendre ou rendues), une fenêtre propose **Quitter** / **Rester**. Option : dire un message dans /p avant de quitter (case + texte modifiable, défaut « Merci pour le groupe, bon jeu ! » / « Thanks for the group, have fun! » selon la langue du client). Le message et `LeaveParty` ne partent **que dans le clic sur Quitter**, jamais automatiquement ; un groupe formé à la main n'est jamais proposé. Options dans le panneau et dans la page Polestar (proposition activée par défaut, message désactivé par défaut).
+- Un `.toc` : `Leave.lua`, `Hooks.lua`.
+
 ## 1.0.1 — 2026-11-25
 
 - Options Polestar : cocher « Toutes les langues » grise immédiatement **toutes** les autres langues (cochées ou non), via le `disabled` natif de Polestar et un `Widgets.RefreshAll` (les toggles `get`/`set` ne déclenchent pas `SETTING_CHANGED`, donc les lignes sœurs ne se redessinaient pas au clic). L'état mémorisé reste visible, atténué. Même comportement dans le sélecteur du panneau.

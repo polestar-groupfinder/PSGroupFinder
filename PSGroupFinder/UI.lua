@@ -12,6 +12,11 @@
 -- Color, OnChanged) and sits against the guide window's right edge (left edge
 -- when the right one has no room), following the window when it hides;
 -- without it, it is a plain movable window of its own.
+--
+-- v1.1 adds, in this file: the quest panel (the players who have ONE quest,
+-- opened from a quest's button: QuestUI), the window offering to leave a
+-- group whose quests are done (UI.ShowLeave) and the dialog that edits the
+-- message said before leaving (UI.EditLeaveMessage).
 
 local _, ns = ...
 local L = ns.L
@@ -22,12 +27,15 @@ ns.UI = UI
 local WIDTH, PAD = 340, 12
 local ROW_H, ROWS = 42, 6
 local OPT_H = 20          -- pitch of the switches
+local NOPT = 7            -- switches
+local MSG_H = 22          -- the "message when leaving" line under them
+local TOP = 34 + NOPT * OPT_H + MSG_H
 local BTN_COL = 84        -- width of the Whisper / Invite column
 local SESSION_LINES = 4
-local panel, rows, host
+local panel, rows, host, qpanel, qrows
 local widgets = {}
 local checks = {}
-local docked, dockedHidden = false, false
+local docked = false
 
 ---------------------------------------------------------------------------
 -- Theme helpers (Polestar's Theme API when it runs, the game's look else)
@@ -146,7 +154,9 @@ local function whisper(name)
 	end
 end
 
-local function invite(name)
+local function invite(name, quests)
+	-- Remembered, so that the finder can offer to leave once these quests are done.
+	if ns.Leave and quests then ns.Leave.NoteInvite(name, quests) end
 	if C_PartyInfo and C_PartyInfo.InviteUnit then
 		C_PartyInfo.InviteUnit(name)
 	elseif InviteUnit then
@@ -170,8 +180,8 @@ end
 -- quests on the second, Whisper / Invite stacked in the right column.
 ---------------------------------------------------------------------------
 
-local function makeRow(i)
-	local r = CreateFrame("Frame", nil, panel)
+local function makeRow(_, parent)
+	local r = CreateFrame("Frame", nil, parent)
 	r:SetSize(WIDTH - 2 * PAD, ROW_H)
 	r:EnableMouse(true)
 	r.dist = font(r:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
@@ -189,7 +199,7 @@ local function makeRow(i)
 	r.info:SetWordWrap(false)
 	r.whisper = button(r, L.WHISPER, BTN_COL, function(self) if self.who then whisper(self.who) end end, 19)
 	r.whisper:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -1)
-	r.invite = button(r, L.INVITE, BTN_COL, function(self) if self.who then invite(self.who) end end, 19)
+	r.invite = button(r, L.INVITE, BTN_COL, function(self) if self.who then invite(self.who, self.quests) end end, 19)
 	r.invite:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 0, 1)
 	r:SetScript("OnEnter", function(self)
 		local e = self.entry
@@ -263,10 +273,14 @@ function UI.Refresh()
 	widgets.header:SetChecked(ns.Get("headerButton") ~= false)
 	widgets.coords:SetChecked(ns.Get("shareCoords") and true or false)
 	widgets.reply:SetChecked(ns.Get("autoReply") and true or false)
-	for _, c in ipairs({ widgets.auto, widgets.header, widgets.coords, widgets.reply }) do
+	widgets.leave:SetChecked(ns.Get("leaveOffer") ~= false)
+	widgets.leaveMsg:SetChecked(ns.Get("leaveMsgOn") and true or false)
+	for _, c in ipairs({ widgets.auto, widgets.header, widgets.coords, widgets.reply, widgets.leave, widgets.leaveMsg }) do
 		c:SetEnabled(on or c == widgets.header)
 		c:SetAlpha((on or c == widgets.header) and 1 or 0.5)
 	end
+	widgets.msgText:SetText(dim() .. string.format(L.LEAVE_MSG_LABEL, ns.Leave.Message()) .. "|r")
+	widgets.msgText:SetAlpha(ns.Get("leaveMsgOn") and 1 or 0.5)
 	if widgets.langValue then
 		widgets.langValue:SetText(dim() .. ns.Lang.MineSummary() .. "|r")
 	end
@@ -280,7 +294,7 @@ function UI.Refresh()
 	widgets.stop:SetShown(active)
 
 	-- Off: only the switches and the buttons; the rest has nothing to say.
-	local y = 34 + 5 * OPT_H + 22 + 8 + 22 + 10
+	local y = TOP + 22 + 8 + 22 + 10
 	local list = ns.Session.List()
 	widgets.sessionTitle:SetShown(on)
 	widgets.chLabel:SetShown(on)
@@ -341,7 +355,7 @@ function UI.Refresh()
 	end
 	for i = 1, ROWS do
 		local e = found[i]
-		local r = rows[i] or makeRow(i)
+		local r = rows[i] or makeRow(i, panel)
 		rows[i] = r
 		if e and on then
 			r.entry = e
@@ -352,7 +366,7 @@ function UI.Refresh()
 			local first = e.quests[1]
 			local more = #e.quests > 1 and ("  " .. dim() .. "+" .. (#e.quests - 1) .. "|r") or ""
 			r.info:SetText(soft() .. kindTag(e.kinds and e.kinds[first]) .. "|r" .. ns.Quests.Title(first) .. more)
-			r.whisper.who, r.invite.who = e.name, e.name
+			r.whisper.who, r.invite.who, r.invite.quests = e.name, e.name, e.quests
 			at(r, y)
 			r:Show()
 			y = y + ROW_H
@@ -368,30 +382,34 @@ end
 -- Placement
 ---------------------------------------------------------------------------
 
-function UI.Place()
-	if not panel then return end
-	panel:ClearAllPoints()
+local function placeFrame(f)
+	f:ClearAllPoints()
 	if host and host:IsShown() then
 		docked = true
 		-- Right of the guide window; left of it when the screen has no room.
 		local right, scale = host.GetRight and host:GetRight(), host.GetEffectiveScale and host:GetEffectiveScale() or 1
 		local room = UIParent:GetWidth() - ((right or 0) * scale) / (UIParent:GetEffectiveScale() or 1)
 		if right and room < WIDTH + 10 then
-			panel:SetPoint("TOPRIGHT", host, "TOPLEFT", -6, 0)
+			f:SetPoint("TOPRIGHT", host, "TOPLEFT", -6, 0)
 		else
-			panel:SetPoint("TOPLEFT", host, "TOPRIGHT", 6, 0)
+			f:SetPoint("TOPLEFT", host, "TOPRIGHT", 6, 0)
 		end
-		panel:SetMovable(false)
+		f:SetMovable(false)
 		return
 	end
 	docked = false
 	local pos = ns.Get("panelPos")
 	if type(pos) == "table" then
-		panel:SetPoint(pos[1] or "CENTER", UIParent, pos[1] or "CENTER", pos[2] or 0, pos[3] or 0)
+		f:SetPoint(pos[1] or "CENTER", UIParent, pos[1] or "CENTER", pos[2] or 0, pos[3] or 0)
 	else
-		panel:SetPoint("CENTER", UIParent, "CENTER", 260, 60)
+		f:SetPoint("CENTER", UIParent, "CENTER", 260, 60)
 	end
-	panel:SetMovable(true)
+	f:SetMovable(true)
+end
+
+function UI.Place()
+	if panel then placeFrame(panel) end
+	if qpanel then placeFrame(qpanel) end
 end
 
 -- Polestar.lua: the guide window to sit against (nil: stand alone).
@@ -404,13 +422,18 @@ end
 -- of the window: it goes with it and comes back with it, instead of jumping
 -- to the middle of the screen (v0.1).
 function UI.HostShown(shown)
-	if not panel then return end
 	if shown then
-		if dockedHidden then dockedHidden = false panel:Show() end
 		UI.Place()
-	elseif docked and panel:IsShown() then
-		dockedHidden = true
-		panel:Hide()
+	end
+	for _, f in ipairs({ panel or false, qpanel or false }) do
+		if f then
+			if shown then
+				if f.psDockHidden then f.psDockHidden = nil f:Show() end
+			elseif docked and f:IsShown() then
+				f.psDockHidden = true
+				f:Hide()
+			end
+		end
 	end
 end
 
@@ -454,7 +477,7 @@ function UI.ToggleLangPicker()
 		local box = CreateFrame("Frame", nil, panel)
 		box:SetFrameStrata("DIALOG")
 		box:SetSize(WIDTH - 16, 24 + 11 * 18 + 16)
-		box:SetPoint("TOPLEFT", panel, "TOPLEFT", 8, -(34 + 5 * OPT_H + 22))
+		box:SetPoint("TOPLEFT", panel, "TOPLEFT", 8, -(TOP + 22))
 		local T = Theme()
 		if T then pcall(T.Skin, box, "panel")
 		elseif box.SetBackdrop then
@@ -526,12 +549,22 @@ local function build()
 	widgets.header = check(panel, L.HEADER_BUTTON, L.HEADER_BUTTON_TIP, "headerButton")
 	widgets.coords = check(panel, L.SHARE_COORDS, nil, "shareCoords")
 	widgets.reply = check(panel, L.AUTO_REPLY, nil, "autoReply")
-	for i, c in ipairs({ widgets.enable, widgets.auto, widgets.header, widgets.coords, widgets.reply }) do
+	widgets.leave = check(panel, L.LEAVE_OFFER, L.LEAVE_OFFER_TIP, "leaveOffer")
+	widgets.leaveMsg = check(panel, L.LEAVE_MSG, L.LEAVE_MSG_TIP, "leaveMsgOn")
+	for i, c in ipairs({ widgets.enable, widgets.auto, widgets.header, widgets.coords, widgets.reply, widgets.leave, widgets.leaveMsg }) do
 		c:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - (useTheme and 0 or 4), -(34 + (i - 1) * OPT_H))
 	end
+	-- The message said when you click Leave: shown, edited in a small dialog.
+	widgets.msgEdit = button(panel, L.LEAVE_MSG_EDIT, 70, function() UI.EditLeaveMessage() end, 18)
+	widgets.msgEdit:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -(34 + NOPT * OPT_H))
+	widgets.msgText = font(panel:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
+	widgets.msgText:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD + 22, -(34 + NOPT * OPT_H + 3))
+	widgets.msgText:SetPoint("RIGHT", widgets.msgEdit, "LEFT", -6, 0)
+	widgets.msgText:SetJustifyH("LEFT")
+	widgets.msgText:SetWordWrap(false)
 
 	-- Languages: a compact summary; a click opens the picker.
-	local ly = 34 + 5 * OPT_H + 2
+	local ly = TOP + 2
 	widgets.langLabel = font(panel:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
 	widgets.langLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -ly)
 	widgets.langLabel:SetText(L.LANGS)
@@ -549,7 +582,7 @@ local function build()
 	end)
 	widgets.langHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-	local by = 34 + 5 * OPT_H + 22 + 8
+	local by = TOP + 22 + 8
 	widgets.search = button(panel, L.SEARCH, 168, function() ns.Search() UI.Refresh() end)
 	widgets.search:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -by)
 	widgets.stop = button(panel, L.STOP, 70, function()
@@ -613,6 +646,7 @@ function UI.SetHasOptions(has)
 end
 
 function UI.Show()
+	if qpanel then qpanel:Hide() qpanel.psDockHidden = nil end
 	if not panel then build() end
 	widgets.options:SetShown(UI.hasOptions == true)
 	UI.Place()
@@ -621,6 +655,7 @@ function UI.Show()
 end
 
 function UI.Toggle()
+	if qpanel and qpanel:IsShown() then qpanel:Hide() return end -- the quest panel is in the main panel's place
 	if panel and panel:IsShown() then panel:Hide() else UI.Show() end
 end
 
@@ -630,11 +665,315 @@ function UI.EmptyCaption()
 	return widgets.empty and widgets.empty.GetText and widgets.empty:GetText() or nil
 end
 
+---------------------------------------------------------------------------
+-- The quest panel (v1.1): the players who have ONE quest, wherever they
+-- are. Opened by the quest buttons (Hooks.lua), Alt-click on a Polestar
+-- goal and /psgf quest <id>. It takes the main panel's place; Back brings
+-- the main panel back. "Search for this quest" asks everyone (Comm.SearchQuest).
+---------------------------------------------------------------------------
+
+local QuestUI = {}
+ns.QuestUI = QuestUI
+local qid
+local qw = {}
+local QROWS = 6
+local qSearched = {} -- questID -> time of our last quest search
+
+local function zoneName(map)
+	if not (map and C_Map and C_Map.GetMapInfo) then return nil end
+	local ok, info = pcall(C_Map.GetMapInfo, map)
+	local name = ok and info and ns.Readable(info.name)
+	return type(name) == "string" and name ~= "" and name or nil
+end
+
+local function progressText(pct)
+	if pct == nil then return L.PROGRESS_NONE end
+	if pct >= 100 then return L.PROGRESS_READY end
+	return string.format(L.PROGRESS_PCT, pct)
+end
+
+function QuestUI.Quest() return qid end
+function QuestUI.IsShown() return qpanel and qpanel:IsShown() or false end
+
+function QuestUI.EmptyCaption()
+	return qw.empty and qw.empty.GetText and qw.empty:GetText() or nil
+end
+
+function QuestUI.Refresh()
+	if not (qpanel and qpanel:IsShown() and qid) then return end
+	local on = ns.Get("enabled") and true or false
+	qw.quest:SetText("|cffffd100" .. ns.Quests.Title(qid) .. "|r")
+	local pct = ns.Quests.Progress(qid)
+	qw.mine:SetText(dim() .. (pct and string.format(L.QUEST_MINE, progressText(pct)) or L.QUEST_NOT_MINE) .. "|r")
+	local cd = ns.Comm.QuestCooldown()
+	qw.search:SetEnabled(on and cd == 0)
+	qw.search:SetText(cd > 0 and string.format("%s (%d)", L.QUEST_SEARCH, math.ceil(cd)) or L.QUEST_SEARCH)
+
+	local y = 102
+	local found = on and ns.Matcher.QuestList(qid) or {}
+	local n = math.min(#found, QROWS)
+	qw.empty:SetShown(n == 0)
+	if n == 0 then
+		local searched = qSearched[qid] and ns.Now() - qSearched[qid] < 180
+		qw.empty:SetText(not on and L.QUEST_OFF or (searched and L.QUEST_EMPTY_SEARCHING or L.QUEST_EMPTY))
+		qw.empty:ClearAllPoints()
+		qw.empty:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD + 2, -(y + 2))
+		y = y + 38
+	end
+	qrows = qrows or {}
+	for i = 1, QROWS do
+		local e = found[i]
+		local r = qrows[i] or makeRow(i, qpanel)
+		qrows[i] = r
+		if e then
+			r.entry = e
+			local lang = e.langTag and e.langTag ~= "?" and ("  " .. dim() .. e.langTag .. "|r") or ""
+			r.name:SetText(string.format("|c%s%s|r  %s%s", classColor(e.class), short(e.name),
+				e.level and e.level > 0 and (dim() .. e.level .. "|r") or "", lang))
+			r.dist:SetText(rightText(e))
+			local zone = zoneName(e.map)
+			r.info:SetText(soft() .. (zone and (zone .. "  ") or "") .. "|r" .. dim() .. progressText(e.pct) .. "|r")
+			r.whisper.who, r.invite.who, r.invite.quests = e.name, e.name, e.quests
+			r:ClearAllPoints()
+			r:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD, -y)
+			r:Show()
+			y = y + ROW_H
+		else
+			r.entry = nil
+			r:Hide()
+		end
+	end
+	qpanel:SetHeight(y + PAD - 2)
+end
+
+local function buildQuest()
+	local useTheme = Theme() ~= nil
+	qpanel = CreateFrame("Frame", "PSGroupFinderQuestPanel", UIParent, (not useTheme and BackdropTemplateMixin) and "BackdropTemplate" or nil)
+	qpanel:SetSize(WIDTH, 200)
+	qpanel:SetFrameStrata("MEDIUM")
+	qpanel:SetClampedToScreen(true)
+	qpanel:EnableMouse(true)
+	qpanel:RegisterForDrag("LeftButton")
+	qpanel:SetScript("OnDragStart", function(self) if self:IsMovable() then self:StartMoving() end end)
+	qpanel:SetScript("OnDragStop", function(self)
+		self:StopMovingOrSizing()
+		local point, _, _, x, y = self:GetPoint(1)
+		ns.Set("panelPos", { point, x, y })
+	end)
+	if useTheme then
+		skin(qpanel, "window")
+	elseif qpanel.SetBackdrop then
+		qpanel:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+			tile = true, tileSize = 16, edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+		qpanel:SetBackdropColor(0.05, 0.05, 0.08, 0.92)
+	end
+	table.insert(UISpecialFrames, "PSGroupFinderQuestPanel")
+
+	qw.title = font(qpanel:CreateFontString(nil, "OVERLAY"), "title", GameFontNormalLarge)
+	qw.title:SetPoint("TOPLEFT", PAD, -10)
+	qw.title:SetText(L.QUEST_TITLE)
+
+	local close
+	if useTheme then
+		close = CreateFrame("Button", nil, qpanel)
+		close:SetSize(18, 18)
+		close:SetPoint("TOPRIGHT", -8, -8)
+		skin(close, "close")
+	else
+		close = CreateFrame("Button", nil, qpanel, "UIPanelCloseButton")
+		close:SetPoint("TOPRIGHT", 2, 2)
+	end
+	close:SetScript("OnClick", function() qpanel:Hide() end)
+
+	qw.quest = font(qpanel:CreateFontString(nil, "OVERLAY"), "body", GameFontNormal)
+	qw.quest:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD, -34)
+	qw.quest:SetWidth(WIDTH - 2 * PAD)
+	qw.quest:SetJustifyH("LEFT")
+	qw.quest:SetWordWrap(false)
+	qw.mine = font(qpanel:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
+	qw.mine:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD, -52)
+	qw.mine:SetWidth(WIDTH - 2 * PAD)
+	qw.mine:SetJustifyH("LEFT")
+	qw.mine:SetWordWrap(false)
+
+	qw.back = button(qpanel, L.QUEST_BACK, 70, function() qpanel:Hide() UI.Show() end)
+	qw.back:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD, -72)
+	qw.search = button(qpanel, L.QUEST_SEARCH, 190, function()
+		if qid and ns.Comm.SearchQuest(qid) then qSearched[qid] = ns.Now() end
+		QuestUI.Refresh()
+	end)
+	qw.search:SetPoint("LEFT", qw.back, "RIGHT", 6, 0)
+
+	qw.empty = font(qpanel:CreateFontString(nil, "OVERLAY"), "note", GameFontDisableSmall)
+	qw.empty:SetWidth(WIDTH - 2 * PAD - 4)
+	qw.empty:SetJustifyH("LEFT")
+
+	local elapsed = 0
+	qpanel:SetScript("OnUpdate", function(_, dt)
+		elapsed = elapsed + dt
+		if elapsed >= 1 then elapsed = 0 QuestUI.Refresh() end
+	end)
+	qpanel:SetScript("OnShow", function() UI.Place() QuestUI.Refresh() end)
+	qpanel:Hide()
+	UI.Place()
+end
+
+-- Opens the list for quest `id` (a number), in the main panel's place.
+function QuestUI.Open(id)
+	id = tonumber(id)
+	if not id or id <= 0 then return false end
+	qid = id
+	if not qpanel then buildQuest() end
+	if panel then panel:Hide() panel.psDockHidden = nil end
+	UI.Place()
+	qpanel:Show()
+	QuestUI.Refresh()
+	return true
+end
+
+function QuestUI.Close()
+	if qpanel then qpanel:Hide() end
+end
+
+ns.On("QUEST_SEARCHED", function(id) qSearched[id] = ns.Now() end)
+
+---------------------------------------------------------------------------
+-- "Leave the group?" (v1.1): a small window, two buttons. Both buttons are
+-- clicks; Leave.Do (the /p message when asked for, then LeaveParty) only
+-- ever runs from the Leave button.
+---------------------------------------------------------------------------
+
+local lw
+
+local function buildLeave()
+	local useTheme = Theme() ~= nil
+	lw = CreateFrame("Frame", "PSGroupFinderLeave", UIParent, (not useTheme and BackdropTemplateMixin) and "BackdropTemplate" or nil)
+	lw:SetSize(320, 130)
+	lw:SetFrameStrata("DIALOG")
+	lw:SetClampedToScreen(true)
+	lw:EnableMouse(true)
+	lw:SetMovable(true)
+	lw:RegisterForDrag("LeftButton")
+	lw:SetScript("OnDragStart", function(self) self:StartMoving() end)
+	lw:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+	lw:SetPoint("TOP", UIParent, "TOP", 0, -170)
+	if useTheme then
+		skin(lw, "window")
+	elseif lw.SetBackdrop then
+		lw:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+			tile = true, tileSize = 16, edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+		lw:SetBackdropColor(0.05, 0.05, 0.08, 0.95)
+	end
+	table.insert(UISpecialFrames, "PSGroupFinderLeave")
+	lw.title = font(lw:CreateFontString(nil, "OVERLAY"), "title", GameFontNormalLarge)
+	lw.title:SetPoint("TOPLEFT", PAD, -10)
+	lw.title:SetText(L.LEAVE_TITLE)
+	lw.body = font(lw:CreateFontString(nil, "OVERLAY"), "body", GameFontHighlight)
+	lw.body:SetPoint("TOPLEFT", PAD, -34)
+	lw.body:SetWidth(320 - 2 * PAD)
+	lw.body:SetJustifyH("LEFT")
+	lw.body:SetText(L.LEAVE_BODY)
+	lw.say = font(lw:CreateFontString(nil, "OVERLAY"), "small", GameFontHighlightSmall)
+	lw.say:SetPoint("TOPLEFT", PAD, -76)
+	lw.say:SetWidth(320 - 2 * PAD)
+	lw.say:SetJustifyH("LEFT")
+	lw.say:SetWordWrap(false)
+	lw.yes = button(lw, L.LEAVE_YES, 120, function()
+		lw:Hide()
+		ns.Leave.Do()
+	end, 24)
+	lw.yes:SetPoint("BOTTOMLEFT", lw, "BOTTOMLEFT", PAD, PAD)
+	lw.stay = button(lw, L.LEAVE_STAY, 120, function()
+		lw:Hide()
+		ns.Leave.Stay()
+	end, 24)
+	lw.stay:SetPoint("BOTTOMRIGHT", lw, "BOTTOMRIGHT", -PAD, PAD)
+	lw:Hide()
+end
+
+function UI.ShowLeave()
+	if not lw then buildLeave() end
+	local say = ns.Get("leaveMsgOn") and true or false
+	lw.say:SetShown(say)
+	if say then lw.say:SetText(dim() .. string.format(L.LEAVE_WILL_SAY, "\226\128\156" .. ns.Leave.Message() .. "\226\128\157") .. "|r") end
+	lw:SetHeight(say and 130 or 110)
+	lw:Show()
+end
+
+function UI.LeaveShown() return lw and lw:IsShown() or false end
+-- Tests: the two buttons of the window.
+function UI.LeaveButtons() return lw and lw.yes, lw and lw.stay end
+-- Tests: the player rows of the main panel and of the quest panel.
+function UI.RowFrames() return rows or {} end
+function QuestUI.RowFrames() return qrows or {} end
+
+---------------------------------------------------------------------------
+-- The message said in /p when you click Leave: edited here (a small
+-- dialog), from the panel's Edit button and from Polestar's page.
+---------------------------------------------------------------------------
+
+local ed
+
+local function buildEditor()
+	local useTheme = Theme() ~= nil
+	ed = CreateFrame("Frame", "PSGroupFinderMessage", UIParent, (not useTheme and BackdropTemplateMixin) and "BackdropTemplate" or nil)
+	ed:SetSize(330, 112)
+	ed:SetFrameStrata("DIALOG")
+	ed:SetClampedToScreen(true)
+	ed:EnableMouse(true)
+	ed:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
+	if useTheme then
+		skin(ed, "window")
+	elseif ed.SetBackdrop then
+		ed:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+			tile = true, tileSize = 16, edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+		ed:SetBackdropColor(0.05, 0.05, 0.08, 0.95)
+	end
+	table.insert(UISpecialFrames, "PSGroupFinderMessage")
+	local title = font(ed:CreateFontString(nil, "OVERLAY"), "title", GameFontNormalLarge)
+	title:SetPoint("TOPLEFT", PAD, -10)
+	title:SetText(L.LEAVE_DIALOG)
+	local e = CreateFrame("EditBox", nil, ed, (not useTheme) and "InputBoxTemplate" or nil)
+	e:SetSize(330 - 2 * PAD - 8, 22)
+	e:SetPoint("TOPLEFT", ed, "TOPLEFT", PAD + 4, -36)
+	e:SetAutoFocus(false)
+	e:SetMaxLetters(120)
+	e:SetFontObject(GameFontHighlight)
+	if useTheme then
+		e:SetTextInsets(6, 6, 0, 0)
+		skin(e, "editbox")
+	end
+	ed.edit = e
+	local function save()
+		local text = (e:GetText() or ""):gsub("|", ""):gsub("^%s+", ""):gsub("%s+$", "")
+		if text == "" or text == L.LEAVE_MSG_DEFAULT then ns.Set("leaveMsg", false) else ns.Set("leaveMsg", text) end
+		ed:Hide()
+	end
+	e:SetScript("OnEnterPressed", save)
+	e:SetScript("OnEscapePressed", function() ed:Hide() end)
+	ed.save = button(ed, L.LEAVE_SAVE, 96, save, 22)
+	ed.save:SetPoint("BOTTOMLEFT", ed, "BOTTOMLEFT", PAD, PAD)
+	ed.reset = button(ed, L.LEAVE_RESET, 96, function() e:SetText(L.LEAVE_MSG_DEFAULT) end, 22)
+	ed.reset:SetPoint("LEFT", ed.save, "RIGHT", 6, 0)
+	ed.cancel = button(ed, L.LEAVE_CANCEL, 96, function() ed:Hide() end, 22)
+	ed.cancel:SetPoint("BOTTOMRIGHT", ed, "BOTTOMRIGHT", -PAD, PAD)
+	ed:Hide()
+end
+
+function UI.EditLeaveMessage()
+	if not ed then buildEditor() end
+	ed.edit:SetText(ns.Leave.Message())
+	ed:Show()
+	if ed.edit.SetFocus then ed.edit:SetFocus() end
+end
+
+function UI.EditorShown() return ed and ed:IsShown() or false end
+
 ns.TogglePanel = UI.Toggle
 ns.ResetPanel = UI.Place
 
-for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION", "LANG" }) do
-	ns.On(msg, function() UI.Refresh() end)
+for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION", "LANG", "QUEST_SEARCHED" }) do
+	ns.On(msg, function() UI.Refresh() ns.QuestUI.Refresh() end)
 end
 -- Someone new found within OPEN_AFTER seconds of your own search, while the
 -- panel is closed: open it. Never on other players' searches alone.
