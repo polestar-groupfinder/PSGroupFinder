@@ -6,14 +6,14 @@ import os
 from common import *
 import v1 as V
 
-OUT = os.path.join(HERE, "v1.1")
+OUT = os.path.join(HERE, "v1.0")
 os.makedirs(OUT, exist_ok=True)
 e = V.e
 PW, PAD, ROW_H, OPT_H, BTN_COL = V.PW, V.PAD, V.ROW_H, V.OPT_H, V.BTN_COL
 MUTED, DIM, GREEN, AMBER = V.MUTED, V.DIM, V.GREEN, V.AMBER
 ICON_C = "#d9e0f2"
 BANNER = ("MAQUETTE — données d'exemple",
-          "PSGroupFinder v1.1.0 · dessinée d'après UI.lua / Hooks.lua / Leave.lua et la description des captures, pas une capture du jeu")
+          "PSGroupFinder v1.0.0 · dessinée d'après UI.lua / Hooks.lua / Leave.lua et la description des captures, pas une capture du jeu")
 YELLOW = "#ffd100"
 
 EXTRA = f"""
@@ -320,9 +320,59 @@ def m7():
     return wrap(p + ed + opt + cap, css)
 
 
+
+
+# ---------------------------------------------------------------- 8: options sidebar icon
+def nav_icon(src, x, y, s=16):
+    return f'<img class="abs" src="../assets/{src}" style="left:{x}px;top:{y}px;width:{s}px;height:{s}px">'
+
+def m8():
+    """Polestar options, Guiding group, our Group Finder row with its 16px icon."""
+    L, T, W, Hh = 80, 36, 1120, 650
+    side_w = 220
+    pages = [
+        ("icon-window.png", "Guide", False),
+        ("icon-map.png", "Map", False),
+        ("icon-accept.png", "Questing", False),
+        ("icon-search.png", "Discovery", False),
+        ("psgf-icon-group.png", "Group Finder", True),
+    ]
+    body = [f'<div class="abs set" style="left:{L}px;top:{T}px;width:{W}px;height:{Hh}px">']
+    body.append(f'<div class="t" style="left:16px;top:10px;font-size:15px;font-weight:600">Options de Polestar</div>')
+    body.append(f'<div class="abs" style="left:0;top:42px;width:{side_w}px;bottom:0;border-right:1px solid rgba(255,255,255,.08)">')
+    body.append(f'<div class="t" style="left:16px;top:8px;font-size:11px;font-weight:600;color:{MUTED};letter-spacing:.3px">GUIDING</div>')
+    y = 32
+    for src, label, on in pages:
+        bg = f'background:rgba(230,186,102,.14);box-shadow:inset 2px 0 0 {ACCENT};' if on else ''
+        body.append(f'<div class="abs" style="left:0;top:{y}px;width:{side_w-1}px;height:32px;{bg}"></div>')
+        body.append(nav_icon(src, 28, y + 8))
+        col = TEXT if on else DIM
+        body.append(f'<div class="t" style="left:52px;top:{y+8}px;font-size:12px;font-weight:500;color:{col}">{e(label)}</div>')
+        y += 32
+    body.append('</div>')  # side
+    # right: the Group Finder page, abbreviated
+    cx = side_w + 24
+    body.append(f'<div class="t" style="left:{cx}px;top:48px;font-size:15px;font-weight:600">Group Finder</div>')
+    body.append(f'<div class="abs card" style="left:{cx}px;top:78px;width:{W-cx-24}px;height:280px">')
+    body.append(f'<div class="sec" style="top:8px">GROUP FINDER</div>')
+    rows = [("Enable the group finder", True), ("Group automatically (same quest)", False),
+            ("Button in the Polestar header", True), ("All languages", False)]
+    ry = 32
+    for lab, on in rows:
+        body.append(f'<div class="rowl" style="top:{ry}px">{e(lab)}</div>' + V.sw(W-cx-24-14-34, ry, on))
+        ry += 36
+    body.append('</div></div>')
+    cap = caption(
+        "Barre latérale des options Polestar (page groupée, section Guiding) : l'entrée Group Finder a la même icône "
+        "que le bouton d'en-tête (deux silhouettes), 16×16, monochrome comme Guide (fenêtre), Map (boussole), Questing (« ! ») et Discovery (loupe). "
+        "Plus d'espace vide devant le libellé. Schéma : la fenêtre Polestar n'est pas reproduite à l'identique.",
+        T + Hh + 12, left=L, w=1100)
+    return wrap("".join(body) + cap, V.OPT_CSS)
+
+
 if __name__ == "__main__":
     for n, f in (("01-emplacement1-fenetre-guide-objectif", m1), ("02-emplacement2-infobulle-alt-clic", m2),
                  ("03-emplacement3-journal-de-quetes-forever", m3), ("04-liste-par-quete", m4),
                  ("05-liste-par-quete-recherche-en-cours", lambda: m4(True)), ("06-quitter-le-groupe-popup", m6),
-                 ("07-options-quitter-le-groupe", m7)):
+                 ("07-options-quitter-le-groupe", m7), ("08-options-barre-laterale-icone", m8)):
         print(render(n, f(), OUT))

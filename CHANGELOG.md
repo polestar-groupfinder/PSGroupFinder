@@ -1,42 +1,20 @@
 # Changelog
 
-## 1.1.0 — 2026-11-25
-
-Non testée dans le client de jeu (voir « Fragilités » dans le README).
-
-- **Liste par quête** : un petit bouton « joueurs sur cette quête » à trois endroits ; il ouvre le panneau en « mode quête » (nom, niveau, classe, langue, zone, progression, distance ou « autre zone », Chuchoter / Inviter) avec un bouton **Rechercher pour cette quête**.
-  1. fenêtre de guide Polestar : sous l'icône de chaque objectif lié à une quête, à gauche de la sous-ligne (à gauche de la case à cocher pour une ligne d'une seule ligne) ;
-  2. infobulle d'un objectif Polestar : ligne d'aide « Alt-clic : voir les joueurs sur cette quête » et Alt-clic sur la ligne (Polestar garde clic, clic milieu, Maj-clic, clic droit) ;
-  3. journal de quêtes du jeu (Carte et journal de quêtes) : un bouton par quête, après la case de suivi, quelle que soit la zone de la quête.
-  Aussi `/psgf quest <id>` et `/psgf hooks` (dit ce qui a été trouvé : lignes Polestar, boutons du journal, accroches).
-- **Protocole** : deux nouveaux messages, `Q` (« qui a la quête N ? », un seul identifiant) et `A` (réponse chuchotée, avec le pourcentage de progression), répondus par tout joueur qui a la quête dans son journal, quelle que soit sa zone. Mêmes règles de langue que la recherche (chaque côté filtre pour lui), pause de 15 s entre deux recherches de quête, au plus une réponse par demandeur et par quête toutes les 20 s, 6 réponses par 30 s au total, un `A` n'est accepté que pour une recherche qu'on a lancée. Les versions 1.0.x ignorent `Q` / `A` sans erreur.
-- **Quitter le groupe quand les quêtes sont finies** : pour un groupe formé via l'addon (bouton Inviter, groupage auto, ou invitation acceptée d'un joueur trouvé), les quêtes communes sont mémorisées par personnage ; quand toutes sont terminées (objectifs remplis, prêtes à rendre ou rendues), une fenêtre propose **Quitter** / **Rester**. Option : dire un message dans /p avant de quitter (case + texte modifiable, défaut « Merci pour le groupe, bon jeu ! » / « Thanks for the group, have fun! » selon la langue du client). Le message et `LeaveParty` ne partent **que dans le clic sur Quitter**, jamais automatiquement ; un groupe formé à la main n'est jamais proposé. Options dans le panneau et dans la page Polestar (proposition activée par défaut, message désactivé par défaut).
-- Un `.toc` : `Leave.lua`, `Hooks.lua`.
-
-## 1.0.1 — 2026-11-25
-
-- Options Polestar : cocher « Toutes les langues » grise immédiatement **toutes** les autres langues (cochées ou non), via le `disabled` natif de Polestar et un `Widgets.RefreshAll` (les toggles `get`/`set` ne déclenchent pas `SETTING_CHANGED`, donc les lignes sœurs ne se redessinaient pas au clic). L'état mémorisé reste visible, atténué. Même comportement dans le sélecteur du panneau.
-- Clic gauche sur l'icône d'en-tête (et le bouton sous la fenêtre) : lance ou relance la recherche **sans** ouvrir le panneau (icône accent + message de chat). Clic droit : ouvre ou ferme le panneau.
-- Pendant une recherche active sans résultat, le panneau affiche « Recherche en cours… aucun joueur pour l'instant » (au lieu d'inviter à cliquer sur Chercher un groupe).
-
 ## 1.0.0 — 2026-11-25
 
-Première version destinée à être installée en jeu (non testée dans le client).
+Première version destinée à être installée en jeu (non testée dans le client). Rien n'a été publié avant : les identifiants 0.1, 0.2, 1.0.1 et 1.1 n'étaient que des étapes locales.
 
-- Le dossier de l'addon s'appelle désormais **PSGroupFinder** (plus `Polestar_GroupFinder`), pour ne pas être effacé par une mise à jour manuelle de Polestar. Titre affiché : « Group Finder for Polestar » / « Recherche de groupe (Polestar) ».
-- Variables sauvegardées : `PSGroupFinderDB` / `PSGroupFinderCharDB`. Les réglages d'une éventuelle 0.x sont repris seulement si l'ancien addon est encore chargé une fois ; sinon ce n'est pas grave (rien n'avait été publié).
-- Fichiers de packaging : `.pkgmeta` (dépendance CurseForge `polestar`), `CHANGELOG.md`. L'identifiant CurseForge reste un placeholder commenté dans le `.toc`.
-- Bouton dans l'en-tête du guide Polestar, juste à gauche de la loupe (activé par défaut) : clic gauche pour chercher, clic droit pour le panneau. L'icône est grisée si l'addon est coupé, colorée si une recherche est en cours. Sans API publique pour l'ajouter : accroche sur `Theme.GuideParts().nav.Lookup` (interne) sous pcall, avec repli sur le bouton sous la fenêtre.
-- Langues de recherche (un seul réglage). Chaque joueur diffuse la langue de son client (`GetLocale()`, ex. `f`). Par défaut, seule cette langue est cochée ; on peut en ajouter d'autres, ou cocher « Toutes les langues » (les autres cases se grisent). Le filtrage est unilatéral : on liste un joueur si sa langue de jeu est dans notre recherche (ou si Toutes est cochée). Le groupage auto se fait de chaque côté selon sa propre recherche. Un peer v0.2 sans langue n'est visible que si Toutes est cochée. La liste affiche la langue (ex. FR).
-- Le reste reprend les fonctions de la 0.2.0 : session de recherche multi-quêtes, retrait automatique d'un objectif terminé, groupage automatique optionnel, page d'options dans Polestar, corrections d'interface.
-
-## 0.2.0 — 2026-11-25
-
-- Une recherche est une session : les quêtes quittent la recherche quand leur objectif est terminé ; la recherche continue pour les autres, puis s'arrête.
-- Option « Grouper automatiquement (même quête) », désactivée par défaut.
-- Page « Recherche de groupe » dans les options de Polestar.
-- Panneau à hauteur dynamique, cases et fermeture au thème Polestar, placement à gauche si le bord droit manque de place.
-
-## 0.1.0 — 2026-11-25
-
-- Première version : recherche de joueurs sur les mêmes quêtes (kill, élite nommé, loot, groupe), canaux d'addon, panneau et bouton sous la fenêtre Polestar, mode autonome.
+- Le dossier de l'addon s'appelle **PSGroupFinder**. Titre affiché : « Group Finder for Polestar » / « Recherche de groupe (Polestar) ». Variables sauvegardées : `PSGroupFinderDB` / `PSGroupFinderCharDB`.
+- Recherche de joueurs sur les mêmes quêtes (kill, élite nommé, loot, groupe), canaux d'addon (CHANNEL, YELL, SAY, GUILD ; réponses en chuchotement), panneau (Chuchoter / Inviter sur votre clic seulement).
+- Une recherche est une session : les quêtes quittent la recherche quand leur objectif est terminé ; la recherche continue pour les autres, puis s'arrête. Option « Grouper automatiquement (même quête) », désactivée par défaut.
+- Bouton dans l'en-tête du guide Polestar, juste à gauche de la loupe (activé par défaut) : clic gauche pour chercher **sans** ouvrir le panneau (icône accent + message de chat), clic droit pour ouvrir ou fermer le panneau. Repli : bouton « Chercher un groupe » sous la fenêtre. Accroche interne sur `Theme.GuideParts().nav.Lookup`, sous pcall.
+- Pendant une recherche active sans résultat, le panneau affiche « Recherche en cours… aucun joueur pour l'instant ».
+- Langues de recherche (un seul réglage). Chaque joueur diffuse la langue de son client. Par défaut, seule cette langue est cochée ; on peut en ajouter d'autres, ou cocher « Toutes les langues » (toutes les autres cases se grisent tout de suite, y compris les non cochées). Filtrage unilatéral. Un peer plus ancien sans langue n'est visible que si Toutes est cochée.
+- Page « Recherche de groupe » dans les options de Polestar. L'entrée de la barre latérale porte **la même icône que le bouton d'en-tête** (deux silhouettes, 16×16, monochrome comme les autres). Champ public `icon` de `RegisterOptions`, chemin complet vers notre texture `Media/icon-group`. Repli interne sous pcall si la page groupée des options n'envoie pas l'icône aux lignes indentées.
+- **Liste par quête** : un petit bouton (deux silhouettes) ouvre le panneau en mode quête (nom, niveau, classe, langue, zone, progression, distance ou « autre zone », Chuchoter / Inviter) avec **Rechercher pour cette quête**.
+  1. fenêtre de guide Polestar : sous l'icône de l'objectif, à gauche de la sous-ligne ;
+  2. infobulle d'un objectif : ligne d'aide « Alt-clic : voir les joueurs sur cette quête » et Alt-clic (les autres clics restent à Polestar) ;
+  3. journal de quêtes du jeu : un bouton par quête, après la case de suivi, quelle que soit la zone.
+  Aussi `/psgf quest <id>` et `/psgf hooks`.
+- **Protocole** : messages `Q` (« qui a la quête N ? ») et `A` (réponse chuchotée avec le pourcentage), quelle que soit la zone. Mêmes règles de langue, pause de 15 s entre deux recherches de quête, limites d'envoi.
+- **Quitter le groupe** quand les quêtes pour lesquelles vous vous êtes groupé via l'addon sont toutes finies : fenêtre **Quitter** / **Rester**. Option : message dans /p (texte modifiable, défaut FR/EN selon le client). Le message et `LeaveParty` ne partent **que dans le clic sur Quitter**, jamais automatiquement. Un groupe formé à la main n'est jamais proposé.

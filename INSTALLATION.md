@@ -1,4 +1,4 @@
-# Installation — Group Finder for Polestar (PSGroupFinder) 1.1.0
+# Installation — Group Finder for Polestar (PSGroupFinder) 1.0.0
 
 Companion de [Polestar](https://www.curseforge.com/wow/addons/polestar) pour WoW: Forever 1.60.1.
 **Cet addon n'a pas encore été testé dans le client de jeu.**
@@ -29,17 +29,17 @@ Si les dossiers `Interface` ou `AddOns` n'existent pas encore, créez-les en res
 ## Installer
 
 1. Fermez complètement le jeu.
-2. Décompressez `PSGroupFinder-1.1.0.zip`. Vous devez obtenir un dossier `PSGroupFinder` qui contient le fichier `PSGroupFinder.toc`.
+2. Décompressez `PSGroupFinder-1.0.0.zip`. Vous devez obtenir un dossier `PSGroupFinder` qui contient le fichier `PSGroupFinder.toc`.
 3. Placez ce dossier `PSGroupFinder` **directement** dans le dossier `AddOns` ci-dessus. Le chemin final doit être :
    `.../_forever_/Interface/AddOns/PSGroupFinder/PSGroupFinder.toc`
-   (pas `AddOns/PSGroupFinder/PSGroupFinder/PSGroupFinder.toc`, ni un dossier `PSGroupFinder-1.1.0` autour).
+   (pas `AddOns/PSGroupFinder/PSGroupFinder/PSGroupFinder.toc`, ni un dossier `PSGroupFinder-1.0.0` autour).
 4. Si un ancien dossier `Polestar_GroupFinder` est encore là (versions 0.x), **supprimez-le** pour éviter que les deux addons se chargent ensemble.
 5. Relancez **complètement** le jeu. Un `/reload` ne suffit pas pour un nouvel addon.
 
 ## Vérifier et activer
 
 1. Sur l'écran de choix du personnage, cliquez sur **AddOns**. Cochez **Group Finder for Polestar** (en français : **Recherche de groupe (Polestar)**) et validez.
-2. Entrez en jeu. Dans Polestar : **Options > Recherche de groupe** (ou tapez `/polestar options`). Cochez **Activer la recherche de groupe**. Tant que c'est coupé, rien n'est envoyé ni écouté.
+2. Entrez en jeu. Dans Polestar : **Options > Recherche de groupe** (ou tapez `/polestar options`) : l'entrée porte une icône à deux silhouettes, comme les autres de la barre. Cochez **Activer la recherche de groupe**. Tant que c'est coupé, rien n'est envoyé ni écouté.
 3. (Facultatif) Cochez **Grouper automatiquement (même quête)** seulement si vous voulez les invitations sans clic. Les deux joueurs doivent l'avoir.
 4. Assignez un raccourci : Échap > Options > Raccourcis, catégorie **Polestar** :
    - « Chercher un groupe pour mes quêtes »

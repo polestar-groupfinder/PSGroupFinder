@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:720px;overflow:hidden;background:#121418}
+body{font-family:'Inter',sans-serif;color:#f7f8fd;position:relative;
+  background:radial-gradient(ellipse 80% 80% at 50% 38%,#2a2e36 0%,#121418 100%)}
+.abs{position:absolute}
+.banner{position:absolute;left:0;top:0;width:100%;height:24px;background:rgba(250,191,77,.14);
+  border-bottom:1px solid rgba(250,191,77,.45);color:#fabf4d;font-size:12px;font-weight:600;
+  line-height:23px;padding-left:12px;letter-spacing:.2px;z-index:99}
+.banner span{color:#c3cadd;font-weight:500;margin-left:10px}
+.caption{position:absolute;color:#9ba2b9;font-size:12px;font-weight:500}
+/* Polestar window kind=window */
+.pwin{background:rgba(24,29,45,.94);box-shadow:0 0 0 1px rgba(0,0,5,.42),inset 0 0 0 1px rgba(255,255,255,.10),0 6px 18px rgba(0,0,5,.6)}
+/* Polestar kind=button, text button */
+.pbtn{background:#232a3f;box-shadow:inset 0 0 0 1px rgba(255,255,255,.10);color:#f7f8fd;
+  text-align:center;white-space:nowrap}
+.pbtn.off{background:rgba(35,42,63,.6);color:#9ba2b9;opacity:.75}
+.t{position:absolute;white-space:nowrap}
+.ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.guide{position:absolute}
+
+.qb{position:absolute;width:14px;height:14px;border-radius:2px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.qb i{position:absolute;background:#d9e0f2}
+.qb.hot{box-shadow:inset 0 0 0 1px #e6ba66;background:rgba(230,186,102,.18)}
+.qb.hot i{background:#e6ba66}
+.gr{position:absolute;left:0;width:100%}
+.ring{position:absolute;border:1.5px dashed #e6ba66;border-radius:5px;pointer-events:none}
+.note{position:absolute;font-size:11px;font-weight:600;color:#e6ba66}
+
+.set{background:rgba(24,29,45,.97);box-shadow:0 0 0 1px rgba(0,0,5,.5),inset 0 0 0 1px rgba(255,255,255,.10),0 10px 30px rgba(0,0,5,.6)}
+.side div{height:28px;line-height:28px;padding-left:14px;font-size:12px;font-weight:500;color:#c3cadd}
+.side div.sel{background:rgba(230,186,102,.14);color:#f7f8fd;box-shadow:inset 2px 0 0 #e6ba66}
+.card{background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);border-radius:4px}
+.rowl{position:absolute;left:14px;font-size:12px;font-weight:500;color:#f7f8fd}
+.help{position:absolute;left:14px;font-size:11px;color:#9ba2b9;right:60px}
+.sw{position:absolute;width:34px;height:18px;border-radius:9px}
+.sw i{position:absolute;top:2px;width:14px;height:14px;border-radius:7px;background:#fff}
+.key{position:absolute;width:120px;height:22px;line-height:22px;text-align:center;font-size:11px;color:#c3cadd;background:#232a3f;box-shadow:inset 0 0 0 1px rgba(255,255,255,.10);border-radius:3px}
+.sec{position:absolute;left:14px;font-size:11px;font-weight:600;color:#9ba2b9;letter-spacing:.3px}
+</style></head>
+<body><div class="banner">MAQUETTE — données d&#x27;exemple<span>PSGroupFinder v1.0.0 · dessinée d&#x27;après UI.lua / Hooks.lua / Leave.lua et la description des captures, pas une capture du jeu</span></div><div class="abs set" style="left:80px;top:36px;width:1120px;height:650px"><div class="t" style="left:16px;top:10px;font-size:15px;font-weight:600">Options de Polestar</div><div class="abs" style="left:0;top:42px;width:220px;bottom:0;border-right:1px solid rgba(255,255,255,.08)"><div class="t" style="left:16px;top:8px;font-size:11px;font-weight:600;color:#9ba2b9;letter-spacing:.3px">GUIDING</div><div class="abs" style="left:0;top:32px;width:219px;height:32px;"></div><img class="abs" src="../assets/icon-window.png" style="left:28px;top:40px;width:16px;height:16px"><div class="t" style="left:52px;top:40px;font-size:12px;font-weight:500;color:#c3cadd">Guide</div><div class="abs" style="left:0;top:64px;width:219px;height:32px;"></div><img class="abs" src="../assets/icon-map.png" style="left:28px;top:72px;width:16px;height:16px"><div class="t" style="left:52px;top:72px;font-size:12px;font-weight:500;color:#c3cadd">Map</div><div class="abs" style="left:0;top:96px;width:219px;height:32px;"></div><img class="abs" src="../assets/icon-accept.png" style="left:28px;top:104px;width:16px;height:16px"><div class="t" style="left:52px;top:104px;font-size:12px;font-weight:500;color:#c3cadd">Questing</div><div class="abs" style="left:0;top:128px;width:219px;height:32px;"></div><img class="abs" src="../assets/icon-search.png" style="left:28px;top:136px;width:16px;height:16px"><div class="t" style="left:52px;top:136px;font-size:12px;font-weight:500;color:#c3cadd">Discovery</div><div class="abs" style="left:0;top:160px;width:219px;height:32px;background:rgba(230,186,102,.14);box-shadow:inset 2px 0 0 #e6ba66;"></div><img class="abs" src="../assets/psgf-icon-group.png" style="left:28px;top:168px;width:16px;height:16px"><div class="t" style="left:52px;top:168px;font-size:12px;font-weight:500;color:#f7f8fd">Group Finder</div></div><div class="t" style="left:244px;top:48px;font-size:15px;font-weight:600">Group Finder</div><div class="abs card" style="left:244px;top:78px;width:852px;height:280px"><div class="sec" style="top:8px">GROUP FINDER</div><div class="rowl" style="top:32px">Enable the group finder</div><div class="sw" style="left:804px;top:32px;background:#e6ba66"><i style="left:18px"></i></div><div class="rowl" style="top:68px">Group automatically (same quest)</div><div class="sw" style="left:804px;top:68px;background:rgba(255,255,255,.18)"><i style="left:2px"></i></div><div class="rowl" style="top:104px">Button in the Polestar header</div><div class="sw" style="left:804px;top:104px;background:#e6ba66"><i style="left:18px"></i></div><div class="rowl" style="top:140px">All languages</div><div class="sw" style="left:804px;top:140px;background:rgba(255,255,255,.18)"><i style="left:2px"></i></div></div></div><div class="caption" style="left:80px;top:698px;width:1100px;line-height:16px">Barre latérale des options Polestar (page groupée, section Guiding) : l&#x27;entrée Group Finder a la même icône que le bouton d&#x27;en-tête (deux silhouettes), 16×16, monochrome comme Guide (fenêtre), Map (boussole), Questing (« ! ») et Discovery (loupe). Plus d&#x27;espace vide devant le libellé. Schéma : la fenêtre Polestar n&#x27;est pas reproduite à l&#x27;identique.</div></body></html>

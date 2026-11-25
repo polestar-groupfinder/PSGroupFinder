@@ -6,8 +6,29 @@ ver=$(awk '/^## Version:/{print $3; exit}' PSGroupFinder/PSGroupFinder.toc)
 out=../polestar-groupfinder-release
 mkdir -p "$out"
 zipname="PSGroupFinder-${ver}.zip"
-# Do not delete older zips (0.1, 0.2, previous 1.x). Only replace this version.
-rm -f "$out/$zipname"
-zip -qr "$out/$zipname" PSGroupFinder -x '*.DS_Store'
-if [[ -f INSTALLATION.md ]]; then cp -f INSTALLATION.md "$out/INSTALLATION.md"; fi
-echo "$out/$zipname"
+# Prefer the current unpublished release folder when it exists.
+dest="$out"
+if [[ -d "$out/v${ver}" ]]; then
+  dest="$out/v${ver}"
+  mkdir -p "$dest"
+fi
+rm -f "$dest/$zipname"
+if command -v zip >/dev/null; then
+  zip -qr "$dest/$zipname" PSGroupFinder -x '*.DS_Store'
+else
+  python3 - "$dest/$zipname" <<'PY'
+import zipfile, sys
+from pathlib import Path
+out, root = Path(sys.argv[1]), Path("PSGroupFinder")
+with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as z:
+    for p in sorted(root.rglob("*")):
+        if p.name == ".DS_Store" or not p.is_file():
+            continue
+        z.write(p, (Path("PSGroupFinder") / p.relative_to(root)).as_posix())
+PY
+fi
+if [[ -f INSTALLATION.md ]]; then
+  cp -f INSTALLATION.md "$dest/INSTALLATION.md"
+  cp -f INSTALLATION.md "$out/INSTALLATION.md"
+fi
+echo "$dest/$zipname"

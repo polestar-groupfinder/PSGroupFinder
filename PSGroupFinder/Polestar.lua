@@ -381,6 +381,76 @@ end
 -- Our page in Polestar's settings window
 ---------------------------------------------------------------------------
 
+-- Sidebar glyph: a two-person icon shipped with this addon (same idea as the
+-- header button). RegisterOptions' `icon` field is public (ARCHITECTURE.md).
+-- A name alone ("icon-group") is looked up in Polestar's own Media/UI; we
+-- pass a full path so the texture is ours and does not depend on Polestar
+-- shipping that file. Theme.Media returns a path that already has a slash
+-- unchanged, so the settings window paints it like any other page icon.
+local OPTIONS_ICON = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-group"
+
+function ns.OptionsIcon()
+	return OPTIONS_ICON
+end
+
+-- The grouped settings layout (0.4.2, "New settings page") builds its
+-- sidebar from Grouped.NavItems: in the copy we read, those rows get a
+-- label and indent but not `icon`, and NavRowAfter may hide the texture
+-- on an indented row. If a later Polestar shows the other pages' icons
+-- (Guide, Map, Questing, Discovery) and leaves ours blank, we fill the
+-- field and show the texture. All of this is INTERNAL, under pcall; if
+-- it is missing, the public `icon` on RegisterOptions still stands (the
+-- classic sidebar already uses it).
+local function hookOptionsIcon()
+	local icon = OPTIONS_ICON
+	local O = P and P.UI and P.UI.Options
+	local W = P and P.Widgets
+	pcall(function()
+		local pages = O and O.Kit and O.Kit.pages
+		if type(pages) == "table" then
+			for _, page in ipairs(pages) do
+				if page.key == "groupfinder" then page.icon = icon end
+			end
+		end
+	end)
+	pcall(function()
+		local G = O and O.Grouped
+		if not (G and type(G.NavItems) == "function") or G.psgfIconHook then return end
+		G.psgfIconHook = true
+		local orig = G.NavItems
+		G.NavItems = function(...)
+			local items = orig(...)
+			pcall(function()
+				for _, it in ipairs(items or {}) do
+					if it.key == "groupfinder" then it.icon = it.icon or icon end
+				end
+			end)
+			return items
+		end
+	end)
+	pcall(function()
+		if not (W and type(W.NavRowAfter) == "function") or W.psgfIconHook then return end
+		W.psgfIconHook = true
+		local orig = W.NavRowAfter
+		W.NavRowAfter = function(b, item, on, pad)
+			orig(b, item, on, pad)
+			pcall(function()
+				if not (item and item.key == "groupfinder" and b and b.Icon) then return end
+				local T = P.Theme
+				local path = icon
+				if T and T.Media then
+					local ok, r = pcall(T.Media, icon)
+					if ok and type(r) == "string" then path = r end
+				end
+				b.Icon:SetTexture(path)
+				b.Icon:SetSize(16, 16)
+				if b.Icon.Show then b.Icon:Show() end
+			end)
+		end
+	end)
+end
+ns.HookOptionsIcon = hookOptionsIcon
+
 local optionsRegistered = false
 
 local function registerOptions()
@@ -393,7 +463,7 @@ local function registerOptions()
 		}
 	end
 	local spec = {
-		page = L.OPT_SECTION, key = "groupfinder", icon = "icon-group", group = "guiding", order = 45,
+		page = L.OPT_SECTION, key = "groupfinder", icon = OPTIONS_ICON, group = "guiding", order = 45,
 		tab = L.OPT_SECTION, section = L.OPT_SECTION,
 		controls = {
 			toggle(L.ENABLE, L.ENABLE_TIP, "enabled", ns.SetEnabled),
@@ -419,7 +489,7 @@ local function registerOptions()
 	-- Search languages: one toggle a row (no multi-select control).
 	-- "All languages" greys out the individual boxes (disabled = true).
 	local langs = {
-		page = L.OPT_SECTION, key = "groupfinder", tab = L.OPT_SECTION, section = L.LANGS,
+		page = L.OPT_SECTION, key = "groupfinder", icon = OPTIONS_ICON, tab = L.OPT_SECTION, section = L.LANGS,
 		controls = {
 			{ kind = "toggle", label = L.LANG_ALL, help = L.LANGS_TIP, search = "language langue language",
 				get = function() return ns.Lang.AcceptsAll() end,
@@ -440,10 +510,11 @@ end
 
 -- The panel's Options button: Polestar's settings window on our page.
 function ns.OpenOptions()
+	hookOptionsIcon()
 	local U = P and P.UI
 	if U and type(U.ShowOptions) == "function" then
 		local ok = pcall(U.ShowOptions, "groupfinder")
-		if ok then return true end
+		if ok then hookOptionsIcon() return true end
 	end
 	return false
 end
@@ -452,6 +523,10 @@ ns.On("LOGIN", function()
 	if not usable() then return end
 	P = Polestar
 	registerOptions()
+	hookOptionsIcon()
+	ns.RegisterEvent("ADDON_LOADED", function(_, name)
+		if name == "Polestar_Options" then hookOptionsIcon() end
+	end)
 	local U = P.UI
 	if ns.UI and optionsRegistered and U and type(U.ShowOptions) == "function" then ns.UI.SetHasOptions(true) end
 	local function changed()

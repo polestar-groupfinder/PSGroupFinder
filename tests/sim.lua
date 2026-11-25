@@ -783,6 +783,55 @@ check(sam.ns.Leave.Message() == "Salut |cffff0000!", "a saved message is used as
 sam.ns.Set("leaveMsg", false)
 check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "false brings the default text back")
 
+---------------------------------------------------------------------------
+-- Options sidebar icon (RegisterOptions `icon`, plus a hook if the
+-- grouped layout's nav omits it)
+---------------------------------------------------------------------------
+local capturedOpts = {}
+local fp3 = {}
+for k, v in pairs(fakePolestar) do fp3[k] = v end
+fp3.RegisterOptions = function(spec) capturedOpts[#capturedOpts + 1] = spec return true end
+fp3.UI = { Options = { Kit = { pages = { { key = "groupfinder", name = "Group Finder" } } },
+	Grouped = { NavItems = function()
+		return {
+			{ key = "guide", label = "Guide", icon = "icon-note", indent = true },
+			{ key = "groupfinder", label = "Group Finder", indent = true },
+		}
+	end } }, ShowOptions = function() end }
+local navPainted = { other = 0 }
+fp3.Widgets = {
+	NavRowAfter = function(_, item)
+		if item and item.key ~= "groupfinder" then navPainted.other = navPainted.other + 1 end
+	end,
+	RefreshAll = function() end,
+	Media = function() end,
+}
+local ico = newClient("Ico Vale", { hogger }, { polestar = fp3 })
+check(ico.ns.OptionsIcon():find("PSGroupFinder") and ico.ns.OptionsIcon():find("icon%-group"),
+	"the sidebar icon is a full path to our Media/icon-group texture")
+check(#capturedOpts >= 1 and capturedOpts[1].icon == ico.ns.OptionsIcon() and capturedOpts[1].key == "groupfinder",
+	"RegisterOptions (public API) receives our icon on the Group Finder page")
+check(fp3.UI.Options.Kit.pages[1].icon == ico.ns.OptionsIcon(),
+	"the registered page's icon is set (internal Kit.pages, under pcall)")
+local items = fp3.UI.Options.Grouped.NavItems()
+check(items[1].icon == "icon-note" and items[2].key == "groupfinder" and items[2].icon == ico.ns.OptionsIcon(),
+	"Grouped.NavItems fills our icon when the layout omitted it, and leaves the others alone")
+local painted
+local row = { Icon = { SetTexture = function(_, path) painted = path end, SetSize = function() end, Show = function() end } }
+fp3.Widgets.NavRowAfter(row, { key = "groupfinder" }, false)
+check(painted == ico.ns.OptionsIcon(), "NavRowAfter (internal) paints our 16px icon on the Group Finder row")
+painted = nil
+fp3.Widgets.NavRowAfter(row, { key = "guide", icon = "icon-note" }, false)
+check(painted == nil and navPainted.other >= 1, "NavRowAfter does not rewrite another page's icon")
+-- Without the options window, the hook is a no-op (the public icon field remains).
+local fp4 = {}
+for k, v in pairs(fakePolestar) do fp4[k] = v end
+fp4.RegisterOptions = function() return true end
+local ico2 = newClient("Ico Two", { hogger }, { polestar = fp4 })
+check(ico2.ns.HookOptionsIcon and (function() ico2.ns.HookOptionsIcon() return true end)(),
+	"the icon hook is silent when the grouped layout is absent")
+
+
 ana.ns.SetEnabled(false)
 check(#ana.ns.Matcher.List() == 0 and ana.joined == false, "turning off clears the list and leaves the channel")
 print("all tests passed")

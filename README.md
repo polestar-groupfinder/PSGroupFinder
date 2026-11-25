@@ -14,7 +14,7 @@ La procédure détaillée (chemins Windows et Mac, activation, premier test à d
 comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
 
 1. Installez d'abord [Polestar](https://www.curseforge.com/wow/addons/polestar).
-2. Décompressez `PSGroupFinder-1.1.0.zip` dans
+2. Décompressez `PSGroupFinder-1.0.0.zip` dans
    `World of Warcraft/_forever_/Interface/AddOns/` : vous devez obtenir
    `.../AddOns/PSGroupFinder/PSGroupFinder.toc` (pas un dossier dans un dossier).
    Si vous aviez l'ancienne version `Polestar_GroupFinder`, supprimez ce dossier.
@@ -132,6 +132,8 @@ peuvent exiger une action matérielle).
 | `Polestar.Theme.Skin`, `Font`, `OnChanged` | **Skin API publique** (capability `theme.functions`) | peindre le panneau et le bouton au look du joueur |
 | `Polestar.Theme.GuideParts().window` | **Skin API publique** (capability `guideParts`) | accrocher le bouton sous la fenêtre de guide et le panneau à sa droite |
 | `Polestar.RegisterOptions` (ARCHITECTURE.md « Options registry », hors docs/API.md), sous `pcall` | **semi-interne** | page « Recherche de groupe » dans les options de Polestar |
+| champ public `icon` de `RegisterOptions` (chemin complet vers `Media/icon-group`) | **API publique** du registre | icône de notre entrée dans la barre latérale, même taille (16×16) et rendu monochrome que Guide, Map, Questing et Discovery |
+| `UI.Options.Kit.pages`, `Options.Grouped.NavItems`, `Widgets.NavRowAfter` | **internes**, sous `pcall` | repli si la page groupée des options n'envoie pas l'icône aux lignes indentées |
 | `Polestar.Theme.GuideReach`, `Polestar.Theme.Skin(…, "checkbox" / "close")`, `Theme.Hex` | **Skin API publique** | éviter les onglets du bord bas, cases et bouton de fermeture au look Polestar |
 | `Polestar.UI.ShowOptions(clé)` | **interne**, sous `pcall` | bouton « Options » du panneau (masqué si absent) |
 | `Polestar.Engine.GetGuide()` / `GetLiveStep()` et `step.goals[].quest` | **interne**, appelé sous `pcall` | mettre les quêtes de l’étape en cours en tête |
