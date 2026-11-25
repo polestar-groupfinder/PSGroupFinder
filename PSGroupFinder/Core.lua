@@ -14,6 +14,23 @@ local L = ns.L
 ns.name = ADDON
 ns.version = (C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata or function() end)(ADDON, "Version") or "dev"
 
+-- Our monochrome eye, used everywhere a PSGroupFinder icon is shown.
+-- The two-silhouette texture (icon-group) is kept only as a fallback
+-- if the eye file is ever missing.
+ns.ICON = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-eye"
+ns.ICON_FALLBACK = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-group"
+
+function ns.Icon()
+	return ns.ICON
+end
+
+function ns.ApplyIcon(tex, size)
+	if not (tex and tex.SetTexture) then return false end
+	pcall(tex.SetTexture, tex, ns.ICON)
+	if size and tex.SetSize then pcall(tex.SetSize, tex, size, size) end
+	return true
+end
+
 local DEFAULTS = {
 	enabled = false,     -- the whole feature, off until the player turns it on
 	autoReply = true,    -- answer searches for quests we have (only while enabled)
@@ -21,10 +38,11 @@ local DEFAULTS = {
 	shareCoords = true,  -- send x/y with the map; off: the map only
 	headerButton = true, -- icon in Polestar's header (false: under the window)
 	searchLangs = false, -- filled in Lang.Init: the client's language
-	acceptAll = false,   -- search every language (opt-in; greys out the individual boxes)
+	acceptAll = false,   -- search every language (opt-in; folds the language list)
 	panelPos = false,    -- { point, x, y } of the standalone panel
 	leaveOffer = true,   -- offer to leave the group when its quests are done (never leaves by itself)
-	leaveMsgOn = false,  -- say leaveMsg in /p when you click Leave (opt-in)
+	leaveMsgOn = false,  -- say leaveMsg in /p when leaving (opt-in)
+	leaveMsgAny = false, -- also when leaving a group not formed through the finder
 	leaveMsg = false,    -- false: the default text of the client's language
 	debug = false,
 }

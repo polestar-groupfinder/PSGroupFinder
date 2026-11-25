@@ -74,17 +74,22 @@ comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
   - répondre aux recherches sur mes quêtes.
   - proposer de quitter quand les quêtes du groupe sont finies (activé par défaut), et dire un
     message dans /p avant de quitter (désactivé par défaut, texte modifiable) ;
-- **Liste par quête** (1.1) : un petit bouton (deux silhouettes) ouvre le panneau en « mode quête »,
+- **Liste par quête** (1.1) : un petit bouton (œil) ouvre le panneau en « mode quête »,
   la liste des joueurs qui ont **cette** quête, où qu'ils soient, avec leur zone, leur progression,
   Chuchoter et Inviter ; **Rechercher pour cette quête** les interroge (quête identifiée par son
   numéro). Le bouton est :
   1. dans la fenêtre de guide Polestar, sous l'icône de l'objectif, à gauche de la sous-ligne ;
   2. proposé dans l'infobulle de l'objectif (« Alt-clic : voir les joueurs sur cette quête ») ;
-  3. dans le journal de quêtes du jeu, à droite de la case de suivi de chaque quête.
-  Sans Polestar il reste celui du journal et `/psgf quest <id>`.
+  3. dans le journal de quêtes du jeu, à droite de la case de suivi de chaque quête
+     (le titre est raccourci pour ne pas passer sous le bouton) ;
+  4. dans la vue détail « Carte & journal », à gauche de Retour (ou à droite de Suivi).
+  Un second clic sur le même déclencheur referme le volet ; un clic pour une autre quête bascule.
+  Sans Polestar il reste ceux du journal / du détail et `/psgf quest <id>`.
 - **Quitter le groupe** (1.1) : pour un groupe formé via l'addon, quand toutes les quêtes pour
   lesquelles vous vous êtes groupé sont finies, une fenêtre propose **Quitter** / **Rester**.
-  Le message dans /p (option) et la sortie du groupe ne se font **que dans le clic sur Quitter**.
+  Le message dans /p (option) part aussi si vous quittez par le jeu (portrait, `/leave`) ou
+  par le bouton **Quitter le groupe** du panneau (visible seulement en groupe). Jamais tout
+  seul. Option « même hors groupe de l'addon » (`leaveMsgAny`, off) pour un groupe formé à la main.
 - **Commandes** : `/psgf` (panneau), `/psgf search`, `/psgf stop`, `/psgf on|off`, `/psgf test`
   (teste les canaux), `/psgf reset` (replace le panneau), `/psgf quest <id>` (liste d'une quête),
   `/psgf hooks` (ce qui a été trouvé chez Polestar et dans le journal), `/psgf debug`.
@@ -133,7 +138,7 @@ peuvent exiger une action matérielle).
 | `Polestar.Theme.Skin`, `Font`, `OnChanged` | **Skin API publique** (capability `theme.functions`) | peindre le panneau et le bouton au look du joueur |
 | `Polestar.Theme.GuideParts().window` | **Skin API publique** (capability `guideParts`) | accrocher le bouton sous la fenêtre de guide et le panneau à sa droite |
 | `Polestar.RegisterOptions` (ARCHITECTURE.md « Options registry », hors docs/API.md), sous `pcall` | **semi-interne** | page « Recherche de groupe » dans les options de Polestar |
-| champ public `icon` de `RegisterOptions` (chemin complet vers `Media/icon-group`) | **API publique** du registre | icône de notre entrée dans la barre latérale, même taille (16×16) et rendu monochrome que Guide, Map, Questing et Discovery |
+| champ public `icon` de `RegisterOptions` (chemin complet vers `Media/icon-eye`) | **API publique** du registre | icône de notre entrée dans la barre latérale, le même œil que l'en-tête, 16×16 monochrome comme Guide, Map, Questing et Discovery |
 | `UI.Options.Kit.pages`, `Options.Grouped.NavItems`, `Widgets.NavRowAfter` | **internes**, sous `pcall` | repli si la page groupée des options n'envoie pas l'icône aux lignes indentées |
 | `Polestar.Theme.GuideReach`, `Polestar.Theme.Skin(…, "checkbox" / "close")`, `Theme.Hex` | **Skin API publique** | éviter les onglets du bord bas, cases et bouton de fermeture au look Polestar |
 | `Polestar.UI.ShowOptions(clé)` | **interne**, sous `pcall` | bouton « Options » du panneau (masqué si absent) |
@@ -150,13 +155,17 @@ fenêtre autonome.
 
 Le bouton par quête s'accroche à **`QuestScrollFrame.titleFramePool`** (le journal Carte et
 quêtes, boutons de titre avec `.questID` et `.Checkbox`), sinon aux enfants de son contenu qui
-portent un `questID`, sinon aux boutons `QuestLogTitle1…N` du journal classique. Le bouton est un
-**enfant** du bouton de titre (il suit les lignes recyclées) ; il est replacé après les
-fonctions de mise à jour du journal (`hooksecurefunc` seulement : on ne remplace rien, et on
-n'appelle jamais `QuestMapFrame_OpenToQuestDetails`, qui fait du taint chez Polestar, #2924) et
-toutes les 0,5 s tant qu'un journal est affiché. Les noms de frames de Forever n'ont **pas** pu
-être vérifiés hors jeu (ils viennent du code du journal de la version Retail et de ce que dit
-Questie) : `/psgf hooks` dit ce qui a été trouvé.
+portent un `questID`, sinon aux boutons `QuestLogTitle1…N` du journal classique. Il est placé
+**à droite de la case de suivi** (3 px, même colonne s'il n'y a pas de case) ; le titre est
+raccourci (`SetPoint` RIGHT) pour ne pas passer dessous. Le bouton est un **enfant** du bouton
+de titre (il suit les lignes recyclées) ; il est replacé après les fonctions de mise à jour du
+journal (`hooksecurefunc` seulement : on ne remplace rien, et on n'appelle jamais
+`QuestMapFrame_OpenToQuestDetails`, qui fait du taint chez Polestar, #2924) et toutes les 0,5 s
+tant qu'un journal est affiché. Sur la vue détail (`QuestMapFrame.DetailsFrame`, ancre
+`BackButton` ou `TrackButton`), un second bouton s'accroche à `QuestMapFrame_ShowQuestDetails`
+et aux mises à jour du détail, sous pcall. Les noms de frames de Forever n'ont **pas** pu être
+vérifiés hors jeu (ils viennent du code du journal de la version Retail et de ce que dit
+Questie) : `/psgf hooks` dit ce qui a été trouvé (cadre, identifiant, bouton, ancre).
 
 ## Limites du groupage automatique (à confirmer en jeu)
 
@@ -187,12 +196,15 @@ Questie) : `/psgf hooks` dit ce qui a été trouvé.
 - Les noms Forever ont un nom de famille (« Ana Smith ») : le chuchotement et l’invitation
   utilisent le nom tel que le serveur l’envoie. À vérifier en jeu, surtout entre royaumes.
 - Seuls les autres joueurs **qui ont cet addon et l’ont activé** répondent.
-- **Fragilités de la 1.1** (rien n'a été vu dans le client) : noms des frames du journal de
-  Forever ; hauteur de ligne d'objectif Polestar (≥ 36 pour placer le bouton sous l'icône, sinon
-  à gauche de la case à cocher) ; `QuestClickTips` / `QuestRowClick` / `row.psGoal` sont internes à
-  Polestar (sans eux : ni ligne d'aide ni Alt-clic, le bouton reste) ; une version 1.0.x
-  ne répond pas aux recherches de quête (elle les ignore). Le message dans /p passe par
-  `SendChatMessage` dans le clic sur Quitter ; si Forever le refuse, le groupe est quand même quitté.
+- **Fragilités de la 1.1** (rien n'a été vu dans le client) : noms des frames du journal et
+  du détail Forever (`QuestMapFrame.DetailsFrame`, `BackButton`, `TrackButton`) ; le trim du
+  titre dépend de trouver le FontString ; hauteur de ligne d'objectif Polestar (≥ 36 pour
+  placer le bouton sous l'icône, sinon à gauche de la case à cocher) ; `QuestClickTips` /
+  `QuestRowClick` / `row.psGoal` sont internes à Polestar (sans eux : ni ligne d'aide ni
+  Alt-clic, le bouton reste) ; une version 1.0.x ne répond pas aux recherches de quête (elle
+  les ignore). Le message dans /p passe par `SendChatMessage` juste avant `LeaveParty` (pré-
+  accroche, donc possible taint si le jeu l'appelle de façon sécurisée — accepté, le joueur
+  déclenche le départ) ; si Forever refuse le message, le groupe est quand même quitté.
 - Testé uniquement hors jeu : `luac` + `luacheck` + une simulation multi-clients (recherche, session, retrait des quêtes, groupage auto, recherche de quête, boutons, offre de quitter) avec un faux
   API WoW et un faux Polestar (`lua5.1 tests/sim.lua`). Pas encore testé dans le client.
 

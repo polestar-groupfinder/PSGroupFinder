@@ -180,24 +180,26 @@ end
 -- Header button: a 24 px control in the guide window's nav (to the left
 -- of Lookup), same IconButton as Polestar's own header icons. The glyph
 -- is our monochrome eye (Media/icon-eye.tga), tinted like the other
--- header icons (idle / hover / active / finder off). The options
--- silhouette (OPTIONS_ICON) is the fallback if the eye path cannot be
--- applied. Left click starts or stops the search; right click opens or
+-- header icons (idle / hover / active / finder off). The same eye is
+-- used in the options sidebar and on our panels. The two-silhouette
+-- texture is only a fallback if the eye path cannot be applied.
+-- Left click starts or stops the search; right click opens or
 -- closes the panel. The button stays in the header when the finder is
 -- off (dimmed): a left click still prints DISABLED.
 --
 -- Our textures, full addon paths so Theme.Media / an IconButton Painter
 -- keep them (a short name such as "search" would be remapped to Polestar's
 -- own loupe, which some clients read as binoculars).
-local HEADER_ICON  = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-eye"
-local OPTIONS_ICON = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-group"
+-- Both the header and the options sidebar use the eye (ns.ICON).
+local HEADER_ICON  = ns.ICON
+local OPTIONS_ICON = ns.ICON
 
 function ns.HeaderIcon()
-	return HEADER_ICON
+	return ns.Icon and ns.Icon() or HEADER_ICON
 end
 
 function ns.OptionsIcon()
-	return OPTIONS_ICON
+	return ns.Icon and ns.Icon() or OPTIONS_ICON
 end
 
 local function colorHeaderIcon(b, token, alpha)
@@ -231,6 +233,7 @@ local function paintHeader()
 	local active = ns.Session and ns.Session.Active()
 	local W = P and P.Widgets
 	if header.Icon and header.Icon.Show then header.Icon:Show() end
+	applyHeaderIcon(header, HEADER_ICON)
 	-- SetIconState is what Polestar itself uses on these buttons (accent
 	-- when the tool is the one in use, EnableMouse kept on). Our psIconName
 	-- is the eye path, so this tints our texture and does not restore the
@@ -404,8 +407,8 @@ end
 -- Our page in Polestar's settings window
 ---------------------------------------------------------------------------
 
--- Sidebar glyph: OPTIONS_ICON (defined with the header eye above). A name
--- alone ("icon-group") is looked up in Polestar's own Media/UI; the full
+-- Sidebar glyph: the same eye as the header (OPTIONS_ICON = ns.ICON).
+-- A short name would be looked up in Polestar's own Media/UI; the full
 -- path is what RegisterOptions and the Grouped hook already use.
 -- Theme.Media returns a path that already has a slash unchanged, so the
 -- settings window paints it like any other page icon.
@@ -490,6 +493,7 @@ local function registerOptions()
 			toggle(L.AUTO_REPLY, L.AUTO_REPLY_TIP, "autoReply"),
 			toggle(L.LEAVE_OFFER, L.LEAVE_OFFER_TIP, "leaveOffer"),
 			toggle(L.LEAVE_MSG, L.LEAVE_MSG_TIP, "leaveMsgOn"),
+			toggle(L.LEAVE_MSG_ANY, L.LEAVE_MSG_ANY_TIP, "leaveMsgAny"),
 			{ kind = "button", label = L.LEAVE_DIALOG .. "…", help = L.LEAVE_DIALOG_TIP,
 				onClick = function() if ns.UI then ns.UI.EditLeaveMessage() end end },
 			{ kind = "binding", action = "PSGF_SEARCH", label = L.BINDING_SEARCH, help = L.BINDING_SEARCH_TIP },

@@ -27,7 +27,7 @@ ns.UI = UI
 local WIDTH, PAD = 340, 12
 local ROW_H, ROWS = 42, 6
 local OPT_H = 20          -- pitch of the switches
-local NOPT = 7            -- switches
+local NOPT = 8            -- switches
 local MSG_H = 22          -- the "message when leaving" line under them
 local TOP = 34 + NOPT * OPT_H + MSG_H
 local BTN_COL = 84        -- width of the Whisper / Invite column
@@ -101,6 +101,16 @@ local function tip(frame, title, body, anchor)
 		GameTooltip:Show()
 	end)
 	frame:HookScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
+-- 16 px eye to the left of a window title (same glyph as the header).
+local function titleIcon(parent)
+	local t = parent:CreateTexture(nil, "ARTWORK")
+	ns.ApplyIcon(t, 16)
+	t:SetPoint("TOPLEFT", PAD, -10)
+	local T = Theme()
+	if T and T.Color then pcall(T.Color, t, "icon") end
+	return t
 end
 
 -- A switch: Polestar's own checkbox when it runs, the game's else. The label
@@ -275,9 +285,12 @@ function UI.Refresh()
 	widgets.reply:SetChecked(ns.Get("autoReply") and true or false)
 	widgets.leave:SetChecked(ns.Get("leaveOffer") ~= false)
 	widgets.leaveMsg:SetChecked(ns.Get("leaveMsgOn") and true or false)
-	for _, c in ipairs({ widgets.auto, widgets.header, widgets.coords, widgets.reply, widgets.leave, widgets.leaveMsg }) do
-		c:SetEnabled(on or c == widgets.header)
-		c:SetAlpha((on or c == widgets.header) and 1 or 0.5)
+	if widgets.leaveAny then widgets.leaveAny:SetChecked(ns.Get("leaveMsgAny") and true or false) end
+	for _, c in ipairs({ widgets.auto, widgets.header, widgets.coords, widgets.reply, widgets.leave, widgets.leaveMsg, widgets.leaveAny }) do
+		if c then
+			c:SetEnabled(on or c == widgets.header)
+			c:SetAlpha((on or c == widgets.header) and 1 or 0.5)
+		end
 	end
 	widgets.msgText:SetText(dim() .. string.format(L.LEAVE_MSG_LABEL, ns.Leave.Message()) .. "|r")
 	widgets.msgText:SetAlpha(ns.Get("leaveMsgOn") and 1 or 0.5)
@@ -292,9 +305,12 @@ function UI.Refresh()
 	widgets.search:SetEnabled(on and cd == 0)
 	widgets.search:SetText(cd > 0 and string.format("%s (%d)", L.SEARCH, math.ceil(cd)) or (active and L.SEARCH_AGAIN or L.SEARCH))
 	widgets.stop:SetShown(active)
+	local inParty = (IsInGroup and IsInGroup()) and true or false
+	if widgets.leaveGroup then widgets.leaveGroup:SetShown(inParty) end
 
 	-- Off: only the switches and the buttons; the rest has nothing to say.
 	local y = TOP + 22 + 8 + 22 + 10
+	if inParty then y = y + 24 end
 	local list = ns.Session.List()
 	widgets.sessionTitle:SetShown(on)
 	widgets.chLabel:SetShown(on)
@@ -551,8 +567,10 @@ local function build()
 	end
 	table.insert(UISpecialFrames, "PSGroupFinderPanel")
 
+	local titleIconTex = titleIcon(panel)
 	local title = font(panel:CreateFontString(nil, "OVERLAY"), "title", GameFontNormalLarge)
-	title:SetPoint("TOPLEFT", PAD, -10)
+	title:SetPoint("LEFT", titleIconTex, "RIGHT", 6, 0)
+	title:SetPoint("TOP", panel, "TOP", 0, -10)
 	title:SetText(L.TITLE)
 
 	local close
@@ -575,7 +593,8 @@ local function build()
 	widgets.reply = check(panel, L.AUTO_REPLY, L.AUTO_REPLY_TIP, "autoReply")
 	widgets.leave = check(panel, L.LEAVE_OFFER, L.LEAVE_OFFER_TIP, "leaveOffer")
 	widgets.leaveMsg = check(panel, L.LEAVE_MSG, L.LEAVE_MSG_TIP, "leaveMsgOn")
-	for i, c in ipairs({ widgets.enable, widgets.auto, widgets.header, widgets.coords, widgets.reply, widgets.leave, widgets.leaveMsg }) do
+	widgets.leaveAny = check(panel, L.LEAVE_MSG_ANY, L.LEAVE_MSG_ANY_TIP, "leaveMsgAny")
+	for i, c in ipairs({ widgets.enable, widgets.auto, widgets.header, widgets.coords, widgets.reply, widgets.leave, widgets.leaveMsg, widgets.leaveAny }) do
 		c:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - (useTheme and 0 or 4), -(34 + (i - 1) * OPT_H))
 	end
 	-- The message said when you click Leave: shown, edited in a small dialog.
@@ -621,6 +640,12 @@ local function build()
 	widgets.options = button(panel, L.OPTIONS_SHORT, 64, function() if ns.OpenOptions then ns.OpenOptions() end end)
 	widgets.options:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -by)
 	widgets.options:Hide()
+	-- Leave the group: only shown while in a party, on a row under the
+	-- search buttons, so it never collides with Search / Stop / Options.
+	widgets.leaveGroup = button(panel, L.LEAVE_GROUP, 140, function() if ns.Leave and ns.Leave.Do then ns.Leave.Do() end end)
+	tip(widgets.leaveGroup, L.LEAVE_GROUP, L.LEAVE_GROUP_TIP)
+	widgets.leaveGroup:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -(by + 24))
+	widgets.leaveGroup:Hide()
 
 	widgets.sessionTitle = font(panel:CreateFontString(nil, "OVERLAY"), "caption", GameFontNormalSmall)
 	widgets.sessionTitle:SetJustifyH("LEFT")
@@ -793,8 +818,10 @@ local function buildQuest()
 	end
 	table.insert(UISpecialFrames, "PSGroupFinderQuestPanel")
 
+	local qIcon = titleIcon(qpanel)
 	qw.title = font(qpanel:CreateFontString(nil, "OVERLAY"), "title", GameFontNormalLarge)
-	qw.title:SetPoint("TOPLEFT", PAD, -10)
+	qw.title:SetPoint("LEFT", qIcon, "RIGHT", 6, 0)
+	qw.title:SetPoint("TOP", qpanel, "TOP", 0, -10)
 	qw.title:SetText(L.QUEST_TITLE)
 
 	local close
@@ -843,9 +870,15 @@ local function buildQuest()
 end
 
 -- Opens the list for quest `id` (a number), in the main panel's place.
+-- A second click on the same quest (row button, Alt-click, log, details)
+-- closes the pane; a click for a different quest switches to it.
 function QuestUI.Open(id)
 	id = tonumber(id)
 	if not id or id <= 0 then return false end
+	if qpanel and qpanel:IsShown() and qid == id then
+		QuestUI.Close()
+		return false
+	end
 	qid = id
 	if not qpanel then buildQuest() end
 	if panel then panel:Hide() panel.psDockHidden = nil end
@@ -925,6 +958,7 @@ function UI.ShowLeave()
 end
 
 function UI.LeaveShown() return lw and lw:IsShown() or false end
+function UI.LeaveGroupButton() return widgets.leaveGroup end
 -- Tests: the two buttons of the window.
 function UI.LeaveButtons() return lw and lw.yes, lw and lw.stay end
 -- Tests: the player rows of the main panel and of the quest panel.

@@ -28,6 +28,7 @@ local function newClient(name, quests, opts)
 			if k == "IsShown" then return function() return rawget(t, "_shown") and true or false end end
 			if k == "Show" then return function() t._shown = true end end
 			if k == "Hide" then return function() t._shown = false end end
+			if k == "SetShown" then return function(_, v) t._shown = v and true or false end end
 			if k == "GetChecked" then return function() return false end end
 			if k == "GetStringWidth" then return function() return 100 end end
 			if k == "GetWidth" then return function() return rawget(t, "_w") or 100 end end
@@ -621,10 +622,30 @@ check(type(gRows[1].psgfBtn._OnClick) == "function", "the row button has a click
 hal2.ns.QuestUI.Close()
 gRows[1].psgfBtn._OnClick(gRows[1].psgfBtn)
 check(hal2.ns.QuestUI.IsShown(), "clicking the row button opens the quest panel")
+check(gRows[1].psgfBtn.Icon and gRows[1].psgfBtn.Icon._texture and gRows[1].psgfBtn.Icon._texture:find("icon%-eye"),
+	"the goal-row button uses our eye texture, not the two silhouettes")
+-- Toggle: a second click on the same quest closes; another quest switches.
+gRows[1].psgfBtn._OnClick(gRows[1].psgfBtn)
+check(not hal2.ns.QuestUI.IsShown(), "a second click on the same goal-row button closes the quest panel")
+gRows[1].psgfBtn._OnClick(gRows[1].psgfBtn)
+check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 12345, "a third click opens it again")
+hal2.ns.QuestUI.Open(5001)
+check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 5001, "opening a different quest switches the list, it does not close")
+hal2.ns.QuestUI.Open(5001)
+check(not hal2.ns.QuestUI.IsShown(), "opening the same quest again closes the list")
+hal2.altDown = true
+fp2.QuestRowClick(12345, "LeftButton")
+check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 12345, "Alt-click opens the list")
+fp2.QuestRowClick(12345, "LeftButton")
+check(not hal2.ns.QuestUI.IsShown(), "a second Alt-click on the same quest closes the list")
+hal2.altDown = false
 
 -- The game's quest log: the pool of title buttons, Checkbox, recycled rows, hooks.
 local function titleButton(id, shown)
-	return { questID = id, IsShown = function() return shown end, Checkbox = { IsShown = function() return true end } }
+	local check = { IsShown = function() return true end }
+	local text = { SetPoint = function(self, p, rel, rp, x, y) self._p, self._rel, self._rp, self._x, self._y = p, rel, rp, x, y end, SetWordWrap = function() end }
+	return { questID = id, IsShown = function() return shown end, Checkbox = check, Text = text,
+		GetRight = function() return 200 end }
 end
 local active = { titleButton(12345, true), titleButton(5001, true) }
 hal2.QuestScrollFrame = { titleFramePool = { EnumerateActive = function()
@@ -654,6 +675,64 @@ hal2.QuestLogFrame = { IsVisible = function() return true end }
 hal2.QuestLogTitle1 = { IsShown = function() return true end, GetID = function() return 1 end }
 hal2.ns.Hooks.Scan()
 check(hal2.QuestLogTitle1.psgfLogBtn and hal2.QuestLogTitle1.psgfLogBtn.questID == 12345, "classic log: QuestLogTitle1's quest id is read from the log index")
+-- Placement: always to the right of the tracking checkbox, title trimmed short of the box.
+-- Re-scan the pool so placeInLog runs on title buttons that have Checkbox + Text.
+hal2.QuestLogTitle1 = nil
+hal2.QuestLogFrame = nil
+active[1].questID = 12345
+hal2.QuestScrollFrame = { titleFramePool = { EnumerateActive = function()
+	local i = 0
+	return function() i = i + 1 return active[i] end
+end } }
+hal2.QuestMapFrame = { IsVisible = function() return true end, HookScript = function() end }
+hal2.ns.Hooks.Scan()
+local logBtn, logCheck, logText = active[1].psgfLogBtn, active[1].Checkbox, active[1].Text
+check(logBtn and logBtn._rel == logCheck and logBtn._point == "LEFT" and logBtn._relPoint == "RIGHT" and logBtn._x == 3,
+	"the log button sits 3 px to the right of the tracking checkbox")
+check(logText._rel == logCheck and logText._p == "RIGHT" and logText._rp == "LEFT",
+	"the quest title is anchored short of the checkbox, so it never runs under our button")
+-- A row with no checkbox keeps the same right-hand column (just past the title button).
+local plain = { questID = 42, IsShown = function() return true end, Text = { SetPoint = function(self, p, rel, rp, x, y) self._p, self._rel, self._rp = p, rel, rp end, SetWordWrap = function() end } }
+hal2.QuestScrollFrame = { titleFramePool = { EnumerateActive = function()
+	local i = 0
+	return function() i = i + 1 if i == 1 then return plain end end
+end } }
+hal2.ns.Hooks.Scan()
+check(plain.psgfLogBtn and plain.psgfLogBtn._point == "LEFT" and plain.psgfLogBtn._rel == plain and plain.psgfLogBtn._relPoint == "RIGHT" and plain.psgfLogBtn._x == 3,
+	"with no checkbox the button stays in the right-hand column, just past the row")
+
+-- Quest details pane (Forever / Retail): eye button next to Back.
+local details = { IsShown = function() return true end, questID = 12345, HookScript = function() return true end }
+details.BackButton = { GetParent = function() return details end }
+hal2.QuestMapFrame = { IsVisible = function() return true end, HookScript = function() end, DetailsFrame = details }
+hal2.QuestMapFrame_ShowQuestDetails = function() end
+hal2.ns.QuestUI.Close()
+hal2.ns.Hooks.Scan()
+local dbtn = hal2.ns.Hooks.DetailsButton()
+check(dbtn and dbtn.questID == 12345 and dbtn:IsShown(), "the details pane has an eye button for the displayed quest")
+check(dbtn._rel == details.BackButton and dbtn._point == "RIGHT" and dbtn._relPoint == "LEFT",
+	"the details button sits just left of Back (Retour)")
+check(dbtn.Icon and dbtn.Icon._texture and dbtn.Icon._texture:find("icon%-eye"),
+	"the details button uses our eye texture")
+dbtn._OnClick(dbtn)
+check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 12345, "clicking the details button opens the quest list")
+dbtn._OnClick(dbtn)
+check(not hal2.ns.QuestUI.IsShown(), "a second click on the details button closes the quest list")
+-- Log-row button uses the same Open() toggle.
+active[1].questID = 88
+hal2.QuestScrollFrame = { titleFramePool = { EnumerateActive = function()
+	local i = 0
+	return function() i = i + 1 return active[i] end
+end } }
+hal2.ns.Hooks.Scan()
+active[1].psgfLogBtn._OnClick(active[1].psgfLogBtn)
+check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 88, "clicking the log button opens the quest list")
+active[1].psgfLogBtn._OnClick(active[1].psgfLogBtn)
+check(not hal2.ns.QuestUI.IsShown(), "a second click on the same log button closes the quest list")
+active[1].psgfLogBtn._OnClick(active[1].psgfLogBtn)
+active[2].psgfLogBtn._OnClick(active[2].psgfLogBtn)
+check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 5001, "a log button for another quest switches the list")
+
 hal2.ns.Hooks.Report()
 
 -- Without Polestar and without any quest log, nothing breaks.
@@ -673,7 +752,8 @@ rae.ns.Comm.TestChannels(true) run(6)
 run(30)
 check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "default leave message in French for a French client")
 check(ned.ns.Leave.Message() == "Thanks for the group, have fun!", "default leave message in English for an English client")
-check(rae.ns.Get("leaveOffer") == true and rae.ns.Get("leaveMsgOn") == false, "defaults: offer on, /p message off")
+check(rae.ns.Get("leaveOffer") == true and rae.ns.Get("leaveMsgOn") == false and not rae.ns.Get("leaveMsgAny"),
+	"defaults: offer on, /p message off, not for groups formed by hand")
 rae.PSGroupFinder_Search()
 run(8)
 check(rae.ns.Matcher.Get("Sam Lee") ~= nil, "Rae found Sam")
@@ -795,6 +875,95 @@ check(sam.ns.Leave.Message() == "Salut |cffff0000!", "a saved message is used as
 sam.ns.Set("leaveMsg", false)
 check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "false brings the default text back")
 
+-- Leaving through the game (LeaveParty / portrait / /leave): same /p message,
+-- no double send when our button also calls LeaveParty, only for a finder group
+-- unless leaveMsgAny is on. The panel's Leave button uses the same path.
+local pip = newClient("Pip Wren", { lq(11001, 0) }, { x = 0.2, y = 0.2 })
+local kit = newClient("Kit Vale", { lq(11001, 0) }, { x = 0.21, y = 0.2 })
+pip.ns.SetEnabled(true) kit.ns.SetEnabled(true) run(15)
+pip.ns.Comm.TestChannels(true) run(6) run(30)
+pip.ns.Set("leaveMsgOn", true)
+pip.ns.Set("leaveMsg", "Bon jeu, merci !")
+pip.PSGroupFinder_Search() run(8)
+check(pip.ns.Matcher.Get("Kit Vale") ~= nil, "Pip found Kit")
+pip.ns.Leave.NoteInvite("Kit Vale", pip.ns.Matcher.Get("Kit Vale").quests)
+pip.C_PartyInfo.InviteUnit("Kit Vale") run(1)
+kit.AcceptGroup()
+pip.fire("GROUP_ROSTER_UPDATE") kit.fire("GROUP_ROSTER_UPDATE") run(2)
+check(pip.ns.char.party ~= nil, "Pip remembers the finder group")
+-- Game leave (the hooked LeaveParty), not our window.
+pip.LeaveParty()
+check(#pip.chat == 1 and pip.chat[1][1] == "Bon jeu, merci !" and pip.chat[1][2] == "PARTY",
+	"leaving via the game (LeaveParty) sends the /p message first")
+check(pip.leaves == 1, "LeaveParty then leaves the group")
+
+-- Our Leave.Do must not send twice (it also calls LeaveParty, already hooked).
+local jo = newClient("Jo Pike", { lq(11001, 0) }, { x = 0.22, y = 0.2 })
+local mo = newClient("Mo Pike", { lq(11001, 0) }, { x = 0.23, y = 0.2 })
+jo.ns.SetEnabled(true) mo.ns.SetEnabled(true) run(15)
+jo.ns.Comm.TestChannels(true) run(6) run(30)
+jo.ns.Set("leaveMsgOn", true)
+jo.ns.Set("leaveMsg", "À plus !")
+jo.PSGroupFinder_Search() run(8)
+jo.ns.Leave.NoteInvite("Mo Pike", { 11001 })
+jo.C_PartyInfo.InviteUnit("Mo Pike") run(1)
+mo.AcceptGroup()
+jo.fire("GROUP_ROSTER_UPDATE") mo.fire("GROUP_ROSTER_UPDATE") run(2)
+jo.ns.Leave.Do()
+check(#jo.chat == 1 and jo.chat[1][1] == "À plus !" and jo.leaves == 1,
+	"Leave.Do sends the /p message once, even though LeaveParty is pre-hooked")
+
+-- A group formed by hand: no message unless leaveMsgAny is on.
+local abb = newClient("Abb Cole", { lq(11001, 0) }, {})
+local bea = newClient("Bea Cole", { lq(11001, 0) }, {})
+abb.ns.SetEnabled(true) bea.ns.SetEnabled(true) run(15)
+abb.ns.Set("leaveMsgOn", true)
+abb.ns.Set("leaveMsg", "Ciao")
+party["Abb Cole"] = { "Abb Cole", "Bea Cole" } party["Bea Cole"] = party["Abb Cole"]
+abb.fire("GROUP_ROSTER_UPDATE") run(1)
+check(abb.ns.char.party == nil, "a hand-formed group is not in the finder's memory")
+abb.LeaveParty()
+check(#abb.chat == 0 and abb.leaves == 1, "LeaveParty on a hand-formed group says nothing by default")
+party["Abb Cole"] = { "Abb Cole", "Bea Cole" } party["Bea Cole"] = party["Abb Cole"]
+abb.ns.Set("leaveMsgAny", true)
+abb.LeaveParty()
+check(#abb.chat == 1 and abb.chat[1][1] == "Ciao" and abb.leaves == 2,
+	"with leaveMsgAny, leaving a hand-formed group also sends the /p message")
+
+-- Panel "Leave the group" button: visible only in a party, same Leave.Do path.
+local cy = newClient("Cy Moss", { lq(11001, 0) }, { x = 0.25, y = 0.2 })
+local dy = newClient("Dy Moss", { lq(11001, 0) }, { x = 0.26, y = 0.2 })
+cy.ns.SetEnabled(true) dy.ns.SetEnabled(true) run(15)
+cy.ns.Comm.TestChannels(true) run(6) run(30)
+cy.ns.Set("leaveMsgOn", true)
+cy.ns.Set("leaveMsg", "Au revoir")
+cy.ns.UI.Show()
+cy.ns.UI.Refresh()
+check(not (cy.ns.UI.LeaveGroupButton() and cy.ns.UI.LeaveGroupButton():IsShown()),
+	"the Leave the group button is hidden when not in a party")
+cy.PSGroupFinder_Search() run(8)
+cy.ns.Leave.NoteInvite("Dy Moss", { 11001 })
+cy.C_PartyInfo.InviteUnit("Dy Moss") run(1)
+dy.AcceptGroup()
+cy.fire("GROUP_ROSTER_UPDATE") dy.fire("GROUP_ROSTER_UPDATE") run(2)
+cy.ns.UI.Show()
+cy.ns.UI.Refresh()
+local lg = cy.ns.UI.LeaveGroupButton()
+check(lg and lg:IsShown(), "the Leave the group button appears while in a party")
+lg._OnClick(lg)
+check(#cy.chat == 1 and cy.chat[1][1] == "Au revoir" and cy.leaves == 1,
+	"the panel Leave button sends the /p message then leaves")
+cy.ns.UI.Refresh()
+check(not cy.ns.UI.LeaveGroupButton():IsShown(), "the Leave button hides again once out of the group")
+
+-- Header right-click closes the quest list if it is the pane on screen (toggle).
+hal2.ns.QuestUI.Open(12345)
+check(hal2.ns.QuestUI.IsShown(), "quest list is open before a header toggle")
+-- This client has no header frame of its own; UI.Toggle is what the header calls.
+hal2.ns.UI.Toggle()
+check(not hal2.ns.QuestUI.IsShown() and not hal2.ns.UI.IsShown(),
+	"toggling the panel (header right-click) closes the open quest list and does not open the main panel")
+
 ---------------------------------------------------------------------------
 -- Options sidebar icon (RegisterOptions `icon`, plus a hook if the
 -- grouped layout's nav omits it)
@@ -819,8 +988,10 @@ fp3.Widgets = {
 	Media = function() end,
 }
 local ico = newClient("Ico Vale", { hogger }, { polestar = fp3 })
-check(ico.ns.OptionsIcon():find("PSGroupFinder") and ico.ns.OptionsIcon():find("icon%-group"),
-	"the sidebar icon is a full path to our Media/icon-group texture")
+check(ico.ns.OptionsIcon():find("PSGroupFinder") and ico.ns.OptionsIcon():find("icon%-eye"),
+	"the sidebar icon is a full path to our Media/icon-eye texture")
+check(ico.ns.OptionsIcon() == ico.ns.HeaderIcon() and ico.ns.Icon() == ico.ns.OptionsIcon(),
+	"the sidebar, the header and ns.Icon() all use the same eye")
 check(#capturedOpts >= 1 and capturedOpts[1].icon == ico.ns.OptionsIcon() and capturedOpts[1].key == "groupfinder",
 	"RegisterOptions (public API) receives our icon on the Group Finder page")
 check(fp3.UI.Options.Kit.pages[1].icon == ico.ns.OptionsIcon(),

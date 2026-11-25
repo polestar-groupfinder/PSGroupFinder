@@ -28,10 +28,11 @@ EXTRA = f"""
 
 
 def qbtn(x, y, hot=False):
-    # Same geometry as Hooks.lua: two heads 3x3, two bodies 4x5 around the centre of a 14x14 button.
+    # Same geometry as Hooks.lua: 14x14 eye (Media/icon-eye), not the two silhouettes.
+    filt = f'filter:brightness(0) saturate(100%) invert(79%) sepia(28%) saturate(708%) hue-rotate(352deg) brightness(96%);' if hot else ''
     return (f'<div class="qb{" hot" if hot else ""}" style="left:{x}px;top:{y}px">'
-            '<i style="left:3px;top:2px;width:3px;height:3px"></i><i style="left:2.5px;top:7px;width:4px;height:5px"></i>'
-            '<i style="left:8px;top:2px;width:3px;height:3px"></i><i style="left:7.5px;top:7px;width:4px;height:5px"></i></div>')
+            f'<img src="../assets/psgf-icon-eye.png" width="14" height="14" '
+            f'style="display:block;width:14px;height:14px;{filt}"></div>')
 
 
 def wrap(body, extra=""):
@@ -119,7 +120,7 @@ def m1():
             f'<div style="position:relative;width:{PW}px;height:70px">{inner}</div></div></div>')
     note = (f'<div class="note" style="left:{zx}px;top:{zy-20}px">Zoom ×1,75 : bouton « joueurs sur cette quête » sous l\'icône du sac, à gauche de la sous-ligne</div>')
     ring = ""
-    cap = caption("Emplacement 1 · fenêtre de guide Polestar : un petit bouton (deux silhouettes, 14×14) sous l'icône de chaque objectif lié à une quête, "
+    cap = caption("Emplacement 1 · fenêtre de guide Polestar : un petit bouton (œil monochrome, 14×14) sous l'icône de chaque objectif lié à une quête, "
                   "à gauche de la sous-ligne. Clic : liste des joueurs de la quête. Sur une ligne sans sous-ligne (une seule ligne), il se place à gauche de la case à cocher. "
                   "Schéma : la fenêtre Polestar n'est pas reproduite à l'identique.", WIN[1] + 90 + y + 40)
     return wrap(win + ring + note + zoom + cap)
@@ -144,7 +145,7 @@ def log_row(y, lvl, title, obj, check, on=True, btn_x=None):
     bx = 300
     r = (f'<div class="abs" style="left:10px;top:{y}px;width:330px;height:40px">'
          f'<div class="abs" style="left:2px;top:6px;width:18px;height:18px;border-radius:9px;background:#3a3320;box-shadow:inset 0 0 0 1px #8a7440"></div>'
-         f'<div class="t" style="left:28px;top:3px;font-size:12px;font-weight:600;color:{YELLOW}">[{lvl}] {e(title)}</div>'
+         f'<div class="t ell" style="left:28px;top:3px;width:{bx-24-28-6}px;font-size:12px;font-weight:600;color:{YELLOW}">[{lvl}] {e(title)}</div>'
          f'<div class="t" style="left:28px;top:20px;font-size:11px;color:{DIM}">- {e(obj)}</div>'
          f'<div class="abs" style="left:{bx-24}px;top:6px;width:18px;height:18px;border-radius:3px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)">'
          + ('<svg viewBox="0 0 18 18" width="18" height="18"><path d="M4.5 9.5l3.2 3.3L13.5 5.5" fill="none" stroke="#ffd100" stroke-width="2"/></svg>' if check else '') + '</div>'
@@ -172,9 +173,10 @@ def m3():
             + log_row(0, 2, "Kobold Camp Cleanup", "0/10 Kobold Vermin slain", True, btn_x="hot") + '</div></div>')
     note = f'<div class="note" style="left:{zoom_x}px;top:{Y+40}px">Zoom ×2,6 : case de suivi puis notre bouton</div>'
     ring = f'<div class="ring" style="left:{lx+10+296}px;top:{Y+40+34+4}px;width:20px;height:22px"></div>'
-    cap = caption("Emplacement 3 · journal de quêtes du jeu (Carte et journal de quêtes, Forever) : un bouton par quête, à droite de la case de suivi, "
-                  "y compris pour une quête d'une autre zone (ici Elwynn Forest). Il est enfant du bouton de titre : il se déplace et se cache avec lui, même quand le journal recycle ses lignes. "
-                  "S'il n'y a pas de place à droite de la case, il se met juste à sa gauche. Schéma : l'art du jeu n'est pas reproduit.", Y + H + 14)
+    cap = caption("Emplacement 3 · journal de quêtes du jeu (Carte et journal de quêtes, Forever) : un bouton œil par quête, toujours à droite de la case de suivi "
+                  "(3 px, aligné verticalement), y compris pour une quête d'une autre zone (ici Elwynn Forest). S'il n'y a pas de case, le bouton reste dans la même colonne à droite. "
+                  "Le titre est raccourci pour ne pas passer sous le bouton. Enfant du bouton de titre : il se déplace et se cache avec lui, même quand le journal recycle ses lignes. "
+                  "Schéma : l'art du jeu n'est pas reproduit.", Y + H + 14)
     return wrap(frame + mapbox + rows + zoom + note + ring + cap)
 
 
@@ -194,7 +196,7 @@ def qrow(y, p):
 
 
 def quest_panel(left, top, players, searching=False, cd=0):
-    body = [f'<div class="t" style="left:{PAD}px;top:10px;font-size:15px;font-weight:600;color:{TEXT}">Joueurs sur cette quête</div>', V.close_btn(),
+    body = [f'<img src="../assets/psgf-icon-eye.png" class="abs" style="left:{PAD}px;top:10px;width:16px;height:16px">',f'<div class="t" style="left:{PAD+22}px;top:10px;font-size:15px;font-weight:600;color:{TEXT}">Joueurs sur cette quête</div>', V.close_btn(),
             f'<div class="t" style="left:{PAD}px;top:34px;font-size:13px;font-weight:600;color:{YELLOW}">Kobold Camp Cleanup</div>',
             f'<div class="t" style="left:{PAD}px;top:52px;font-size:11px;font-weight:500;color:{MUTED}">Votre progression : 30 %</div>',
             V.pbtn(PAD, 72, 70, "Retour"),
@@ -328,14 +330,14 @@ def nav_icon(src, x, y, s=16):
 
 def m8():
     """Polestar options, Guiding group, our Group Finder row with its 16px icon."""
-    L, T, W, Hh = 80, 36, 1120, 650
+    L, T, W, Hh = 80, 36, 1120, 540
     side_w = 220
     pages = [
         ("icon-window.png", "Guide", False),
         ("icon-map.png", "Map", False),
         ("icon-accept.png", "Questing", False),
         ("icon-search.png", "Discovery", False),
-        ("psgf-icon-group.png", "Group Finder", True),
+        ("psgf-icon-eye.png", "Group Finder", True),
     ]
     body = [f'<div class="abs set" style="left:{L}px;top:{T}px;width:{W}px;height:{Hh}px">']
     body.append(f'<div class="t" style="left:16px;top:10px;font-size:15px;font-weight:600">Options de Polestar</div>')
@@ -363,9 +365,9 @@ def m8():
         ry += 36
     body.append('</div></div>')
     cap = caption(
-        "Barre latérale des options Polestar (page groupée, section Guiding) : l'entrée Group Finder porte l'icône "
-        "à deux silhouettes (Media/icon-group), 16×16, monochrome comme Guide (fenêtre), Map (boussole), Questing (« ! ») et Discovery (loupe). "
-        "L'icône d'en-tête du guide, elle, est l'œil. Schéma : la fenêtre Polestar n'est pas reproduite à l'identique.",
+        "Barre latérale des options Polestar (page groupée, section Guiding) : l'entrée Group Finder porte le même œil "
+        "que le bouton d'en-tête (Media/icon-eye), 16×16, monochrome comme Guide (fenêtre), Map (boussole), Questing (« ! ») et Discovery (loupe). "
+        "Repli si le fichier manque : les deux silhouettes (Media/icon-group). Schéma : la fenêtre Polestar n'est pas reproduite à l'identique.",
         T + Hh + 12, left=L, w=1100)
     return wrap("".join(body) + cap, V.OPT_CSS)
 
@@ -400,7 +402,7 @@ def m9():
         "Bouton d'en-tête : notre icône œil monochrome (Media/icon-eye.tga), à gauche de la loupe de Polestar. "
         "Repos, survol (iconHover, non montré) et recherche active suivent les teintes des autres icônes d'en-tête ; "
         "addon désactivé, l'œil est atténué mais reste cliquable. Repli si le fichier manque : les deux silhouettes de la barre latérale. "
-        "L'icône de la barre latérale des options n'est pas changée.",
+        "Même œil dans la barre latérale des options, le titre du panneau, les boutons du journal et de la vue détail.",
         gy + 318 + 16, left=48, w=1100)
     return wrap("".join(body) + cap, EXTRA)
 
@@ -415,6 +417,51 @@ def m11():
     return V.s5()
 
 
+
+def m12():
+    """Forever map + quest details: our eye to the left of Back (Retour)."""
+    X, Y, W, H = 70, 48, 980, 520
+    frame = (f'<div class="abs" style="left:{X}px;top:{Y}px;width:{W}px;height:{H}px;background:#161310;box-shadow:0 0 0 2px #6b5a35,0 8px 24px rgba(0,0,0,.6)"></div>'
+             f'<div class="t" style="left:{X+16}px;top:{Y+10}px;font-size:14px;font-weight:600;color:{YELLOW}">Carte et journal de quêtes</div>')
+    mapbox = (f'<div class="abs" style="left:{X+14}px;top:{Y+40}px;width:470px;height:{H-56}px;background:linear-gradient(135deg,#2a3a2a,#1d2a22);'
+              f'box-shadow:inset 0 0 0 1px #4a4a3a"><div class="t" style="left:14px;top:14px;font-size:12px;color:#8fa58f">Carte du monde (non reproduite)</div></div>')
+    dx, dy, dw, dh = X + 500, Y + 40, 466, H - 56
+    # details pane
+    pane = f'<div class="abs" style="left:{dx}px;top:{dy}px;width:{dw}px;height:{dh}px;background:#1e1a14;box-shadow:inset 0 0 0 1px #4a3f28"></div>'
+    # Back (Retour) at top right, our eye immediately to its left
+    back_w, back_h = 70, 22
+    back_x = dw - 14 - back_w
+    back_y = 10
+    eye_x = back_x - 4 - 14
+    eye_y = back_y + (back_h - 14) // 2
+    back = (f'<div class="abs" style="left:{dx+back_x}px;top:{dy+back_y}px;width:{back_w}px;height:{back_h}px;'
+            f'background:#3a3320;box-shadow:inset 0 0 0 1px #8a7440;color:{YELLOW};font-size:11px;font-weight:600;'
+            f'line-height:{back_h}px;text-align:center">Retour</div>')
+    eye = qbtn(dx + eye_x, dy + eye_y, hot=True)
+    ring = f'<div class="ring" style="left:{dx+eye_x-4}px;top:{dy+eye_y-4}px;width:22px;height:22px"></div>'
+    note = f'<div class="note" style="left:{dx+eye_x-210}px;top:{dy+eye_y-1}px">notre œil, à gauche de Retour</div>'
+    title = (f'<div class="t" style="left:{dx+14}px;top:{dy+42}px;font-size:15px;font-weight:600;color:{YELLOW}">Kobold Camp Cleanup</div>'
+             f'<div class="t" style="left:{dx+14}px;top:{dy+66}px;font-size:12px;color:{DIM}">Kill 10 Kobold Vermin</div>'
+             f'<div class="t" style="left:{dx+14}px;top:{dy+96}px;font-size:12px;font-weight:600;color:{TEXT}">Description</div>'
+             f'<div class="t" style="left:{dx+14}px;top:{dy+116}px;width:{dw-28}px;white-space:normal;font-size:11px;color:{MUTED};line-height:15px">'
+             f'You have been tasked with clearing the kobolds out of the mine. Return to Marshal McBride when you are done.</div>'
+             f'<div class="t" style="left:{dx+14}px;top:{dy+170}px;font-size:12px;font-weight:600;color:{TEXT}">Récompenses</div>'
+             f'<div class="abs" style="left:{dx+14}px;top:{dy+192}px;width:36px;height:36px;background:#3a3320;box-shadow:inset 0 0 0 1px #8a7440"></div>')
+    # bottom bar
+    by = dy + dh - 36
+    def dbtn(x, lab, off=False):
+        col = "color:#6a6250;" if off else f"color:{YELLOW};"
+        return (f'<div class="abs" style="left:{dx+x}px;top:{by}px;width:90px;height:22px;background:#3a3320;'
+                f'box-shadow:inset 0 0 0 1px #8a7440;{col}font-size:11px;font-weight:600;line-height:22px;text-align:center">{lab}</div>')
+    bar = dbtn(14, "Abandon") + dbtn(114, "Partage", True) + dbtn(dw - 14 - 90, "Suivi")
+    cap = caption(
+        "Vue détail « Carte et journal de quêtes » (Forever, style Retail) : le bouton œil s'accroche à gauche de Retour, en haut à droite du volet. "
+        "Clic : liste des joueurs pour la quête affichée (un second clic referme le volet). Repli : à droite de Suivi, en bas. "
+        "Infobulle identique à celle du journal. Schéma : l'art du jeu n'est pas reproduit.",
+        Y + H + 14, left=X, w=1100)
+    return wrap(frame + mapbox + pane + back + eye + ring + note + title + bar + cap)
+
+
 if __name__ == "__main__":
     for n, f in (("01-emplacement1-fenetre-guide-objectif", m1), ("02-emplacement2-infobulle-alt-clic", m2),
                  ("03-emplacement3-journal-de-quetes-forever", m3), ("04-liste-par-quete", m4),
@@ -422,5 +469,6 @@ if __name__ == "__main__":
                  ("07-options-quitter-le-groupe", m7), ("08-options-barre-laterale-icone", m8),
                  ("09-entete-icone-oeil", m9),
                  ("10-langues-depliees", m10),
-                 ("11-langues-repliees", m11)):
+                 ("11-langues-repliees", m11),
+                 ("12-detail-carte-journal", m12)):
         print(render(n, f(), OUT))

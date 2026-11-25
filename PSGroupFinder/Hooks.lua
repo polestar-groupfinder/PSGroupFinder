@@ -8,8 +8,9 @@
 --      checkbox. Also Alt-click on the row, and an Alt-click help line in
 --      the goal's tooltip.
 --   2. The game's quest log (Map & Quest Log on Forever, the classic log
---      else): after the tracking checkbox of each quest, any zone.
---   3. /psgf quest <id>.
+--      else): to the right of the tracking checkbox of each quest, any zone.
+--   3. The quest details pane (Forever / Retail: next to Back, or Track).
+--   4. /psgf quest <id>.
 --
 -- What this relies on, from most to least stable. EVERYTHING BELOW IS
 -- INTERNAL to Polestar or to the game's UI, none of it is in Polestar's
@@ -40,7 +41,7 @@ local Hooks = {}
 ns.Hooks = Hooks
 
 local SIZE = 14
-local found = { rows = 0, log = 0, logKind = "none" }
+local found = { rows = 0, log = 0, logKind = "none", details = 0, detailsWhere = "none" }
 local state = { tips = false, click = false, events = false, logHooks = {} }
 
 ---------------------------------------------------------------------------
@@ -60,16 +61,7 @@ local function paint(b, hover)
 	local r, g, bl
 	if hover then r, g, bl = themeColor("accent", 1, 0.82, 0)
 	else r, g, bl = themeColor("icon", 0.85, 0.88, 0.95) end
-	for _, t in ipairs(b.psGlyph) do t:SetVertexColor(r, g, bl, 1) end
-end
-
-local function whiteTexture(t)
-	local T = Polestar and Polestar.Theme
-	if T and T.Media then
-		local ok, path = pcall(T.Media, "white")
-		if ok and path then t:SetTexture(path) return end
-	end
-	t:SetColorTexture(1, 1, 1, 1)
+	if b.Icon and b.Icon.SetVertexColor then b.Icon:SetVertexColor(r, g, bl, 1) end
 end
 
 local function make(parent)
@@ -78,15 +70,9 @@ local function make(parent)
 	b:SetFrameLevel((parent.GetFrameLevel and parent:GetFrameLevel() or 1) + 6)
 	b:RegisterForClicks("LeftButtonUp")
 	b.psgfQuestButton = true
-	local function tex(w, h, x, y)
-		local t = b:CreateTexture(nil, "OVERLAY")
-		whiteTexture(t)
-		t:SetSize(w, h)
-		t:SetPoint("CENTER", b, "CENTER", x, y)
-		return t
-	end
-	-- Two people, as in Polestar's header icon, at 14 units.
-	b.psGlyph = { tex(3, 3, -2.5, 3), tex(4, 5, -2.5, -2), tex(3, 3, 2.5, 3), tex(4, 5, 2.5, -2) }
+	b.Icon = b:CreateTexture(nil, "OVERLAY")
+	b.Icon:SetAllPoints()
+	ns.ApplyIcon(b.Icon, SIZE)
 	paint(b, false)
 	b:SetScript("OnClick", function(self)
 		if self.questID and ns.QuestUI then ns.QuestUI.Open(self.questID) end
@@ -269,21 +255,59 @@ local function logTitles()
 	return out, "none"
 end
 
-local function placeInLog(b, entry)
-	b:ClearAllPoints()
-	local host, check = entry.host, entry.check
-	if check and check.IsShown then
-		-- After the checkbox when the title button has room to its right,
-		-- else just before it.
-		local hr, cr = host.GetRight and host:GetRight(), check.GetRight and check:GetRight()
-		if hr and cr and hr - cr >= SIZE + 4 then
-			b:SetPoint("LEFT", check, "RIGHT", 3, 0)
-		else
-			b:SetPoint("RIGHT", check, "LEFT", -3, 0)
-		end
-	else
-		b:SetPoint("RIGHT", host, "RIGHT", -4, 0)
+-- The title's font string, if the row exposes one (under pcall).
+local function titleFontString(host)
+	if not host then return nil end
+	for _, key in ipairs({ "Text", "Name", "Label", "TitleText", "QuestName", "text" }) do
+		local f = host[key]
+		if f and f.SetPoint then return f end
 	end
+	if host.GetFontString then
+		local ok, fs = pcall(host.GetFontString, host)
+		if ok and fs and fs.SetPoint then return fs end
+	end
+	if host.GetNumRegions and host.GetRegions then
+		local ok, regions = pcall(function() return { host:GetRegions() } end)
+		if ok then
+			for _, r in ipairs(regions) do
+				if r and r.GetObjectType then
+					local ok2, kind = pcall(r.GetObjectType, r)
+					if ok2 and kind == "FontString" then return r end
+				elseif r and r.SetPoint and r.SetText then
+					return r
+				end
+			end
+		end
+	end
+end
+
+-- Keep the title from running under our button (and the checkbox).
+local function trimTitle(host, stop)
+	if not (host and stop) then return end
+	pcall(function()
+		local fs = titleFontString(host)
+		if not fs then return end
+		if fs.SetWordWrap then fs:SetWordWrap(false) end
+		fs:SetPoint("RIGHT", stop, "LEFT", -4, 0)
+	end)
+end
+
+local function placeInLog(b, entry)
+	pcall(function()
+		b:ClearAllPoints()
+		local host, check = entry.host, entry.check
+		local shown = check and (not check.IsShown or check:IsShown())
+		if shown then
+			-- Always to the right of the tracking checkbox, 3 px, vertically centred.
+			b:SetPoint("LEFT", check, "RIGHT", 3, 0)
+			trimTitle(host, check)
+		else
+			-- Same column as on rows that have a checkbox: just past the
+			-- title button's right edge (the box sits at the right).
+			b:SetPoint("LEFT", host, "RIGHT", 3, 0)
+			trimTitle(host, b)
+		end
+	end)
 end
 
 local function scanLog()
@@ -326,23 +350,115 @@ local function logShown()
 	return false
 end
 
+---------------------------------------------------------------------------
+-- Quest details (Forever / Retail: map on the left, details on the right)
+---------------------------------------------------------------------------
+
+local detailsBtn
+
+local function detailsFrame()
+	local qmf = _G.QuestMapFrame
+	if qmf and qmf.DetailsFrame then return qmf.DetailsFrame end
+	return _G.QuestMapDetailsFrame or _G.QuestInfoFrame
+end
+
+local function detailsQuestID(d)
+	local id
+	pcall(function()
+		if C_QuestLog and C_QuestLog.GetSelectedQuest then id = C_QuestLog.GetSelectedQuest() end
+	end)
+	if type(id) == "number" and id > 0 then return id end
+	local qmf = _G.QuestMapFrame
+	if qmf and type(qmf.questID) == "number" and qmf.questID > 0 then return qmf.questID end
+	if d and type(d.questID) == "number" and d.questID > 0 then return d.questID end
+	local qi = _G.QuestInfoFrame
+	if qi and type(qi.questID) == "number" and qi.questID > 0 then return qi.questID end
+	pcall(function()
+		if GetQuestLogSelection and GetQuestLogTitle then
+			local idx = GetQuestLogSelection()
+			if idx and idx > 0 then
+				local _, _, _, _, isHeader, _, _, _, qid = GetQuestLogTitle(idx)
+				if not isHeader and type(qid) == "number" and qid > 0 then id = qid end
+			end
+		end
+	end)
+	return (type(id) == "number" and id > 0) and id or nil
+end
+
+local function detailsAnchor(d)
+	if not d then return nil, nil end
+	local back = d.BackButton or (d.BackFrame and d.BackFrame.BackButton) or d.ExitButton or _G.QuestMapFrameBackButton
+	if back then return back, "back" end
+	local track = d.TrackButton or (d.ButtonsContainer and d.ButtonsContainer.TrackButton) or _G.QuestMapFrameTrackButton or _G.QuestLogFrameTrackButton
+	if track then return track, "track" end
+	return d, "frame"
+end
+
+local function placeInDetails(b, anchor, where)
+	b:ClearAllPoints()
+	if where == "back" then
+		-- Back sits at the top right of the details pane: our eye to its left.
+		b:SetPoint("RIGHT", anchor, "LEFT", -4, 0)
+	elseif where == "track" then
+		b:SetPoint("LEFT", anchor, "RIGHT", 4, 0)
+	else
+		b:SetPoint("TOPRIGHT", anchor, "TOPRIGHT", -8, -8)
+	end
+end
+
+local function scanDetails()
+	local d = detailsFrame()
+	found.details, found.detailsWhere, found.detailsID = 0, "none", nil
+	if not d then
+		if detailsBtn then detailsBtn:Hide() end
+		return
+	end
+	local shown = true
+	if d.IsShown and not d:IsShown() then shown = false end
+	local qid = shown and detailsQuestID(d) or nil
+	if not (shown and qid) then
+		if detailsBtn then detailsBtn:Hide() end
+		if shown then found.detailsWhere = "no-quest" end
+		return
+	end
+	local anchor, where = detailsAnchor(d)
+	local parent = (where == "back" or where == "track") and (anchor.GetParent and anchor:GetParent()) or d
+	if not parent then parent = d end
+	if not detailsBtn or detailsBtn:GetParent() ~= parent then
+		detailsBtn = make(parent)
+	end
+	detailsBtn.questID = qid
+	placeInDetails(detailsBtn, anchor, where)
+	dimmed(detailsBtn)
+	detailsBtn:Show()
+	found.details, found.detailsWhere, found.detailsID = 1, where, qid
+end
+
 -- hooksecurefunc on the log's own update functions, once each, as they appear.
 local function hookLog()
 	if not hooksecurefunc then return end
-	for _, name in ipairs({ "QuestLogQuests_Update", "QuestMapFrame_UpdateAll", "QuestLog_Update", "QuestLogFrame_Update" }) do
+	for _, name in ipairs({ "QuestLogQuests_Update", "QuestMapFrame_UpdateAll", "QuestLog_Update", "QuestLogFrame_Update",
+		"QuestMapFrame_ShowQuestDetails", "QuestMapFrame_UpdateQuestDetails", "QuestInfo_Display" }) do
 		if not state.logHooks[name] and type(_G[name]) == "function" then
 			local ok = pcall(hooksecurefunc, name, function()
 				pcall(scanLog)
+				pcall(scanDetails)
 				-- The log lays its rows out on the next frame.
-				ns.After(0, function() pcall(scanLog) end)
+				ns.After(0, function() pcall(scanLog) pcall(scanDetails) end)
 			end)
 			if ok then state.logHooks[name] = true end
 		end
 	end
 	local qmf = _G.QuestMapFrame
 	if qmf and not state.logHooks.QuestMapFrame and qmf.HookScript then
-		if pcall(qmf.HookScript, qmf, "OnShow", function() ns.After(0, function() pcall(scanLog) end) end) then
+		if pcall(qmf.HookScript, qmf, "OnShow", function() ns.After(0, function() pcall(scanLog) pcall(scanDetails) end) end) then
 			state.logHooks.QuestMapFrame = true
+		end
+	end
+	local d = detailsFrame()
+	if d and d.HookScript and not state.logHooks.DetailsFrame then
+		if pcall(d.HookScript, d, "OnShow", function() ns.After(0, function() pcall(scanDetails) end) end) then
+			state.logHooks.DetailsFrame = true
 		end
 	end
 end
@@ -356,7 +472,7 @@ local function scanAll()
 	local parts = guideParts()
 	if parts and parts.window and parts.window.IsShown and parts.window:IsShown() then pcall(scanRows) end
 	hookLog()
-	if logShown() then pcall(scanLog) end
+	if logShown() then pcall(scanLog) pcall(scanDetails) end
 end
 Hooks.Scan = scanAll
 
@@ -385,6 +501,8 @@ ns.On("LOGIN", function() Hooks.Init() end)
 ns.On("ENABLED", function() ns.After(0, scanAll) end)
 
 -- /psgf hooks: what was found, to report when a button does not show.
+function Hooks.DetailsButton() return detailsBtn end
+
 function Hooks.Report()
 	local function yn(v) return v and "yes" or "NO" end
 	ns.Print("Polestar: %s; goal tooltip line: %s; Alt-click: %s; goal rows with a button: %d",
@@ -395,4 +513,6 @@ function Hooks.Report()
 	ns.Print("Quest log: QuestMapFrame %s, QuestScrollFrame %s, QuestLogFrame %s; buttons: %d (found by: %s); hooks: %s",
 		yn(_G.QuestMapFrame), yn(_G.QuestScrollFrame), yn(_G.QuestLogFrame), found.log, found.logKind,
 		#names > 0 and table.concat(names, ", ") or "none")
+	ns.Print("Quest details: frame %s, questID %s, button: %s (by: %s)",
+		yn(detailsFrame()), tostring(found.detailsID or "-"), found.details == 1 and "yes" or "NO", found.detailsWhere or "none")
 end
