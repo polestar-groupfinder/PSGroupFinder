@@ -1,6 +1,8 @@
 -- Two simulated clients exchanging PSGroupFinder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "Comm", "Matcher", "Group", "Leave", "UI", "Hooks", "Polestar" }
+local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "Comm", "Matcher", "Group", "Leave",
+	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/Dialogs",
+	"Polestar/Polestar", "Polestar/Header", "Polestar/Options", "Polestar/GoalRows" }
 local DIR = "PSGroupFinder/"
 local bus = {}      -- every client's env
 local now = 0
@@ -282,9 +284,9 @@ check(hasButton, "launcher button painted through Polestar.Theme.Skin")
 check(dee.ns.headerButtonFrame ~= nil, "header icon created on the step bar (left of Lookup)")
 local _, headerRel = dee.ns.headerButtonFrame:GetPoint(1)
 check(headerRel == nav.Lookup, "header icon is anchored to Lookup (the magnifying glass)")
-check(dee.ns.HeaderIcon() and dee.ns.HeaderIcon():find("PSGroupFinder") and dee.ns.HeaderIcon():find("icon%-group"),
+check(dee.ns.ICON and dee.ns.ICON:find("PSGroupFinder") and dee.ns.ICON:find("icon%-group"),
 	"the header icon is a full path to our Media/icon-group texture")
-check(dee.ns.headerButtonFrame.psIconName == dee.ns.HeaderIcon() and dee.ns.headerButtonFrame.psIconName ~= "search",
+check(dee.ns.headerButtonFrame.psIconName == dee.ns.ICON and dee.ns.headerButtonFrame.psIconName ~= "search",
 	"the header button uses our icon, not Polestar's search/loupe icon")
 -- Clicks: left starts a search without opening the panel; right toggles it.
 dee.ns.SetEnabled(true)
@@ -528,7 +530,7 @@ check(not (byName["Rex Holt"].sameZone), "the other-zone answer is not flagged s
 check(qua.ns.QuestUI.EmptyCaption() == nil or qua.ns.QuestUI.EmptyCaption() ~= "Personne pour l'instant. Appuyez sur Rechercher pour cette quête.", "panel no longer says nobody")
 qua.ns.QuestUI.Refresh()
 local qrowFrames = qua.ns.QuestUI.RowFrames()
-check(qrowFrames[1] and qrowFrames[1].entry and qrowFrames[1].entry.name ~= nil and qrowFrames[1].invite.who ~= nil, "quest panel shows a row with Whisper / Invite for the player")
+check(qrowFrames[1] and qrowFrames[1].entry and qrowFrames[1].entry.name ~= nil and qrowFrames[1].invite ~= nil, "quest panel shows a row with Whisper / Invite for the player")
 
 -- Throttle: one quest search every 15 s; replies answered once per asker.
 check(not qua.ns.Comm.SearchQuest(12345) and (qua.printed[#qua.printed]:find("Wait") or qua.printed[#qua.printed]:find("Patientez")), "second quest search within 15 s is refused")
@@ -603,7 +605,7 @@ fp2.Theme.GuideParts = function() return { window = window, nav = nav, rows = gR
 fp2.QuestClickTips = function(_, lines) origTipCalls = origTipCalls + 1 lines[#lines + 1] = { "Middle-click: show in quest log." } return lines end
 fp2.QuestRowClick = function(_, button) origClickCalls = origClickCalls + 1 return button == "MiddleButton" end
 local hal2 = newClient("Hal Two", { kq(3) }, { polestar = fp2 })
-hal2.ns.Hooks.Scan()
+hal2.ns.GoalRows.Scan()
 check(gRows[1].psgfBtn and gRows[1].psgfBtn.questID == 12345, "a button on the goal row that names a quest")
 check(gRows[2].psgfBtn == nil and gRows[3].psgfBtn == nil and gRows[5].psgfBtn == nil, "none on a row without quest, a done goal or a pooled hidden row")
 check(gRows[4].psgfBtn and gRows[4].psgfBtn.questID == 12345, "one-line row gets one too (left of its checkbox)")
@@ -640,10 +642,10 @@ fp2.QuestRowClick(12345, "LeftButton")
 check(not hal2.ns.QuestUI.IsShown(), "a second Alt-click on the same quest closes the list")
 hal2.altDown = false
 
-hal2.ns.Hooks.Report()
+hal2.ns.GoalRows.Report()
 
 -- Without Polestar and without any quest log, nothing breaks.
-rex.ns.Hooks.Scan()
+rex.ns.GoalRows.Scan()
 check(true, "scan with no Polestar does nothing")
 
 ---------------------------------------------------------------------------
@@ -668,7 +670,7 @@ check(rae.ns.Matcher.Get("Sam Lee") ~= nil, "Rae found Sam")
 rae.ns.UI.Show()
 rae.ns.UI.Refresh()
 local inviteBtn
-for _, r in ipairs(rae.ns.UI.RowFrames()) do if r.invite.who == "Sam Lee" then inviteBtn = r.invite end end
+for _, r in ipairs(rae.ns.UI.RowFrames()) do if type(r.entry) == "table" and r.entry.name == "Sam Lee" then inviteBtn = r.invite end end
 check(inviteBtn ~= nil, "Sam's row exists with its Invite button")
 inviteBtn._OnClick(inviteBtn)
 run(1)
@@ -893,21 +895,19 @@ fp3.Widgets = {
 	Media = function() end,
 }
 local ico = newClient("Ico Vale", { hogger }, { polestar = fp3 })
-check(ico.ns.OptionsIcon():find("PSGroupFinder") and ico.ns.OptionsIcon():find("icon%-group"),
+check(ico.ns.ICON:find("PSGroupFinder") and ico.ns.ICON:find("icon%-group"),
 	"the sidebar icon is a full path to our Media/icon-group texture")
-check(ico.ns.OptionsIcon() == ico.ns.HeaderIcon() and ico.ns.Icon() == ico.ns.OptionsIcon(),
-	"the sidebar, the header and ns.Icon() all use the same icon")
-check(#capturedOpts >= 1 and capturedOpts[1].icon == ico.ns.OptionsIcon() and capturedOpts[1].key == "groupfinder",
+check(#capturedOpts >= 1 and capturedOpts[1].icon == ico.ns.ICON and capturedOpts[1].key == "groupfinder",
 	"RegisterOptions (public API) receives our icon on the Group Finder page")
-check(fp3.UI.Options.Kit.pages[1].icon == ico.ns.OptionsIcon(),
+check(fp3.UI.Options.Kit.pages[1].icon == ico.ns.ICON,
 	"the registered page's icon is set (internal Kit.pages, under pcall)")
 local items = fp3.UI.Options.Grouped.NavItems()
-check(items[1].icon == "icon-note" and items[2].key == "groupfinder" and items[2].icon == ico.ns.OptionsIcon(),
+check(items[1].icon == "icon-note" and items[2].key == "groupfinder" and items[2].icon == ico.ns.ICON,
 	"Grouped.NavItems fills our icon when the layout omitted it, and leaves the others alone")
 local painted
 local row = { Icon = { SetTexture = function(_, path) painted = path end, SetSize = function() end, Show = function() end } }
 fp3.Widgets.NavRowAfter(row, { key = "groupfinder" }, false)
-check(painted == ico.ns.OptionsIcon(), "NavRowAfter (internal) paints our 16px icon on the Group Finder row")
+check(painted == ico.ns.ICON, "NavRowAfter (internal) paints our 16px icon on the Group Finder row")
 painted = nil
 fp3.Widgets.NavRowAfter(row, { key = "guide", icon = "icon-note" }, false)
 check(painted == nil and navPainted.other >= 1, "NavRowAfter does not rewrite another page's icon")
@@ -916,10 +916,9 @@ local fp4 = {}
 for k, v in pairs(fakePolestar) do fp4[k] = v end
 fp4.RegisterOptions = function() return true end
 local ico2 = newClient("Ico Two", { hogger }, { polestar = fp4 })
-check(ico2.ns.HookOptionsIcon and (function() ico2.ns.HookOptionsIcon() return true end)(),
-	"the icon hook is silent when the grouped layout is absent")
+check(ico2.ns.OpenOptions() == false, "without Polestar's options window, the icon hook and Options are silent no-ops")
 
--- Header eye stays on the button when SetIconState / a Painter would have
+-- Our header icon stays on the button when SetIconState / a Painter would have
 -- restored Polestar's "search" icon (the binoculars/loupe the player saw).
 local iconBtnName, setIconStateOn
 local fpEye = {}
@@ -957,12 +956,12 @@ fpEye.Theme = {}
 for k, v in pairs(fakePolestar.Theme) do fpEye.Theme[k] = v end
 fpEye.Theme.GuideParts = function() return { window = eyeWin, nav = eyeNav } end
 local eyeCli = newClient("Eye Vale", { hogger }, { polestar = fpEye })
-check(iconBtnName == eyeCli.ns.HeaderIcon(), "IconButton is constructed with our eye path, not \"search\"")
-check(eyeCli.ns.headerButtonFrame and eyeCli.ns.headerButtonFrame.psIconName == eyeCli.ns.HeaderIcon(),
-	"header psIconName stays on the eye so a Painter cannot restore the loupe")
+check(iconBtnName == eyeCli.ns.ICON, "IconButton is constructed with our icon path, not \"search\"")
+check(eyeCli.ns.headerButtonFrame and eyeCli.ns.headerButtonFrame.psIconName == eyeCli.ns.ICON,
+	"header psIconName stays on our icon so a Painter cannot restore the loupe")
 eyeCli.ns.PaintHeader()
-check(setIconStateOn and setIconStateOn.enabled == true and setIconStateOn.name == eyeCli.ns.HeaderIcon(),
-	"SetIconState tints the eye and is not given the search icon")
+check(setIconStateOn and setIconStateOn.enabled == true and setIconStateOn.name == eyeCli.ns.ICON,
+	"SetIconState tints our icon and is not given the search icon")
 check(eyeCli.ns.headerButtonFrame.psIconName ~= "search", "paintHeader does not retarget the button to search")
 
 -- Every RegisterOptions control has a non-empty help (tooltip).

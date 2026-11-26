@@ -180,7 +180,7 @@ SlashCmdList.PSGROUPFINDER = function(msg)
 		local id = tonumber((msg or ""):match("%d+"))
 		if id and ns.QuestUI then ns.QuestUI.Open(id) else ns.Print(L.QUEST_USAGE) end
 	elseif cmd == "hooks" then
-		if ns.Hooks then ns.Hooks.Report() end
+		if ns.GoalRows then ns.GoalRows.Report() end
 	elseif cmd == "debug" then
 		ns.Set("debug", not ns.db.debug)
 		ns.Print("debug %s", ns.db.debug and "on" or "off")

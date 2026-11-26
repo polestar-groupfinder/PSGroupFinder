@@ -21,8 +21,8 @@
 local _, ns = ...
 local L = ns.L
 
-local Hooks = {}
-ns.Hooks = Hooks
+local GoalRows = {}
+ns.GoalRows = GoalRows
 
 local SIZE = 14
 local found = { rows = 0 }
@@ -174,7 +174,7 @@ local function scan()
 	local parts = guideParts()
 	if parts and parts.window and parts.window.IsShown and parts.window:IsShown() then pcall(scanRows) end
 end
-Hooks.Scan = scan
+GoalRows.Scan = scan
 
 local ticker = CreateFrame("Frame")
 local elapsed = 0
@@ -187,7 +187,7 @@ ticker:SetScript("OnUpdate", function(_, dt)
 	if not ok then ns.Debug("quest buttons: %s", tostring(err)) end
 end)
 
-function Hooks.Init()
+function GoalRows.Init()
 	pcall(wrapPolestar)
 	local P = Polestar
 	if P and type(P.On) == "function" and not state.events then
@@ -198,11 +198,11 @@ function Hooks.Init()
 	end
 	scan()
 end
-ns.On("LOGIN", Hooks.Init)
+ns.On("LOGIN", GoalRows.Init)
 ns.On("ENABLED", function() ns.After(0, scan) end)
 
 -- /psgf hooks: what was found, to report when a button does not show.
-function Hooks.Report()
+function GoalRows.Report()
 	local function yn(v) return v and "yes" or "NO" end
 	ns.Print("Polestar: %s; goal tooltip line: %s; Alt-click: %s; goal rows with a button: %d",
 		yn(type(Polestar) == "table"), yn(state.tips), yn(state.click), found.rows)
