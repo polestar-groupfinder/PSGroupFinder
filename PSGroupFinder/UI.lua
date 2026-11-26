@@ -243,8 +243,8 @@ local STATE_COLOR = { ok = "ff40ff40", sent = "ffffd100", fail = "ffff5050", ski
 
 local function channelLine()
 	local parts = {}
-	for _, ct in ipairs(ns.Comm.ORDER) do
-		local s = ns.Comm.status[ct]
+	for _, ct in ipairs(ns.Channels.ORDER) do
+		local s = ns.Channels.status[ct]
 		local state = s and s.state or "?"
 		parts[#parts + 1] = "|c" .. (STATE_COLOR[state] or "ffaaaaaa") .. ct .. "|r"
 	end
@@ -255,10 +255,10 @@ local function channelTip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_TOP")
 	GameTooltip:SetText(L.LEGEND_TITLE, 1, 1, 1)
 	GameTooltip:AddLine(L.LEGEND_BODY, nil, nil, nil, true)
-	local best = ns.Comm.BestChannel()
+	local best = ns.Channels.Best()
 	if best then GameTooltip:AddLine(string.format(L.LEGEND_BEST, best), 0.25, 1, 0.25) end
-	for _, ct in ipairs(ns.Comm.ORDER) do
-		local s = ns.Comm.status[ct]
+	for _, ct in ipairs(ns.Channels.ORDER) do
+		local s = ns.Channels.status[ct]
 		if s and (s.state == "fail" or s.state == "skip") and s.code then
 			GameTooltip:AddLine(ct .. ": " .. tostring(s.code), 1, 0.4, 0.4)
 		end
@@ -629,9 +629,7 @@ local function build()
 	widgets.search = button(panel, L.SEARCH, 168, function() ns.Search() UI.Refresh() end)
 	widgets.search:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -by)
 	widgets.stop = button(panel, L.STOP, 70, function()
-		ns.Comm.Stop()
-		ns.Session.Stop("manual")
-		ns.Print(L.SEARCH_STOPPED)
+		ns.Comm.StopSearch()
 		UI.Refresh()
 	end)
 	widgets.stop:SetPoint("LEFT", widgets.search, "RIGHT", 6, 0)

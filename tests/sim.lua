@@ -1,6 +1,6 @@
 -- Two simulated clients exchanging PSGroupFinder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Comm", "Matcher", "Group", "Leave", "UI", "Hooks", "Polestar" }
+local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "Comm", "Matcher", "Group", "Leave", "UI", "Hooks", "Polestar" }
 local DIR = "PSGroupFinder/"
 local bus = {}      -- every client's env
 local now = 0
@@ -207,20 +207,20 @@ check(ana.ns.Lang.Encode() == "e", "language payload is the client letter (e)")
 check(ana.ns.Get("headerButton") == true, "header button is on by default")
 ana.PSGroupFinder_Search()
 run(1)
-check(next(ana.ns.Comm.status) == nil, "a search while disabled sends nothing")
+check(next(ana.ns.Channels.status) == nil, "a search while disabled sends nothing")
 
 for _, c in ipairs({ ana, ben, cid }) do c.ns.SetEnabled(true) end
 run(15) -- join delay, then the quiet probe
-check(ben.ns.Comm.status.CHANNEL.state == "ok", "Ben: CHANNEL echo detected")
-check(ana.ns.Comm.status.CHANNEL.state == "fail" and ana.ns.Comm.status.CHANNEL.code == "InvalidChannel", "Ana: CHANNEL refused, reported as InvalidChannel")
+check(ben.ns.Channels.status.CHANNEL.state == "ok", "Ben: CHANNEL echo detected")
+check(ana.ns.Channels.status.CHANNEL.state == "fail" and ana.ns.Channels.status.CHANNEL.code == "InvalidChannel", "Ana: CHANNEL refused, reported as InvalidChannel")
 
 local rel = ana.ns.Quests.Relevant()
 check(#rel == 2 and rel[1].id == 176 and rel[1].kind == "n" and rel[2].kind == "l", "Ana's relevant quests: Hogger (named) then boar meat (loot)")
 
-ana.ns.Comm.TestChannels(true) -- from a click: SAY/YELL too
+ana.ns.Channels.Test(true) -- from a click: SAY/YELL too
 run(6)
-check(ana.ns.Comm.status.YELL.state == "ok", "Ana: YELL works as fallback")
-check(ana.ns.Comm.BestChannel() == "YELL", "Ana's best channel is YELL")
+check(ana.ns.Channels.status.YELL.state == "ok", "Ana: YELL works as fallback")
+check(ana.ns.Channels.Best() == "YELL", "Ana's best channel is YELL")
 
 ana.PSGroupFinder_Search()
 run(5)
@@ -241,16 +241,16 @@ check(ana.ns.UI.IsShown(), "panel builds and refreshes with a search and a playe
 -- Message size and decode round trip.
 local many = {}
 for i = 1, 40 do many[i] = { id = 100000 + i, kind = "k" } end
-local text, n = ana.ns.Comm.EncodeSearch(many)
+local text, n = ana.ns.Protocol.Search(many)
 check(#text <= 255 and n < 40, "search text cut to 255 bytes (" .. #text .. " bytes, " .. n .. " quests)")
-local m = ana.ns.Comm.Decode(text)
+local m = ana.ns.Protocol.Decode(text)
 check(m and m.kind == "S" and #m.quests == n and m.class == "WARRIOR" and m.langs and m.langs.code == "e", "decode round trip (with langs)")
-check(ana.ns.Comm.Decode("S|zz|1|2") == nil and ana.ns.Comm.Decode(("x"):rep(300)) == nil, "malformed messages dropped")
-local oldS = "S|abc123|1436|400|500|20|WARRIOR|0|gA|176:n,86:l"
-local oldm = ana.ns.Comm.Decode(oldS)
-check(oldm and oldm.kind == "S" and #oldm.quests == 2 and oldm.langs == nil, "v0.2 messages (no langs field) still decode")
-local legacy = ana.ns.Lang.Decode("f/f")
-check(legacy and legacy.code == "f" and ana.ns.Lang.Decode("fe/*").code == "f", "legacy spoken/accepted payloads still decode as the client letter")
+check(ana.ns.Protocol.Decode("S|zz|1|2") == nil and ana.ns.Protocol.Decode(("x"):rep(300)) == nil, "malformed messages dropped")
+check(ana.ns.Protocol.Decode("S|abc123|1436|400|500|20|WARRIOR|0|gA|176:n,86:l") == nil,
+	"a search without the language field is malformed")
+local unknown = ana.ns.Protocol.Decode("S|abc123|1436|400|500|20|WARRIOR|0|gA|z|176:n")
+check(unknown and unknown.langs == nil and #unknown.quests == 1, "an unknown language letter decodes with no language")
+check(ana.ns.Lang.Decode("f").code == "f" and ana.ns.Lang.Decode("f/f") == nil, "language payload is exactly one known letter")
 
 -- With Polestar: the live step's quest comes first, the panel is themed and
 -- the launcher hangs under the guide window.
@@ -289,7 +289,7 @@ check(dee.ns.headerButtonFrame.psIconName == dee.ns.HeaderIcon() and dee.ns.head
 -- Clicks: left starts a search without opening the panel; right toggles it.
 dee.ns.SetEnabled(true)
 run(15)
-dee.ns.Comm.TestChannels(true)
+dee.ns.Channels.Test(true)
 run(6)
 check(not dee.ns.UI.IsShown(), "panel is closed before a header click")
 local hdr = dee.ns.headerButtonFrame
@@ -312,7 +312,7 @@ local loneQ = { id = 4242, title = "Supplies to Auberdine", obj = { { "Bundle of
 local lea = newClient("Lea Grove", { loneQ }, { x = 0.5, y = 0.5 })
 lea.ns.SetEnabled(true)
 run(15)
-lea.ns.Comm.TestChannels(true)
+lea.ns.Channels.Test(true)
 run(6)
 lea.PSGroupFinder_Search()
 lea.ns.UI.Show()
@@ -331,7 +331,7 @@ check(#dee.ns.Quests.Relevant() == 2, "Engine failure falls back to the quest lo
 
 
 ---------------------------------------------------------------------------
--- v0.2: a search is a session, objectives leave it, auto-group
+-- A search is a session, objectives leave it, auto-group
 ---------------------------------------------------------------------------
 local function collect(c) local t = {} for _, q in ipairs(c.ns.Session.List()) do t[#t + 1] = q.id end return t end
 
@@ -345,7 +345,7 @@ local finn = newClient("Finn Roe", { copyQ(qa), copyQ(qb) }, { x = 0.31, y = 0.3
 local gus = newClient("Gus Hale", { copyQ(qb) }, { x = 0.32, y = 0.30, class = "ROGUE" })
 for _, c in ipairs({ eve, finn, gus }) do c.ns.SetEnabled(true) end
 run(15)
-eve.ns.Comm.TestChannels(true) run(6)
+eve.ns.Channels.Test(true) run(6)
 check(not eve.ns.Session.Active(), "no session before a search")
 run(30)
 eve.PSGroupFinder_Search()
@@ -394,7 +394,7 @@ local hal = mk("Hal Orn", { x = 0.60, y = 0.60 }, q1())
 local ivy = mk("Ivy Kerr", { x = 0.61, y = 0.60, class = "PRIEST" }, q1())
 local jon = mk("Jon Pike", { x = 0.62, y = 0.60, faction = "Horde" }, q1())
 run(15)
-hal.ns.Comm.TestChannels(true) run(6)
+hal.ns.Channels.Test(true) run(6)
 run(30)
 -- Option off (default): nothing automatic.
 check(hal.ns.Get("autoGroup") == false, "autoGroup is off by default")
@@ -429,7 +429,7 @@ local max = mk("Max Teal", { x = 0.71, y = 0.7 }, { copyQ({ id = 8001, title = "
 lou.ns.Set("autoGroup", true) max.ns.Set("autoGroup", true)
 -- The one with the higher sid is the one invited: its client refuses AcceptGroup.
 local invitee, inviter = lou, max
-if lou.ns.Comm.sid < max.ns.Comm.sid then invitee, inviter = max, lou end
+if lou.ns.Protocol.sid < max.ns.Protocol.sid then invitee, inviter = max, lou end
 invitee.refuseAccept = true
 run(30)
 inviter.PSGroupFinder_Search()
@@ -458,7 +458,7 @@ local pia = langClient("Pia Lang", "frFR", { x = 0.2, y = 0.2 })
 local ned = langClient("Ned Lang", "enUS", { x = 0.21, y = 0.2, class = "MAGE" })
 local mia = langClient("Mia Lang", "frFR", { x = 0.22, y = 0.2, class = "PRIEST" })
 run(15)
-pia.ns.Comm.TestChannels(true) run(6)
+pia.ns.Channels.Test(true) run(6)
 run(30)
 check(ned.ns.Lang.DefaultCode() == "e" and ned.ns.Lang.Encode() == "e" and ned.ns.Lang.Search()[1] == "e", "an English client defaults to EN only")
 check(not pia.ns.Lang.Compatible(ned.ns.Lang.Decode(ned.ns.Lang.Encode())), "FR search does not list an EN client")
@@ -478,9 +478,9 @@ check(pia.ns.Lang.Compatible(ned.ns.Lang.Decode("e")) and not ned.ns.Lang.Compat
 	"Pia searching FR+EN lists Ned; Ned still searching EN only does not list Pia")
 check(pia.ns.Lang.Summary({ code = "f" }) == "FR", "list label is the peer's client language")
 pia.ns.Lang.SetSearch("e", false)
-check(not pia.ns.Lang.Compatible(nil), "a v0.2 peer with no language is hidden when we don't accept all")
+check(not pia.ns.Lang.Compatible(nil), "a peer with no known language is hidden when we don't accept all")
 pia.ns.Lang.SetAcceptAll(true)
-check(pia.ns.Lang.Compatible(nil), "a v0.2 peer is visible when we accept all")
+check(pia.ns.Lang.Compatible(nil), "a peer with no known language is visible when we accept all")
 
 ---------------------------------------------------------------------------
 -- v1.1: quest search by quest id, the quest buttons, leaving a group
@@ -495,18 +495,18 @@ local uma = newClient("Uma Wood", { kq(1) }, { map = 1436 })
 for _, c in ipairs({ qua, rex, sue, tom, uma }) do c.ns.SetEnabled(true) end
 uma.ns.Set("autoReply", false)
 run(15)
-for _, c in ipairs({ qua, rex }) do c.ns.Comm.TestChannels(true) end
+for _, c in ipairs({ qua, rex }) do c.ns.Channels.Test(true) end
 run(6)
 run(30)
 
 -- Wire format: the new messages are invisible to a v1.0 reader and decode here.
-local qtext = qua.ns.Comm.EncodeQuestSearch(12345)
+local qtext = qua.ns.Protocol.QuestSearch(12345)
 check(qtext:match("^Q|") and #qtext < 80 and not qtext:match("^([SR])|"), "Q is a new message type a v1.0 client does not read")
-local qm = qua.ns.Comm.Decode(qtext)
+local qm = qua.ns.Protocol.Decode(qtext)
 check(qm and qm.kind == "Q" and #qm.quests == 1 and qm.quests[1].id == 12345 and qm.langs and qm.langs.code == "f", "Q decodes with its quest and language")
-local am = qua.ns.Comm.Decode(qua.ns.Comm.EncodeQuestReply(12345, 80))
+local am = qua.ns.Protocol.Decode(qua.ns.Protocol.QuestReply(12345, 80))
 check(am and am.kind == "A" and am.quests[1].id == 12345 and am.quests[1].pct == 80, "A decodes with the percent")
-check(qua.ns.Comm.Decode("S|abc123|1436|400|500|20|WARRIOR|0|gA|f|176:n").quests[1].pct == nil, "S quests carry no percent")
+check(qua.ns.Protocol.Decode("S|abc123|1436|400|500|20|WARRIOR|0|gA|f|176:n").quests[1].pct == nil, "S quests carry no percent")
 
 -- Quest panel: opened with no result yet.
 qua.ns.QuestUI.Open(12345)
@@ -567,7 +567,7 @@ check(#qua.ns.Matcher.QuestList(12345) == 1, "back to FR only: the EN player dro
 
 -- Answers nobody asked for, or whispered Q, are ignored.
 local before = #qua.ns.Matcher.QuestList(12345)
-qua.fire("CHAT_MSG_ADDON", "PSGF", qua.ns.Comm.EncodeQuestReply(777, 50):gsub("^A|%x+", "A|abcdef"), "WHISPER", "Zed Nobody")
+qua.fire("CHAT_MSG_ADDON", "PSGF", qua.ns.Protocol.QuestReply(777, 50):gsub("^A|%x+", "A|abcdef"), "WHISPER", "Zed Nobody")
 check(#qua.ns.Matcher.QuestList(777) == 0, "an answer to a quest we did not ask about is dropped")
 local rexAnswersBefore = rexAnswers
 rex.fire("CHAT_MSG_ADDON", "PSGF", qtext:gsub("^Q|%x+", "Q|abcdef"), "WHISPER", "Zed Nobody")
@@ -655,7 +655,7 @@ local sam = newClient("Sam Lee", { lq(11001, 0), lq(11002, 0) }, { x = 0.11, y =
 local noa = newClient("Noa Bell", { lq(11001, 0) }, { x = 0.12, y = 0.1 })
 for _, c in ipairs({ rae, sam, noa }) do c.ns.SetEnabled(true) end
 run(15)
-rae.ns.Comm.TestChannels(true) run(6)
+rae.ns.Channels.Test(true) run(6)
 run(30)
 check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "default leave message in French for a French client")
 check(ned.ns.Leave.Message() == "Thanks for the group, have fun!", "default leave message in English for an English client")
@@ -702,7 +702,7 @@ check(not rae.ns.UI.LeaveShown(), "after Stay it is not offered again for this g
 
 -- A second group: the /p message is said on the click, then the party is left.
 local tia = newClient("Tia Moon", { lq(11001, 0) }, { x = 0.1, y = 0.2 })
-tia.ns.SetEnabled(true) run(15) tia.ns.Comm.TestChannels(true) run(6) run(30)
+tia.ns.SetEnabled(true) run(15) tia.ns.Channels.Test(true) run(6) run(30)
 tia.ns.Set("leaveMsgOn", true)
 tia.ns.Set("leaveMsg", "Thanks, take care!")
 noa.PSGroupFinder_Search() run(8)
@@ -724,7 +724,7 @@ check(tia.ns.char.party == nil, "the memory of the group is cleared")
 
 -- Without the message option the click only leaves.
 local uri = newClient("Uri Cole", { lq(11001, 0) }, { x = 0.1, y = 0.3 })
-uri.ns.SetEnabled(true) run(15) uri.ns.Comm.TestChannels(true) run(6) run(30)
+uri.ns.SetEnabled(true) run(15) uri.ns.Channels.Test(true) run(6) run(30)
 uri.PSGroupFinder_Search() run(8)
 local noaE = uri.ns.Matcher.Get("Noa Bell")
 check(noaE ~= nil, "Uri found Noa")
@@ -751,7 +751,7 @@ check(vic.ns.char.party == nil and not vic.ns.UI.LeaveShown(), "a group formed b
 -- Option off: nothing shown. Abandoned quests do not count as done.
 local xan = newClient("Xan Dyle", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.4 })
 local yui = newClient("Yui Reed", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.41 })
-xan.ns.SetEnabled(true) yui.ns.SetEnabled(true) run(15) xan.ns.Comm.TestChannels(true) run(6) run(30)
+xan.ns.SetEnabled(true) yui.ns.SetEnabled(true) run(15) xan.ns.Channels.Test(true) run(6) run(30)
 xan.PSGroupFinder_Search() run(8)
 xan.ns.Leave.NoteInvite("Yui Reed", yui.ns.Matcher.Get("Xan Dyle") and { 11001, 11002 } or { 11001, 11002 })
 xan.C_PartyInfo.InviteUnit("Yui Reed") run(1)
@@ -788,7 +788,7 @@ check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "false brings
 local pip = newClient("Pip Wren", { lq(11001, 0) }, { x = 0.2, y = 0.2 })
 local kit = newClient("Kit Vale", { lq(11001, 0) }, { x = 0.21, y = 0.2 })
 pip.ns.SetEnabled(true) kit.ns.SetEnabled(true) run(15)
-pip.ns.Comm.TestChannels(true) run(6) run(30)
+pip.ns.Channels.Test(true) run(6) run(30)
 pip.ns.Set("leaveMsgOn", true)
 pip.ns.Set("leaveMsg", "Have fun, thanks!")
 pip.PSGroupFinder_Search() run(8)
@@ -808,7 +808,7 @@ check(pip.leaves == 1, "LeaveParty then leaves the group")
 local jo = newClient("Jo Pike", { lq(11001, 0) }, { x = 0.22, y = 0.2 })
 local mo = newClient("Mo Pike", { lq(11001, 0) }, { x = 0.23, y = 0.2 })
 jo.ns.SetEnabled(true) mo.ns.SetEnabled(true) run(15)
-jo.ns.Comm.TestChannels(true) run(6) run(30)
+jo.ns.Channels.Test(true) run(6) run(30)
 jo.ns.Set("leaveMsgOn", true)
 jo.ns.Set("leaveMsg", "See you!")
 jo.PSGroupFinder_Search() run(8)
@@ -841,7 +841,7 @@ check(#abb.chat == 1 and abb.chat[1][1] == "Bye" and abb.leaves == 2,
 local cy = newClient("Cy Moss", { lq(11001, 0) }, { x = 0.25, y = 0.2 })
 local dy = newClient("Dy Moss", { lq(11001, 0) }, { x = 0.26, y = 0.2 })
 cy.ns.SetEnabled(true) dy.ns.SetEnabled(true) run(15)
-cy.ns.Comm.TestChannels(true) run(6) run(30)
+cy.ns.Channels.Test(true) run(6) run(30)
 cy.ns.Set("leaveMsgOn", true)
 cy.ns.Set("leaveMsg", "Goodbye")
 cy.ns.UI.Show()

@@ -18,6 +18,8 @@ Lang.lua
 Throttle.lua
 Quests.lua
 Session.lua
+Protocol.lua
+Channels.lua
 Comm.lua
 Matcher.lua
 Group.lua

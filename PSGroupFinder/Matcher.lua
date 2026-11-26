@@ -21,11 +21,10 @@ local function stepQuests()
 	return set
 end
 
-function Matcher.Add(sender, m, common, source)
-	local e = peers[sender] or { name = sender }
+-- Copies what a message says about its sender into entry `e`.
+local function fill(e, m, source)
 	e.level, e.class, e.size = m.level, m.class, m.size or 0
 	e.map, e.x, e.y = m.map, m.x, m.y
-	e.quests = common
 	e.source = source
 	e.sid = m.sid
 	e.flags = m.flags or ""
@@ -34,13 +33,31 @@ function Matcher.Add(sender, m, common, source)
 	e.langs = m.langs
 	e.langTag = ns.Lang.Summary(m.langs)
 	e.at = ns.Now()
+	return e
+end
+
+-- Nearer first, then not already grouped (a full group last), then the
+-- freshest. `here` is { map, x, y }; sets e.yards and e.sameZone.
+local function placeScore(e, here, now)
+	e.yards = ns.Quests.Yards(here[1], here[2], here[3], e.map, e.x, e.y)
+	e.sameZone = here[1] ~= nil and here[1] == e.map
+	local score = 0
+	if e.yards then score = score + math.max(0, 300 - e.yards / 5)
+	elseif e.sameZone then score = score + 120 end
+	if (e.size or 0) >= 5 then score = score - 500 elseif (e.size or 0) > 0 then score = score - 20 end
+	return score - (now - e.at) / 10
+end
+
+function Matcher.Add(sender, m, common, source)
+	local e = fill(peers[sender] or { name = sender }, m, source)
+	e.quests = common
 	local kinds = {}
 	for _, q in ipairs(m.quests or {}) do if q.kind then kinds[q.id] = q.kind end end
 	e.kinds = kinds
 	local isNew = not peers[sender]
 	peers[sender] = e
 	if isNew then
-		ns.Print(ns.L.FOUND, Ambiguate and Ambiguate(sender, "none") or sender, ns.Quests.Title(common[1]),
+		ns.Print(ns.L.FOUND, ns.ShortName(sender), ns.Quests.Title(common[1]),
 			source == "asking" and ns.L.ASKING or "")
 	end
 	ns.Fire("PEERS")
@@ -85,7 +102,7 @@ end
 -- The list to show: entries with `yards` (or nil), `sameZone` and `score`.
 function Matcher.List()
 	local now = ns.Now()
-	local map, x, y = ns.Quests.Position()
+	local here = { ns.Quests.Position() }
 	local step = stepQuests()
 	local list = {}
 	for name, e in pairs(peers) do
@@ -98,15 +115,10 @@ function Matcher.List()
 			for _, id in ipairs(e.quests) do if Matcher.Mine(id) then still[#still + 1] = id end end
 			if #still > 0 then
 				e.quests = still
-				e.yards = ns.Quests.Yards(map, x, y, e.map, e.x, e.y)
-				e.sameZone = map ~= nil and map == e.map
+				-- More quests in common first, Polestar's live step above all.
 				local score = #still * 100
 				for _, id in ipairs(still) do if step[id] then score = score + 150 end end
-				if e.yards then score = score + math.max(0, 300 - e.yards / 5)
-				elseif e.sameZone then score = score + 120 end
-				if (e.size or 0) >= 5 then score = score - 500 elseif (e.size or 0) > 0 then score = score - 20 end
-				score = score - (now - e.at) / 10
-				e.score = score
+				e.score = score + placeScore(e, here, now)
 				list[#list + 1] = e
 			else
 				peers[name] = nil -- nothing in common any more
@@ -118,7 +130,7 @@ function Matcher.List()
 end
 
 ---------------------------------------------------------------------------
--- By quest (v1.1): the players who said they have quest `id`, wherever
+-- By quest: the players who said they have quest `id`, wherever
 -- they are (answers "A" to a quest search), plus those of the main list
 -- who share it. Kept apart from `peers`: they do not take part in grouping
 -- without a click, and the main list's own rules (a quest of my search) do
@@ -131,19 +143,10 @@ local QUEST_AGE = 600
 function Matcher.AddQuest(sender, m, id, pct)
 	local set = qpeers[id] or {}
 	qpeers[id] = set
-	local e = set[sender] or { name = sender }
-	e.level, e.class, e.size = m.level, m.class, m.size or 0
-	e.map, e.x, e.y = m.map, m.x, m.y
+	local e = fill(set[sender] or { name = sender }, m, "quest")
 	e.quests = { id }
 	e.kinds = {}
 	e.pct = pct
-	e.source = "quest"
-	e.sid = m.sid
-	e.flags = m.flags or ""
-	e.faction = e.flags:match("[AH]")
-	e.langs = m.langs
-	e.langTag = ns.Lang.Summary(m.langs)
-	e.at = ns.Now()
 	local isNew = set[sender] == nil
 	set[sender] = e
 	ns.Fire("PEERS")
@@ -165,7 +168,7 @@ end
 -- grouped, then the freshest). Entries carry `pct` when the player told us.
 function Matcher.QuestList(id)
 	local now = ns.Now()
-	local map, x, y = ns.Quests.Position()
+	local here = { ns.Quests.Position() }
 	local merged = {}
 	for name, e in pairs(qpeers[id] or {}) do
 		if now - e.at > QUEST_AGE or not ns.Lang.Compatible(e.langs) then
@@ -185,12 +188,7 @@ function Matcher.QuestList(id)
 	for name, e in pairs(merged) do
 		local ok, grouped = pcall(inMyGroup, name)
 		if not (ok and grouped) then
-			e.yards = ns.Quests.Yards(map, x, y, e.map, e.x, e.y)
-			e.sameZone = map ~= nil and map == e.map
-			local score = 0
-			if e.yards then score = score + math.max(0, 300 - e.yards / 5) elseif e.sameZone then score = score + 120 end
-			if (e.size or 0) >= 5 then score = score - 500 elseif (e.size or 0) > 0 then score = score - 20 end
-			e.score = score - (now - e.at) / 10
+			e.score = placeScore(e, here, now)
 			list[#list + 1] = e
 		end
 	end

@@ -12,7 +12,7 @@ globals = {
 }
 read_globals = {
 	"time", "InCombatLockdown", "IsQuestFlaggedCompleted", "GameFontHighlight", "SendChatMessage", "LeaveParty",
-	"IsAltKeyDown", "hooksecurefunc", "LE_PARTY_CATEGORY_INSTANCE", "PolestarGroupFinderDB", "PolestarGroupFinderCharDB", "C_AddOns", "GetAddOnMetadata", "GetLocale", "DEFAULT_CHAT_FRAME", "ChatFrame1",
+	"IsAltKeyDown", "hooksecurefunc", "LE_PARTY_CATEGORY_INSTANCE", "C_AddOns", "GetAddOnMetadata", "GetLocale", "DEFAULT_CHAT_FRAME", "ChatFrame1",
 	"C_Timer", "GetTime", "issecretvalue", "CreateFrame", "C_ChatInfo", "Enum", "C_QuestLog",
 	"GetNumQuestLogEntries", "GetQuestLogTitle", "GetNumQuestLeaderBoards", "GetQuestLogLeaderBoard",
 	"C_Map", "CreateVector2D", "GetChannelName", "ChatFrame_RemoveChannel", "NUM_CHAT_WINDOWS",

@@ -86,6 +86,14 @@ end
 
 function ns.Now() return GetTime and GetTime() or 0 end
 
+-- A player's name as shown ("Ana Smith", realm dropped) and as a table key.
+function ns.ShortName(name)
+	return Ambiguate and Ambiguate(name, "none") or name
+end
+function ns.NameKey(name)
+	return ns.ShortName(name):lower()
+end
+
 -- Secret values (Forever inherits the client's restricted values): never
 -- compare or send them.
 function ns.Readable(v)
@@ -113,15 +121,6 @@ end)
 
 ns.RegisterEvent("ADDON_LOADED", function(_, name)
 	if name ~= ADDON then return end
-	-- v0.x used the folder Polestar_GroupFinder and these globals. They
-	-- live in another saved-variables file, so they are only present if
-	-- that addon was also loaded. Copy them when we have nothing of our own.
-	if PSGroupFinderDB == nil and type(PolestarGroupFinderDB) == "table" then
-		PSGroupFinderDB = PolestarGroupFinderDB
-	end
-	if PSGroupFinderCharDB == nil and type(PolestarGroupFinderCharDB) == "table" then
-		PSGroupFinderCharDB = PolestarGroupFinderCharDB
-	end
 	PSGroupFinderDB = copyDefaults(PSGroupFinderDB or {}, DEFAULTS)
 	PSGroupFinderCharDB = PSGroupFinderCharDB or {}
 	ns.db = PSGroupFinderDB
@@ -167,11 +166,7 @@ SlashCmdList.PSGROUPFINDER = function(msg)
 	elseif cmd == "search" then
 		PSGroupFinder_Search()
 	elseif cmd == "stop" then
-		if ns.Session and ns.Session.Active() then
-			ns.Comm.Stop()
-			ns.Session.Stop("manual")
-			ns.Print(L.SEARCH_STOPPED)
-		end
+		ns.Comm.StopSearch()
 	elseif cmd == "on" then
 		ns.SetEnabled(true)
 	elseif cmd == "off" then

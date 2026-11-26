@@ -24,7 +24,6 @@
 
 local _, ns = ...
 local L = ns.L
-local Throttle = ns.Throttle
 
 local Group = {}
 ns.Group = Group
@@ -36,9 +35,7 @@ local expect = {}        -- key -> expiry time
 local tried = {}         -- key -> time of our last invite / ask
 local pending = {}       -- key -> name: invited / asked, not yet grouped
 
-local function key(name)
-	return (Ambiguate and Ambiguate(name, "none") or name):lower()
-end
+local key = ns.NameKey
 
 local function partySize()
 	local n = (GetNumGroupMembers and GetNumGroupMembers()) or 0
@@ -78,7 +75,7 @@ local function invite(e)
 	pcall(fn, e.name)
 	if ns.Leave then ns.Leave.NoteInvite(e.name, e.quests) end
 	state(e, "invited")
-	ns.Print(L.AUTO_INVITED, Ambiguate and Ambiguate(e.name, "none") or e.name)
+	ns.Print(L.AUTO_INVITED, ns.ShortName(e.name))
 end
 
 local function ask(e)
@@ -88,9 +85,9 @@ local function ask(e)
 	Group.Expect(e.name)
 	local ids = {}
 	for _, id in ipairs(e.quests) do ids[#ids + 1] = id end
-	Throttle.Send(ns.Comm.PREFIX, ns.Comm.EncodeGroupRequest(ids), "WHISPER", e.name)
+	ns.Channels.Whisper(ns.Protocol.GroupRequest(ids), e.name)
 	state(e, "asked")
-	ns.Print(L.AUTO_ASKED, Ambiguate and Ambiguate(e.name, "none") or e.name)
+	ns.Print(L.AUTO_ASKED, ns.ShortName(e.name))
 end
 
 -- Who acts for the pair (me, e): "me" invites, "peer" is asked to, nil: nobody.
@@ -100,7 +97,7 @@ function Group.Decide(e)
 	if mine > 0 and theirs > 0 then return nil end
 	if mine > 0 then return canInvite() and "me" or nil end
 	if theirs > 0 then return "peer" end
-	return (ns.Comm.sid < (e.sid or "")) and "me" or "peer"
+	return (ns.Protocol.sid < (e.sid or "")) and "me" or "peer"
 end
 
 -- A player was found while we search: invite them, or have them invite us.
@@ -142,7 +139,7 @@ local function onInviteRequest(_, inviter)
 		if partySize() > 0 then
 			if StaticPopup_Hide then pcall(StaticPopup_Hide, "PARTY_INVITE") end
 		elseif StaticPopup_Visible and StaticPopup_Visible("PARTY_INVITE") then
-			ns.Print(L.AUTO_CLICK, Ambiguate and Ambiguate(inviter, "none") or inviter)
+			ns.Print(L.AUTO_CLICK, ns.ShortName(inviter))
 		end
 	end)
 end
@@ -152,7 +149,7 @@ ns.RegisterEvent("GROUP_ROSTER_UPDATE", function()
 	for k, name in pairs(pending) do
 		if ns.Matcher.InGroup(name) then
 			pending[k] = nil
-			ns.Print(L.AUTO_JOINED, Ambiguate and Ambiguate(name, "none") or name)
+			ns.Print(L.AUTO_JOINED, ns.ShortName(name))
 		end
 	end
 	-- A full party ends the search.

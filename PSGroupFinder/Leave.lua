@@ -31,9 +31,7 @@ local ready = false
 local token = 0
 local waitingCombat = false
 
-local function key(name)
-	return (Ambiguate and Ambiguate(name, "none") or name):lower()
-end
+local key = ns.NameKey
 
 local function inGroup()
 	return (IsInGroup and IsInGroup()) and true or false

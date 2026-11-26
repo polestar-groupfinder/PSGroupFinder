@@ -4,12 +4,11 @@
 -- Each player broadcasts only their client language (GetLocale). The
 -- setting "search languages" decides who appears in the list: by default
 -- the client's language only; other languages can be ticked one by one;
--- "all languages" is opt-in and greys out the individual boxes. Filtering
+-- "all languages" is opt-in and folds the individual boxes away. Filtering
 -- is unilateral (a peer is kept if their client language is in our search
--- set, or we accept all). A v0.2 peer with no language is visible only if
--- we accept all. Auto-group is applied independently on each side. The
--- payload is one letter (`f`, `e`) so the 255-byte message still has room
--- for quests. Legacy `f/f` / `fe/*` still decode (first letter).
+-- set, or we accept all); auto-group is applied independently on each side.
+-- The payload is one letter (`f`, `e`) so the 255-byte message still has
+-- room for quests.
 
 local _, ns = ...
 local L = ns.L
@@ -67,15 +66,10 @@ local function copyList(src, fallback)
 end
 
 -- Fills missing settings after a load (default: the client's language).
--- `acceptedLangs` from an earlier local cut is reused as the search set.
 function Lang.Init(db)
 	if not db then return end
 	if db.acceptAll == nil then db.acceptAll = false end
-	local src = db.searchLangs
-	if type(src) ~= "table" and type(db.acceptedLangs) == "table" then
-		src = db.acceptedLangs
-	end
-	db.searchLangs = copyList(src)
+	db.searchLangs = copyList(db.searchLangs)
 end
 
 function Lang.Search()
@@ -119,16 +113,14 @@ function Lang.Encode()
 	return Lang.DefaultCode()
 end
 
--- `their` is { code = "f" }, or nil. Legacy "f/f" / "fe/*" use the first letter.
+-- `their` is { code = "f" }, or nil for an unknown or missing letter.
 function Lang.Decode(text)
-	if type(text) ~= "string" or text == "" then return nil end
-	local code = text:match("^([a-z])")
-	if not code or not valid(code) then return nil end
-	return { code = code }
+	if type(text) ~= "string" or not valid(text) then return nil end
+	return { code = text }
 end
 
 -- Unilateral: keep a peer if we accept all, or their client language is
--- in our search set. `their` is a Decode() table, or nil (v0.2, no langs).
+-- in our search set. `their` is a Decode() table, or nil (unknown).
 function Lang.Compatible(their)
 	if Lang.AcceptsAll() then return true end
 	if not their or not their.code then return false end
