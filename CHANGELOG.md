@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Announce**: a button says one short looking-for-group line for your quests (“LFG Wanted:
+  Hogger, whisper me!”) in the zone's General channel by default, or the looking-for-group
+  channel, /say, /yell. The language of the line is picked in a selector (FR, EN, DE, ES, IT, PT,
+  RU, KO, ZH, ZHT), apart from the game language; quests are named by the client's quest link
+  when it names the right quest, else by title, and the line is cut to 255 bytes. Only on a
+  click, the key bind “Announce my search in chat” or `/psgf announce`, at most once a minute;
+  the tooltip previews the line. The quest panel announces its one quest.
 - **New icon**: two line-art people (`Media/icon-group.tga`, 64×64, drawn by
   `tools/make-icons.py`) replace the eye everywhere: header, options sidebar, goal rows, windows.
 - **Quest log buttons removed**: the buttons in the game's quest log and in the Map & Quest Log

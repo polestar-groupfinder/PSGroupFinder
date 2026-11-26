@@ -70,6 +70,9 @@ Do not put the addon in `_retail_` or `_classic_era_`: Forever would not see it.
   EN): **Whisper** or **Invite**.
 - When an objective is done, that quest leaves the search on its own; the others in the same
   place continue. The search stops when none remain, or with **Stop** (`/psgf stop`).
+- **Announce**: for players who do not have the addon, **Announce** says a short line
+  (“LFG <quest>, whisper me!”) in the zone's General channel, in the language chosen next to the
+  button. Hover it first to see the exact line. Only on your click, at most once a minute.
 - **Players on a quest**: the small group button under a Polestar guide objective icon opens the list of players who have **this** quest, even in another zone. A
   second click closes the pane; a click for another quest switches to it. **Search for this quest**
   queries them (once every 15 s). In the Polestar guide, **Alt + click** on an objective does the

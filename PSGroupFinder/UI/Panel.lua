@@ -3,7 +3,8 @@
 --
 -- From top to bottom: the switches, the message said when leaving, the
 -- search languages, Find a group / Stop (/ Options when Polestar's settings
--- have our page), Leave the group while in a party, the search in progress
+-- have our page), Announce with its language and channel, Leave the group
+-- while in a party, the search in progress
 -- (its quests leave it as their objectives are done), the channels with
 -- their legend, and the players found, each with Whisper and Invite (only
 -- ever on your click). The panel is as tall as what it shows.
@@ -153,6 +154,8 @@ function UI.Refresh()
 	widgets.msgText:SetText(W.Dim() .. string.format(L.LEAVE_MSG_LABEL, ns.Leave.Message()) .. "|r")
 	widgets.msgText:SetAlpha(ns.Get("leaveMsgOn") and 1 or 0.5)
 	widgets.langValue:SetText(W.Dim() .. ns.Lang.MineSummary() .. "|r")
+	widgets.annLang:Refresh()
+	widgets.annTo:Refresh()
 	if widgets.langPicker and widgets.langPicker:IsShown() then UI.RefreshLangPicker() end
 
 	-- Buttons.
@@ -161,11 +164,14 @@ function UI.Refresh()
 	widgets.search:SetEnabled(on and cd == 0)
 	widgets.search:SetText(cd > 0 and string.format("%s (%d)", L.SEARCH, math.ceil(cd)) or (active and L.SEARCH_AGAIN or L.SEARCH))
 	widgets.stop:SetShown(active)
+	local acd = ns.Announce.Cooldown()
+	widgets.announce:SetEnabled(on and acd == 0)
+	widgets.announce:SetText(acd > 0 and string.format("%s (%d)", L.ANNOUNCE, math.ceil(acd)) or L.ANNOUNCE)
 	local inParty = (IsInGroup and IsInGroup()) and true or false
 	widgets.leaveGroup:SetShown(inParty)
 
 	-- Off: only the switches and the buttons; the rest has nothing to say.
-	local y = TOP + 62 + (inParty and 24 or 0)
+	local y = TOP + 86 + (inParty and 24 or 0)
 	for _, w in ipairs({ widgets.sessionTitle, widgets.chLabel, widgets.channels, widgets.test, widgets.chHit }) do
 		w:SetShown(on)
 	end
@@ -319,6 +325,36 @@ end
 function UI.LangPicker() return widgets.langPicker end
 
 ---------------------------------------------------------------------------
+-- Announce (Announce.lua): the choices and the preview
+---------------------------------------------------------------------------
+
+function UI.AnnounceLangs()
+	local out = {}
+	for _, row in ipairs(ns.Lang.ALL) do out[#out + 1] = { value = row.code, label = row.tag } end
+	return out
+end
+
+function UI.AnnounceTargets()
+	local out = {}
+	for _, t in ipairs(ns.Announce.TARGETS) do out[#out + 1] = { value = t, label = ns.Announce.TargetName(t) } end
+	return out
+end
+
+-- The tooltip shows the exact line that would go out. `self.questID`: one quest.
+function UI.AnnounceTip(self)
+	GameTooltip:SetOwner(self, "ANCHOR_TOP")
+	GameTooltip:SetText(L.ANNOUNCE, 1, 1, 1)
+	local text = ns.Announce.Text(ns.Announce.Quests(self.questID), ns.Announce.Lang())
+	if text then
+		GameTooltip:AddLine(string.format(L.ANNOUNCE_TIP, ns.Announce.TargetName(ns.Announce.Target())), nil, nil, nil, true)
+		GameTooltip:AddLine(text, 1, 1, 1, true)
+	else
+		GameTooltip:AddLine(L.ANNOUNCE_NONE, nil, nil, nil, true)
+	end
+	GameTooltip:Show()
+end
+
+---------------------------------------------------------------------------
 -- Build
 ---------------------------------------------------------------------------
 
@@ -374,9 +410,26 @@ local function build()
 	widgets.options = W.Button(panel, L.OPTIONS_SHORT, 64, function() if ns.OpenOptions then ns.OpenOptions() end end)
 	widgets.options:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -by)
 	widgets.options:SetShown(UI.hasOptions == true)
+	-- Announce in public chat, with the line's language and channel.
+	local ay = by + 24
+	widgets.announce = W.Button(panel, L.ANNOUNCE, 110, function() ns.Announce.Send() UI.Refresh() end)
+	widgets.announce:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -ay)
+	widgets.announce:SetScript("OnEnter", UI.AnnounceTip)
+	widgets.announce:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	widgets.annLang = W.Choice(panel, 64, {
+		items = UI.AnnounceLangs, get = ns.Announce.Lang, set = function(v) ns.Set("announceLang", v) end,
+		title = L.ANN_LANG, help = L.ANN_LANG_TIP,
+	})
+	widgets.annLang:SetPoint("LEFT", widgets.announce, "RIGHT", 6, 0)
+	widgets.annTo = W.Choice(panel, WIDTH - 2 * PAD - 110 - 64 - 12, {
+		items = UI.AnnounceTargets, get = ns.Announce.Target, set = function(v) ns.Set("announceTo", v) end,
+		title = L.ANN_TO, help = L.ANN_TO_TIP,
+	})
+	widgets.annTo:SetPoint("LEFT", widgets.annLang, "RIGHT", 6, 0)
+
 	widgets.leaveGroup = W.Button(panel, L.LEAVE_GROUP, 140, function() ns.Leave.Do() end)
 	W.Tip(widgets.leaveGroup, L.LEAVE_GROUP, L.LEAVE_GROUP_TIP)
-	widgets.leaveGroup:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -(by + 24))
+	widgets.leaveGroup:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -(by + 48))
 	widgets.leaveGroup:Hide()
 
 	-- The search in progress.
@@ -442,11 +495,12 @@ function UI.IsShown() return panel and panel:IsShown() or false end
 function UI.EmptyCaption() return widgets.empty and widgets.empty:GetText() or nil end
 function UI.RowFrames() return rows end
 function UI.LeaveGroupButton() return widgets.leaveGroup end
+function UI.AnnounceWidgets() return widgets.announce, widgets.annLang, widgets.annTo end
 
 ns.TogglePanel = UI.Toggle
 ns.ResetPanel = UI.Place
 
-for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION", "LANG", "QUEST_SEARCHED" }) do
+for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION", "LANG", "QUEST_SEARCHED", "ANNOUNCED" }) do
 	ns.On(msg, UI.Refresh)
 end
 

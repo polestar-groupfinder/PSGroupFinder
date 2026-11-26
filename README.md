@@ -58,6 +58,14 @@ is in [INSTALLATION.md](INSTALLATION.md).
   players found, best first: more shared quests (the current Polestar step above all), nearer,
   not already grouped. Each row shows the player's language (e.g. `EN`), and **Whisper** /
   **Invite** buttons. Hover a row for every shared quest.
+- **Announce** (for the players who do not have the addon): the **Announce** button says one
+  short line such as “LFG Wanted: Hogger, whisper me!” in the zone's **General** channel (or
+  the looking-for-group channel, /say, /yell), in the **language you pick** in the selector next
+  to it, whatever your game language. It names the quests of the search in progress (else your
+  relevant quests, three at most), as quest links when the client gives one. Only on your click,
+  key bind (“Announce my search in chat”) or `/psgf announce`, at most once a minute; the
+  button's tooltip shows the exact line first. The quest panel has its own **Announce** for that
+  one quest.
 - **Players on this quest**: the small group button under a Polestar objective icon (or
   **Alt-click** on the objective, or `/psgf quest <id>`) lists the players who have **that**
   quest, in any zone, with their zone and progress; **Search for this quest** asks everyone.
@@ -79,7 +87,7 @@ is in [INSTALLATION.md](INSTALLATION.md).
   Polestar's options, each with a tooltip: enable, group automatically, header button, share my
   map position (otherwise only the zone), answer searches for my quests, offer to leave once the
   quests are done, the /p message, search languages.
-- **Commands**: `/psgf` (panel), `/psgf search`, `/psgf stop`, `/psgf on|off`, `/psgf test`
+- **Commands**: `/psgf` (panel), `/psgf search`, `/psgf stop`, `/psgf announce`, `/psgf on|off`, `/psgf test`
   (tests the channels), `/psgf reset` (repositions the panel), `/psgf quest <id>`,
   `/psgf hooks` (what was found in the Polestar guide), `/psgf debug` (shows the addon's traffic
   and the game's notices about it, which are hidden otherwise).
@@ -99,7 +107,9 @@ are documented in [`Protocol.lua`](PSGroupFinder/Protocol.lua).
 | Quest reply `A` | whisper to the asker, if you have the quest (any zone), rate-limited | that id and your progress in %, your position, level, class, language |
 | Test `T` | `/psgf test`, or once after enabling | a random id (we listen for our own echo) |
 
-Never free text, never the whole quest log, nothing inside an instance.
+Never free text, never the whole quest log, nothing inside an instance. The only visible chat
+line the addon ever says is the **Announce** line (on your click) and, if you turned it on, the
+/p message when you leave with its Leave button.
 
 ## Channels and detection
 
@@ -161,7 +171,7 @@ CI runs the first three on every push (`.github/workflows/ci.yml`).
 | `Throttle.lua`, `Protocol.lua`, `Channels.lua`, `Comm.lua` | send queue; message formats; channels and probes; searches and message handling |
 | `ChatFilter.lua` | hides the game's notices about our own traffic (off in debug mode) |
 | `Quests.lua`, `Session.lua`, `Matcher.lua` | which quests count; the search in progress; the players found and their order |
-| `Group.lua`, `Leave.lua` | auto-grouping; offering to leave a finder group |
+| `Group.lua`, `Leave.lua`, `Announce.lua` | auto-grouping; offering to leave a finder group; the public announce |
 | `UI/` | shared widgets, the main panel, the quest panel, the dialogs |
 | `Polestar/` | Polestar detection and live step, header button, options page, goal-row button |
 

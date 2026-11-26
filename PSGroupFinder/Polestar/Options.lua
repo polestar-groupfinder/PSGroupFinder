@@ -106,6 +106,7 @@ local function registerOptions()
 			{ kind = "button", label = L.LEAVE_DIALOG .. "…", help = L.LEAVE_DIALOG_TIP, onClick = function() ns.UI.EditLeaveMessage() end },
 			{ kind = "binding", action = "PSGF_SEARCH", label = L.BINDING_SEARCH, help = L.BINDING_SEARCH_TIP },
 			{ kind = "binding", action = "PSGF_TOGGLE_PANEL", label = L.BINDING_PANEL, help = L.BINDING_PANEL_TIP },
+			{ kind = "binding", action = "PSGF_ANNOUNCE", label = L.BINDING_ANNOUNCE, help = L.BINDING_ANNOUNCE_TIP },
 			{ kind = "button", label = L.TEST, help = L.TEST_TIP, onClick = function() ns.TestChannels(true) end },
 			{ kind = "button", label = L.OPEN_PANEL, help = L.OPEN_PANEL_TIP, onClick = function() ns.UI.Show() end },
 		} }

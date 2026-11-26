@@ -188,6 +188,58 @@ function W.Title(parent, text)
 	return title
 end
 
+-- A selector: a button showing the current choice; a click opens a small
+-- list under it. `opts`: items() -> { { value, label } }, get(), set(value),
+-- title and help (tooltip). b:Refresh() updates the label.
+local ARROW = " |TInterface\\ChatFrame\\ChatFrameExpandArrow:12:12|t"
+
+function W.Choice(parent, width, opts)
+	local b = W.Button(parent, "", width, nil, 20)
+	local list
+	local rows = {}
+	local function labelOf(value)
+		for _, it in ipairs(opts.items()) do
+			if it.value == value then return it.label end
+		end
+		return tostring(value)
+	end
+	function b:Refresh()
+		self:SetText(labelOf(opts.get()) .. ARROW)
+	end
+	local function open()
+		list = list or W.Box(parent)
+		list:SetFrameStrata("DIALOG")
+		local items = opts.items()
+		for i, it in ipairs(items) do
+			local row = rows[i] or W.Button(list, "", width - 8, nil, 18)
+			rows[i] = row
+			row:SetText(it.label)
+			row:ClearAllPoints()
+			row:SetPoint("TOPLEFT", list, "TOPLEFT", 4, -(4 + (i - 1) * 19))
+			row:SetScript("OnClick", function()
+				opts.set(it.value)
+				list:Hide()
+				b:Refresh()
+			end)
+			row:Show()
+		end
+		for i = #items + 1, #rows do rows[i]:Hide() end
+		list:SetSize(width, 8 + #items * 19)
+		list:ClearAllPoints()
+		list:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 0, -2)
+		list:Show()
+	end
+	b:SetScript("OnClick", function()
+		if list and list:IsShown() then list:Hide() else open() end
+	end)
+	b:SetScript("OnHide", function() if list then list:Hide() end end)
+	if opts.title then W.Tip(b, opts.title, (opts.help and (opts.help .. " ") or "") .. L.CHOOSE) end
+	-- Tests: the open list and its rows.
+	b.List = function() return list, rows end
+	b:Refresh()
+	return b
+end
+
 -- Calls fn about once a second while `frame` is shown.
 function W.EverySecond(frame, fn)
 	local elapsed = 0

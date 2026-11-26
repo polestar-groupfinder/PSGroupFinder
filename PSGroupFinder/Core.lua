@@ -42,6 +42,8 @@ local DEFAULTS = {
 	leaveMsgOn = false,  -- say leaveMsg in /p when leaving (opt-in)
 	leaveMsgAny = false, -- also when leaving a group not formed through the finder
 	leaveMsg = false,    -- false: the default text of the client's language
+	announceLang = false, -- language of the public announce (false: the client's)
+	announceTo = "GENERAL", -- where it goes: GENERAL (zone), LFG, SAY, YELL
 	debug = false,
 }
 
@@ -171,6 +173,8 @@ SlashCmdList.PSGROUPFINDER = function(msg)
 		ns.SetEnabled(true)
 	elseif cmd == "off" then
 		ns.SetEnabled(false)
+	elseif cmd == "announce" then
+		PSGroupFinder_Announce()
 	elseif cmd == "test" then
 		if ns.TestChannels then ns.TestChannels(true) end
 	elseif cmd == "reset" then

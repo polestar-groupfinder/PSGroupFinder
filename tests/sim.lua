@@ -1,6 +1,6 @@
 -- Two simulated clients exchanging PSGroupFinder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "Group", "Leave",
+local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "Group", "Leave", "Announce",
 	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/Dialogs",
 	"Polestar/Polestar", "Polestar/Header", "Polestar/Options", "Polestar/GoalRows" }
 local DIR = "PSGroupFinder/"
@@ -139,7 +139,9 @@ local function newClient(name, quests, opts)
 	env.time = os.time
 	env.InCombatLockdown = function() return false end
 	env.chat = {}
-	env.SendChatMessage = function(m, t) env.chat[#env.chat + 1] = { m, t } end
+	env.SendChatMessage = function(m, t, _, target) env.chat[#env.chat + 1] = { m, t, target } end
+	env.channels = { 1, "General", false, 2, "Trade", false }
+	env.GetChannelList = function() return unpack(env.channels) end
 	env.ERR_CHAT_PLAYER_NOT_FOUND_S = "No player named '%s' is currently playing."
 	env.chatFilters = {}
 	env.ChatFrame_AddMessageEventFilter = function(ev, fn) env.chatFilters[ev] = fn end
@@ -1064,5 +1066,78 @@ before = #zoe.printed
 zoe.ns.Channels.Test(false)
 run(6)
 check(#zoe.printed == before, "with debug off, the quiet channel probe prints nothing")
+
+---------------------------------------------------------------------------
+-- Announce: a looking-for-group line in public chat, only on a click
+---------------------------------------------------------------------------
+local longQ = { id = 7001, title = ("Very long quest title "):rep(8), obj = { { "Thing slain: 0/5", "monster" } } }
+local amy = newClient("Amy Rook", { hogger, boars }, {})
+check(amy.ns.Announce.Lang() == "e" and amy.ns.Announce.Target() == "GENERAL",
+	"announce defaults: the client's language, the zone's General channel")
+check(amy.ns.Announce.Text({ 176, 86 }, "e") == "LFG Wanted: Hogger / Pie for Billy, whisper me!", "English line names the quests")
+check(amy.ns.Announce.Text({ 176 }, "f") == "Cherche groupe pour Wanted: Hogger, /w moi !", "French line, whatever the client language")
+check(amy.ns.Announce.Send() == false and #amy.chat == 0, "nothing is announced while the finder is off")
+amy.ns.SetEnabled(true)
+run(15)
+check(amy.ns.Announce.Send() == true, "announce goes out from a click")
+check(#amy.chat == 1 and amy.chat[1][2] == "CHANNEL" and amy.chat[1][3] == 1
+	and amy.chat[1][1] == "LFG Wanted: Hogger / Pie for Billy, whisper me!",
+	"the line goes to General (channel 1) and names the relevant quests")
+check(amy.ns.Announce.Send() == false and #amy.chat == 1 and amy.printed[#amy.printed]:find("Wait"),
+	"a second announce within a minute is refused")
+run(61)
+amy.ns.Set("announceTo", "LFG")
+check(amy.ns.Announce.Send() == false and #amy.chat == 1 and amy.printed[#amy.printed]:find("looking%-for%-group"),
+	"the LFG channel, not joined, is refused with a hint")
+amy.channels = { 1, "General", false, 4, "LookingForGroup", false }
+check(amy.ns.Announce.Send() == true and amy.chat[2][3] == 4, "the LFG channel is found by name once joined")
+run(61)
+amy.ns.Set("announceTo", "YELL")
+amy.ns.Set("announceLang", "d")
+check(amy.ns.Announce.Send() == true and amy.chat[3][2] == "YELL" and amy.chat[3][1]:find("^Suche Gruppe"),
+	"yell, in German")
+-- Quest links: used only when the client's link names this very quest.
+amy.GetQuestLink = function(id) return "|cffffff00|Hquest:" .. id .. ":10|h[Hogger]|h|r" end
+check(amy.ns.Announce.Text({ 176 }, "e"):find("|Hquest:176:", 1, true), "the client's quest link is used when it names the quest")
+amy.GetQuestLink = function() return "|cffffff00|Hquest:999:10|h[Other]|h|r" end
+check(amy.ns.Announce.Text({ 176 }, "e") == "LFG Wanted: Hogger, whisper me!", "a link for another quest (log index API) is not used")
+amy.GetQuestLink = nil
+-- Long titles: quests are dropped from the end, the line stays within 255 bytes.
+local ally = newClient("Al Rook", { longQ, hogger }, {})
+local t = ally.ns.Announce.Text({ 7001, 7001, 176 }, "e")
+check(#t <= 255 and select(2, t:gsub(" / ", "")) < 2, "a long line drops quests to fit 255 bytes (" .. #t .. " bytes)")
+-- During a search, the line names the quests of the search.
+run(61)
+amy.ns.Set("announceTo", "GENERAL")
+amy.ns.Set("announceLang", false)
+amy.ns.Channels.Test(true) run(6)
+amy.ns.Session.Start({ { id = 86, kind = "l" } })
+check(amy.ns.Announce.Text(amy.ns.Announce.Quests(), "e") == "LFG Pie for Billy, whisper me!", "during a search, the line names its quests")
+amy.ns.Session.Stop("manual")
+-- The panel: Announce, then the language and channel selectors.
+amy.ns.UI.Show()
+local annBtn, annLang, annTo = amy.ns.UI.AnnounceWidgets()
+check(annBtn and annLang and annTo, "the panel has Announce with a language and a channel selector")
+annLang._OnClick(annLang)
+local list, lrows = annLang.List()
+check(list and list:IsShown() and #lrows == #amy.ns.Lang.ALL, "the language selector lists every language")
+lrows[1]._OnClick(lrows[1])
+check(amy.ns.Get("announceLang") == "f" and not list:IsShown(), "choosing FR sets the announce language and closes the list")
+annTo._OnClick(annTo)
+local _, trows = annTo.List()
+trows[3]._OnClick(trows[3])
+check(amy.ns.Get("announceTo") == "SAY", "the channel selector sets the target (Say)")
+annBtn._OnClick(annBtn)
+check(amy.chat[#amy.chat][2] == "SAY" and amy.chat[#amy.chat][1]:find("^Cherche groupe"), "the panel's Announce sends the chosen line")
+-- The quest panel announces that quest only.
+run(61)
+amy.ns.QuestUI.Open(176)
+local qa = amy.ns.QuestUI.AnnounceButton()
+qa._OnClick(qa)
+check(amy.chat[#amy.chat][1] == "Cherche groupe pour Wanted: Hogger, /w moi !", "the quest panel's Announce names that quest only")
+-- Slash command and key binding share the same path.
+run(61)
+amy.SlashCmdList.PSGROUPFINDER("announce")
+check(amy.chat[#amy.chat][1]:find("Wanted: Hogger / Pie for Billy"), "/psgf announce sends the line")
 
 print("all tests passed")

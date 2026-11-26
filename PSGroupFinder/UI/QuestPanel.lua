@@ -4,7 +4,8 @@
 --
 -- Opened by the goal-row button and Alt-click (Hooks.lua) and by
 -- /psgf quest <id>. It takes the main panel's place; Back brings the main
--- panel back. "Search for this quest" asks everyone (Comm.SearchQuest).
+-- panel back. "Search for this quest" asks everyone (Comm.SearchQuest);
+-- "Announce" says a looking-for-group line for this quest (Announce.lua).
 
 local _, ns = ...
 local L = ns.L
@@ -49,6 +50,10 @@ function QuestUI.Refresh()
 	local cd = ns.Comm.QuestCooldown()
 	qw.search:SetEnabled(on and cd == 0)
 	qw.search:SetText(cd > 0 and string.format("%s (%d)", L.QUEST_SEARCH, math.ceil(cd)) or L.QUEST_SEARCH)
+	local acd = ns.Announce.Cooldown()
+	qw.announce.questID = qid
+	qw.announce:SetEnabled(on and acd == 0)
+	qw.announce:SetText(acd > 0 and string.format("%s (%d)", L.ANNOUNCE_QUEST, math.ceil(acd)) or L.ANNOUNCE_QUEST)
 
 	local y = 102
 	local found = on and ns.Matcher.QuestList(qid) or {}
@@ -81,11 +86,18 @@ local function build()
 	qw.mine = line("small", GameFontHighlightSmall, 52)
 	qw.back = W.Button(qpanel, L.QUEST_BACK, 70, function() qpanel:Hide() ns.UI.Show() end)
 	qw.back:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD, -72)
-	qw.search = W.Button(qpanel, L.QUEST_SEARCH, 190, function()
+	qw.search = W.Button(qpanel, L.QUEST_SEARCH, 150, function()
 		if qid then ns.Comm.SearchQuest(qid) end
 		QuestUI.Refresh()
 	end)
 	qw.search:SetPoint("LEFT", qw.back, "RIGHT", 6, 0)
+	qw.announce = W.Button(qpanel, L.ANNOUNCE_QUEST, WIDTH - 2 * PAD - 70 - 150 - 12, function()
+		if qid then ns.Announce.Send(qid) end
+		QuestUI.Refresh()
+	end)
+	qw.announce:SetPoint("LEFT", qw.search, "RIGHT", 6, 0)
+	qw.announce:SetScript("OnEnter", ns.UI.AnnounceTip)
+	qw.announce:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	qw.empty = W.Text(qpanel, "note", GameFontDisableSmall)
 	qw.empty:SetWidth(WIDTH - 2 * PAD - 4)
 	qw.empty:SetJustifyH("LEFT")
@@ -124,8 +136,9 @@ function QuestUI.IsShown() return qpanel and qpanel:IsShown() or false end
 -- Tests.
 function QuestUI.EmptyCaption() return qw.empty and qw.empty:GetText() or nil end
 function QuestUI.RowFrames() return rows end
+function QuestUI.AnnounceButton() return qw.announce end
 
 ns.On("QUEST_SEARCHED", function(id) searched[id] = ns.Now() end)
-for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION", "LANG", "QUEST_SEARCHED" }) do
+for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION", "LANG", "QUEST_SEARCHED", "ANNOUNCED" }) do
 	ns.On(msg, QuestUI.Refresh)
 end
