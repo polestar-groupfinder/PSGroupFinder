@@ -1,6 +1,6 @@
 -- Two simulated clients exchanging PSGroupFinder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "Group", "Leave", "Announce",
+local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "ChatWatch", "Group", "Leave", "Announce",
 	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/Dialogs",
 	"Polestar/Polestar", "Polestar/Header", "Polestar/Options", "Polestar/GoalRows" }
 local DIR = "PSGroupFinder/"
@@ -142,6 +142,8 @@ local function newClient(name, quests, opts)
 	env.SendChatMessage = function(m, t, _, target) env.chat[#env.chat + 1] = { m, t, target } end
 	env.channels = { 1, "General", false, 2, "Trade", false }
 	env.GetChannelList = function() return unpack(env.channels) end
+	env.UnitName = function() return name end
+	env.GetPlayerInfoByGUID = function(guid) if guid == "Player-1-MAGE" then return "Mage", "MAGE" end end
 	env.ERR_CHAT_PLAYER_NOT_FOUND_S = "No player named '%s' is currently playing."
 	env.chatFilters = {}
 	env.ChatFrame_AddMessageEventFilter = function(ev, fn) env.chatFilters[ev] = fn end
@@ -1139,5 +1141,75 @@ check(amy.chat[#amy.chat][1] == "Cherche groupe pour Wanted: Hogger, /w moi !", 
 run(61)
 amy.SlashCmdList.PSGROUPFINDER("announce")
 check(amy.chat[#amy.chat][1]:find("Wanted: Hogger / Pie for Billy"), "/psgf announce sends the line")
+
+---------------------------------------------------------------------------
+-- Reading public chat: players without the addon who ask for one of our quests
+---------------------------------------------------------------------------
+local defias = { id = 5501, title = "The Defias Brotherhood", obj = { { "Defias slain: 0/10", "monster" } } }
+local elite = { id = 5502, title = "Élite: Gath'Ilzogg", obj = { { "Gath'Ilzogg slain: 0/1", "monster" } } }
+local ore = { id = 5503, title = "Ores", obj = { { "Copper Ore: 0/5", "item" } } }
+local doneQ = { id = 5504, title = "Bounty on Murlocs", complete = true, obj = { { "Murloc fin: 8/8", "item", true } } }
+local cal = newClient("Cal Reed", { defias, elite, ore, doneQ }, {})
+local W = cal.ns.ChatWatch
+check(W.Normalize("|cffffff00|Hquest:5502:20|h[Élite: Gath'Ilzogg]|h|r !!") == "elite gath ilzogg",
+	"chat text is normalized: link text kept, accents folded, punctuation dropped")
+local function ids(t) table.sort(t) return table.concat(t, ",") end
+check(ids(W.Match("anyone for The Defias Brotherhood?")) == "5501", "a whole quest title in a line is a match")
+check(ids(W.Match("LF1M elite gath ilzogg")) == "5502", "accents and punctuation do not matter")
+check(ids(W.Match("lfg gath'ilzogg")) == "5502", "with an LFG word, a distinctive title word is enough")
+check(ids(W.Match("gath'ilzogg is a pain")) == "", "a distinctive word without an LFG word is not enough")
+check(ids(W.Match("selling ores cheap")) == "", "a short title without an LFG word is not a match")
+check(ids(W.Match("LFG ores")) == "5503", "a short title with an LFG word is a match")
+check(ids(W.Match("lfg Bounty on Murlocs")) == "", "a quest with nothing left to do is never matched")
+check(ids(W.Match("doing |cffffff00|Hquest:5501:18|h[Brotherhood]|h|r, inv")) == "5501", "a quest link is an exact match")
+check(ids(W.Match("LFG Wanted: Hogger")) == "", "a quest not in my log is not matched")
+
+local function say(c, event, text, sender, channel, guid)
+	c.fire(event, text, sender, "Common", channel or "", "", "", 0, 1, channel and channel:gsub("^%d+%.%s*", "") or "", 0, 1, guid)
+end
+say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. General - Westfall", "Player-1-MAGE")
+check(#cal.ns.ChatWatch.List() == 0, "nothing is read while the finder is off")
+cal.ns.SetEnabled(true)
+run(15)
+say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. General - Westfall", "Player-1-MAGE")
+local cl = cal.ns.ChatWatch.List()
+check(#cl == 1 and cl[1].name == "Mia Stone" and cl[1].quests[1] == 5501 and cl[1].class == "MAGE"
+	and cl[1].where == "General" and cl[1].sameZone, "a player asking in General is listed via chat, with their class")
+say(cal, "CHAT_MSG_YELL", "need help gath ilzogg", "Bo Hill")
+check(#cal.ns.ChatWatch.List() == 2 and cal.ns.ChatWatch.List(5502)[1].name == "Bo Hill", "/yell is read too; the list filters by quest")
+say(cal, "CHAT_MSG_SAY", "LFG The Defias Brotherhood", "Cal Reed")
+check(#cal.ns.ChatWatch.List() == 2, "my own lines are ignored")
+say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Hid Den", "5. PSGroupFinder")
+check(#cal.ns.ChatWatch.List() == 2, "the finder's hidden channel is not read")
+-- The panel lists them after the finder's own results, marked chat, with their line in the tooltip.
+cal.ns.UI.Show()
+cal.ns.UI.Refresh()
+local chatRow
+for _, r in ipairs(cal.ns.UI.RowFrames()) do
+	if type(r.entry) == "table" and r.entry.name == "Mia Stone" then chatRow = r end
+end
+check(chatRow and chatRow.dist._text:find("chat"), "the panel lists the chat player, marked chat")
+check(chatRow.info._text:find("The Defias Brotherhood") and chatRow.info._text:find("General"), "the row names the quest and the channel")
+-- No message goes to a chat player on its own, and they are never auto-invited.
+cal.ns.Set("autoGroup", true)
+local sentBefore = #cal.invited
+say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. General - Westfall")
+check(#cal.invited == sentBefore, "a chat player is never invited without a click")
+-- The quest panel shows them for that quest.
+cal.ns.QuestUI.Open(5501)
+local qr = cal.ns.QuestUI.RowFrames()[1]
+check(type(qr.entry) == "table" and qr.entry.name == "Mia Stone" and qr.info._text:find("General"), "the quest panel lists the chat player for that quest")
+cal.ns.QuestUI.Close()
+-- The quest done: the entry goes; entries also expire.
+defias.obj[1][3] = true
+cal.QuestLogUpdate()
+run(2)
+check(#cal.ns.ChatWatch.List(5501) == 0, "once my quest is done, players asking for it are no longer listed")
+run(301)
+check(#cal.ns.ChatWatch.List() == 0, "chat entries expire after five minutes")
+-- The option turns it off.
+cal.ns.Set("readChat", false)
+say(cal, "CHAT_MSG_YELL", "need help gath ilzogg", "Bo Hill")
+check(#cal.ns.ChatWatch.List() == 0, "with the option off, chat is not read")
 
 print("all tests passed")

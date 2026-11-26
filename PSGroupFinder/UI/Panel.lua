@@ -30,11 +30,12 @@ local SWITCHES = {
 	{ "headerButton", "HEADER_BUTTON", "HEADER_BUTTON_TIP" },
 	{ "shareCoords", "SHARE_COORDS", "SHARE_COORDS_TIP" },
 	{ "autoReply", "AUTO_REPLY", "AUTO_REPLY_TIP" },
+	{ "readChat", "READ_CHAT", "READ_CHAT_TIP" },
 	{ "leaveOffer", "LEAVE_OFFER", "LEAVE_OFFER_TIP" },
 	{ "leaveMsgOn", "LEAVE_MSG", "LEAVE_MSG_TIP" },
 	{ "leaveMsgAny", "LEAVE_MSG_ANY", "LEAVE_MSG_ANY_TIP" },
 }
-local DEFAULT_ON = { headerButton = true, leaveOffer = true } -- read as on unless set to false
+local DEFAULT_ON = { headerButton = true, leaveOffer = true, readChat = true } -- read as on unless set to false
 local MSG_H = 22 -- the "message when leaving" line under the switches
 local TOP = 34 + #SWITCHES * OPT_H + MSG_H
 local SESSION_LINES = 4
@@ -137,7 +138,16 @@ end
 local function playerInfo(e)
 	local first = e.quests[1]
 	local more = #e.quests > 1 and ("  " .. W.Dim() .. "+" .. (#e.quests - 1) .. "|r") or ""
-	return W.Soft() .. W.KindTag(e.kinds and e.kinds[first]) .. "|r" .. ns.Quests.Title(first) .. more
+	local where = e.where and ("  " .. W.Dim() .. e.where .. "|r") or ""
+	return W.Soft() .. W.KindTag(e.kinds and e.kinds[first]) .. "|r" .. ns.Quests.Title(first) .. more .. where
+end
+
+-- The players to list: those found through the finder, then those spotted
+-- in public chat.
+local function playersFound()
+	local list = ns.Matcher.List()
+	for _, e in ipairs(ns.ChatWatch.List()) do list[#list + 1] = e end
+	return list
 end
 
 function UI.Refresh()
@@ -183,7 +193,7 @@ function UI.Refresh()
 	end
 
 	-- Players found.
-	local found = on and ns.Matcher.List() or {}
+	local found = on and playersFound() or {}
 	widgets.empty:SetShown(on and #found == 0)
 	if on and #found == 0 then
 		widgets.empty:SetText(active and L.EMPTY_SEARCHING or L.EMPTY)

@@ -100,6 +100,7 @@ local function registerOptions()
 			toggle("HEADER_BUTTON", "headerButton"),
 			toggle("SHARE_COORDS", "shareCoords"),
 			toggle("AUTO_REPLY", "autoReply"),
+			toggle("READ_CHAT", "readChat"),
 			toggle("LEAVE_OFFER", "leaveOffer"),
 			toggle("LEAVE_MSG", "leaveMsgOn"),
 			toggle("LEAVE_MSG_ANY", "leaveMsgAny"),

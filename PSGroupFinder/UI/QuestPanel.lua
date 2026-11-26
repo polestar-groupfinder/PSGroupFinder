@@ -37,6 +37,7 @@ local function progressText(pct)
 end
 
 local function playerInfo(e)
+	if e.source == "chat" then return W.Soft() .. string.format(L.SAID_IN, e.where or "?") .. "|r" end
 	local zone = zoneName(e.map)
 	return W.Soft() .. (zone and (zone .. "  ") or "") .. "|r" .. W.Dim() .. progressText(e.pct) .. "|r"
 end
@@ -57,6 +58,7 @@ function QuestUI.Refresh()
 
 	local y = 102
 	local found = on and ns.Matcher.QuestList(qid) or {}
+	for _, e in ipairs(on and ns.ChatWatch.List(qid) or {}) do found[#found + 1] = e end
 	qw.empty:SetShown(#found == 0)
 	if #found == 0 then
 		local waiting = searched[qid] and ns.Now() - searched[qid] < SEARCHED_FOR

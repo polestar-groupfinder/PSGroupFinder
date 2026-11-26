@@ -66,6 +66,15 @@ is in [INSTALLATION.md](INSTALLATION.md).
   key bind (“Announce my search in chat”) or `/psgf announce`, at most once a minute; the
   button's tooltip shows the exact line first. The quest panel has its own **Announce** for that
   one quest.
+- **Spotting players in chat** (option “Spot players asking in chat”, on by default, read only):
+  the addon reads General, the other public channels, /say and /yell, and lists the players who
+  look for a group on one of your open quests, **even without the addon**, marked **chat**, with
+  their line in the tooltip. A line counts when it carries a link to the quest, contains its whole
+  title (accents, case and punctuation aside; a short title also needs a word such as LFG, group,
+  groupe, cherche, suche), or has such a word and a distinctive word of the title. Entries last
+  5 minutes. Whisper and Invite work as for the others; nothing is sent to them on its own and they
+  never take part in auto-grouping. The match uses the titles in your game language: a player who
+  writes the title in another language is only found through a quest link.
 - **Players on this quest**: the small group button under a Polestar objective icon (or
   **Alt-click** on the objective, or `/psgf quest <id>`) lists the players who have **that**
   quest, in any zone, with their zone and progress; **Search for this quest** asks everyone.
@@ -85,7 +94,8 @@ is in [INSTALLATION.md](INSTALLATION.md).
   leaving through the game (portrait, `/leave`) says nothing.
 - **Options** (saved in `PSGroupFinderDB`), in the panel and on a “Group Finder” page in
   Polestar's options, each with a tooltip: enable, group automatically, header button, share my
-  map position (otherwise only the zone), answer searches for my quests, offer to leave once the
+  map position (otherwise only the zone), answer searches for my quests, spot players asking in
+  chat, offer to leave once the
   quests are done, the /p message, search languages.
 - **Commands**: `/psgf` (panel), `/psgf search`, `/psgf stop`, `/psgf announce`, `/psgf on|off`, `/psgf test`
   (tests the channels), `/psgf reset` (repositions the panel), `/psgf quest <id>`,
@@ -172,6 +182,7 @@ CI runs the first three on every push (`.github/workflows/ci.yml`).
 | `ChatFilter.lua` | hides the game's notices about our own traffic (off in debug mode) |
 | `Quests.lua`, `Session.lua`, `Matcher.lua` | which quests count; the search in progress; the players found and their order |
 | `Group.lua`, `Leave.lua`, `Announce.lua` | auto-grouping; offering to leave a finder group; the public announce |
+| `ChatWatch.lua` | reads public chat for players asking for one of your quests |
 | `UI/` | shared widgets, the main panel, the quest panel, the dialogs |
 | `Polestar/` | Polestar detection and live step, header button, options page, goal-row button |
 

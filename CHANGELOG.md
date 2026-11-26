@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Spot players asking in chat** (on by default, read only): players without the addon who
+  look for a group on one of your open quests in General, the other public channels, /say or
+  /yell are listed in both panels, marked “chat”, with their line in the tooltip. A line counts
+  when it links the quest, contains its whole title (accents, case and punctuation aside; a short
+  title also needs an LFG word) or has an LFG word and a distinctive title word. Five minutes per
+  entry, never contacted or auto-invited on their own, nothing read in an instance.
 - **Announce**: a button says one short looking-for-group line for your quests (“LFG Wanted:
   Hogger, whisper me!”) in the zone's General channel by default, or the looking-for-group
   channel, /say, /yell. The language of the line is picked in a selector (FR, EN, DE, ES, IT, PT,
