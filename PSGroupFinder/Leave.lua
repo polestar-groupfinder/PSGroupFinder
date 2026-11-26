@@ -9,12 +9,11 @@
 -- in, or handed in) a window asks "Leave / Stay" (UI.ShowLeave).
 --
 -- Nothing here leaves, speaks or invites by itself. The /p message (opt-in,
--- editable) is sent just before LeaveParty, from Leave.Do (our buttons) and
--- from a pre-hook of LeaveParty / C_PartyInfo.LeaveParty (the game's own
--- leave: portrait menu, /leave, /quit-party). The player always triggers
--- the leave. A guard prevents a double message when our button calls
--- LeaveParty. By default the message is only for a group formed through
--- the finder; leaveMsgAny (off) also covers a group joined by hand.
+-- editable) is sent just before leaving, only from Leave.Do: the Leave
+-- button of that window or of the panel. Leaving through the game (portrait
+-- menu, /leave) says nothing: wrapping the game's LeaveParty would taint it.
+-- By default the message is only for a group formed through the finder;
+-- leaveMsgAny (off) also covers a group joined by hand.
 
 local _, ns = ...
 local L = ns.L
@@ -180,61 +179,21 @@ end)
 ns.On("LOGIN", function() ns.After(READY_AFTER, function() ready = true schedule() end) end)
 
 -- Say the /p message if the option is on and this group is one we may
--- speak for. Safe to call twice in the same leave (pre-hook + Leave.Do).
-local announced = false
-local function resetAnnounced()
-	announced = false
-end
-
+-- speak for.
 function Leave.Announce()
-	if announced then return false end
 	if not ns.Get("leaveMsgOn") then return false end
 	if not inGroup() then return false end
 	if not memory() and not ns.Get("leaveMsgAny") then return false end
 	local msg = Leave.Message()
 	if type(msg) ~= "string" or msg == "" then return false end
-	announced = true
 	local chat = (IsInGroup and LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)) and "INSTANCE_CHAT" or "PARTY"
 	local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
 	if send then pcall(send, msg, chat) end
-	-- The game's LeaveParty (or ours) will have us out of the group in a
-	-- moment; allow a later, separate leave to speak again.
-	ns.After(1, resetAnnounced)
 	return true
 end
 
--- Pre-hook, not hooksecurefunc: the message must go out while we are still
--- in the party. Wrapping the API is acceptable because the player is the
--- one leaving (portrait, slash command, or our button).
-local hookedLeave = false
-local function hookLeaveAPI()
-	if hookedLeave then return end
-	local function wrap(orig)
-		if type(orig) ~= "function" then return orig end
-		return function(...)
-			pcall(Leave.Announce)
-			return orig(...)
-		end
-	end
-	pcall(function()
-		if type(LeaveParty) == "function" then
-			LeaveParty = wrap(LeaveParty)
-			if _G then _G.LeaveParty = LeaveParty end
-			hookedLeave = true
-		end
-	end)
-	pcall(function()
-		if C_PartyInfo and type(C_PartyInfo.LeaveParty) == "function" then
-			C_PartyInfo.LeaveParty = wrap(C_PartyInfo.LeaveParty)
-			hookedLeave = true
-		end
-	end)
-end
-Leave.HookLeave = hookLeaveAPI
-
 -- "Leave": our button (panel or the quests-done window). The message first
--- (when the option is on), then the party. The pre-hook also runs and is
--- a no-op thanks to `announced`.
+-- (when the option is on), then the party.
 function Leave.Do()
 	Leave.Announce()
 	local leave = (C_PartyInfo and C_PartyInfo.LeaveParty) or LeaveParty
@@ -254,5 +213,3 @@ Leave.IsReady = function() return ready end
 -- Tests: skip the post-login wait.
 function Leave.SetReady(v) ready = v and true or false end
 
-hookLeaveAPI()
-ns.On("LOGIN", hookLeaveAPI)

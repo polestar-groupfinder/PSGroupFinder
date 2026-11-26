@@ -782,9 +782,9 @@ check(sam.ns.Leave.Message() == "Hi |cffff0000!", "a saved message is used as is
 sam.ns.Set("leaveMsg", false)
 check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "false brings the default text back")
 
--- Leaving through the game (LeaveParty / portrait / /leave): same /p message,
--- no double send when our button also calls LeaveParty, only for a finder group
--- unless leaveMsgAny is on. The panel's Leave button uses the same path.
+-- Leaving through the game (LeaveParty / portrait / /leave) says nothing: the
+-- game's function is not wrapped. Only our Leave buttons send the /p message,
+-- for a finder group unless leaveMsgAny is on.
 local pip = newClient("Pip Wren", { lq(11001, 0) }, { x = 0.2, y = 0.2 })
 local kit = newClient("Kit Vale", { lq(11001, 0) }, { x = 0.21, y = 0.2 })
 pip.ns.SetEnabled(true) kit.ns.SetEnabled(true) run(15)
@@ -798,13 +798,11 @@ pip.C_PartyInfo.InviteUnit("Kit Vale") run(1)
 kit.AcceptGroup()
 pip.fire("GROUP_ROSTER_UPDATE") kit.fire("GROUP_ROSTER_UPDATE") run(2)
 check(pip.ns.char.party ~= nil, "Pip remembers the finder group")
--- Game leave (the hooked LeaveParty), not our window.
+-- Game leave, not our window.
 pip.LeaveParty()
-check(#pip.chat == 1 and pip.chat[1][1] == "Have fun, thanks!" and pip.chat[1][2] == "PARTY",
-	"leaving via the game (LeaveParty) sends the /p message first")
-check(pip.leaves == 1, "LeaveParty then leaves the group")
+check(#pip.chat == 0 and pip.leaves == 1, "leaving via the game (LeaveParty) says nothing in /p")
 
--- Our Leave.Do must not send twice (it also calls LeaveParty, already hooked).
+-- Our Leave.Do sends the message once, then leaves.
 local jo = newClient("Jo Pike", { lq(11001, 0) }, { x = 0.22, y = 0.2 })
 local mo = newClient("Mo Pike", { lq(11001, 0) }, { x = 0.23, y = 0.2 })
 jo.ns.SetEnabled(true) mo.ns.SetEnabled(true) run(15)
@@ -818,7 +816,7 @@ mo.AcceptGroup()
 jo.fire("GROUP_ROSTER_UPDATE") mo.fire("GROUP_ROSTER_UPDATE") run(2)
 jo.ns.Leave.Do()
 check(#jo.chat == 1 and jo.chat[1][1] == "See you!" and jo.leaves == 1,
-	"Leave.Do sends the /p message once, even though LeaveParty is pre-hooked")
+	"Leave.Do sends the /p message once, then leaves")
 
 -- A group formed by hand: no message unless leaveMsgAny is on.
 local abb = newClient("Abb Cole", { lq(11001, 0) }, {})
@@ -829,11 +827,11 @@ abb.ns.Set("leaveMsg", "Bye")
 party["Abb Cole"] = { "Abb Cole", "Bea Cole" } party["Bea Cole"] = party["Abb Cole"]
 abb.fire("GROUP_ROSTER_UPDATE") run(1)
 check(abb.ns.char.party == nil, "a hand-formed group is not in the finder's memory")
-abb.LeaveParty()
-check(#abb.chat == 0 and abb.leaves == 1, "LeaveParty on a hand-formed group says nothing by default")
+abb.ns.Leave.Do()
+check(#abb.chat == 0 and abb.leaves == 1, "our Leave on a hand-formed group says nothing by default")
 party["Abb Cole"] = { "Abb Cole", "Bea Cole" } party["Bea Cole"] = party["Abb Cole"]
 abb.ns.Set("leaveMsgAny", true)
-abb.LeaveParty()
+abb.ns.Leave.Do()
 check(#abb.chat == 1 and abb.chat[1][1] == "Bye" and abb.leaves == 2,
 	"with leaveMsgAny, leaving a hand-formed group also sends the /p message")
 
