@@ -39,25 +39,23 @@ Do not put the addon in `_retail_` or `_classic_era_`: Forever would not see it.
    `.../_forever_/Interface/AddOns/PSGroupFinder/PSGroupFinder.toc`
    (not `AddOns/PSGroupFinder/PSGroupFinder/PSGroupFinder.toc`, and not a wrapping
    `PSGroupFinder-1.0.0` folder).
-4. If an old `Polestar_GroupFinder` folder is still there (0.x versions), **delete it** so the
-   two addons do not load together.
-5. **Fully** restart the game. A `/reload` is not enough for a new addon.
+4. **Fully** restart the game. A `/reload` is not enough for a new addon.
 
 ## Check and enable
 
 1. On the character-select screen, click **AddOns**. Tick **Group Finder for Polestar**
    (on a French client the title is **Recherche de groupe (Polestar)**) and confirm.
 2. Enter the game. In Polestar: **Options > Group Finder** (or type `/polestar options`): the
-   entry uses the same **eye** as the header button, 16×16 monochrome like the other sidebar
-   icons. Tick **Enable the group finder**. While that is off, nothing is sent or listened to.
+   entry uses the same **group icon** (two people) as the header button, monochrome like the
+   other sidebar icons. Tick **Enable the group finder**. While that is off, nothing is sent or listened to.
 3. (Optional) Tick **Group automatically (same quest)** only if you want invitations without a
    click. Both players must have it on.
 4. Bind a key: Esc > Options > Key Bindings, **Polestar** category:
    - “Find a group for my quests”
    - “Show or hide the group finder”
 5. Type `/psgf test`: after a few seconds, chat reports which channels work (green = OK).
-   By default a small **eye** icon is hooked in the Polestar guide header, **immediately to the
-   left of the magnifying glass**: left click = search, right click = panel. If you prefer the
+   By default a small **group icon** (two people) is hooked in the Polestar guide header,
+   **immediately to the left of the magnifying glass**: left click = search, right click = panel. If you prefer the
    older button under the window, uncheck “Button in the Polestar header”. Panel command: `/psgf`.
 6. **Search languages**: by default only **your game language** (for example enUS → English) is
    ticked. You can tick others one by one, or tick **All languages** (the list then folds, and
@@ -72,20 +70,19 @@ Do not put the addon in `_retail_` or `_classic_era_`: Forever would not see it.
   EN): **Whisper** or **Invite**.
 - When an objective is done, that quest leaves the search on its own; the others in the same
   place continue. The search stops when none remain, or with **Stop** (`/psgf stop`).
-- **Players on a quest** (1.1): the small eye button (under a Polestar guide objective icon, to
-  the right of the tracking checkbox in the quest log, or to the left of Back in the Map & Quest
-  Log details view) opens the list of players who have **this** quest, even in another zone. A
+- **Players on a quest**: the small group button under a Polestar guide objective icon opens the list of players who have **this** quest, even in another zone. A
   second click closes the pane; a click for another quest switches to it. **Search for this quest**
   queries them (once every 15 s). In the Polestar guide, **Alt + click** on an objective does the
   same. `/psgf quest 33` opens the list for quest #33.
 - **Leave the group** (1.1): when every quest you grouped for through the addon is done, a small
   window asks **Leave** or **Stay**. Option “Say a message in /p before leaving” (off by default,
-  text editable with **Edit…**): it is sent when you click Leave, the panel’s **Leave the group**
-  (visible only while in a group), or when you leave through the game (portrait, `/leave`).
+  text editable with **Edit…**): it is sent when you click Leave or the panel’s **Leave the group**
+  (visible only while in a group). Leaving through the game (portrait, `/leave`) says nothing.
   Option “Also when leaving a group not formed by the finder” for a group you joined by hand
   (off by default). Nothing happens on its own.
 - Other commands: `/psgf on`, `/psgf off`, `/psgf test`, `/psgf reset`, `/psgf hooks` (reports
-  whether the quest buttons found their place: copy that into a message if a button is missing).
+  whether the buttons found their place in the Polestar guide: copy that into a message if a
+  button is missing), `/psgf debug` (shows the addon's traffic and notices in chat).
 
 ## Uninstall
 
@@ -108,15 +105,14 @@ Do this with two people (two accounts, or two characters of the **same faction**
    channel: YELL and SAY only reach nearby players).
 4. On account A, click **Find a group**. Account B should appear in A’s panel (and the other way
    around if B also has A’s language in their search). Try **Whisper**, then **Invite**.
-5. For the per-quest list: on account B, open the quest log and click the small button to the
-   right of the tracking checkbox (B may be in another zone); a second click should close the
-   pane. In the details view, the button to the left of Back should open the same list.
-   **Search for this quest** should show A with their zone and percentage. Type `/psgf hooks` if
+5. For the per-quest list: on account B, click the small group button under the quest's
+   objective in the Polestar guide (B may be in another zone); a second click should close the
+   pane. **Search for this quest** should show A with their zone and percentage. Type `/psgf hooks` if
    a button is missing.
 6. For leaving the group: invite A from the panel, finish the quest on both sides (or abandon it
    to see that it does not count): the **Leave / Stay** window should appear for each of you, and
-   nothing should happen before your click. The panel’s **Leave the group** button, and leaving
-   through the game (`/leave`), should also send the /p message if that option is on, only once.
+   nothing should happen before your click. The panel’s **Leave the group** button should also
+   send the /p message if that option is on, only once.
 7. For auto-grouping: tick the option on both sides, and make sure each appears on the other’s
    list (each side filters on its own). Leave the group, start a search again. The invitation
    should go out on its own. If an invitation window stays on screen, accept it by hand and

@@ -14,8 +14,10 @@ manual-changelog: CHANGELOG.md
 ignore:
   - README.md
   - INSTALLATION.md
+  - docs
   - tests
-  - mockups
+  - tools
+  - .github
   - build.sh
   - .luacheckrc
   - .gitignore

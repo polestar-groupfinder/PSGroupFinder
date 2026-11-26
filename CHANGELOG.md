@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+- **New icon**: two line-art people (`Media/icon-group.tga`, 64×64, drawn by
+  `tools/make-icons.py`) replace the eye everywhere: header, options sidebar, goal rows, windows.
+- **Quest log buttons removed**: the buttons in the game's quest log and in the Map & Quest Log
+  details view were poorly integrated and relied on unverified frame names. The goal-row button
+  in the Polestar guide, Alt-click and `/psgf quest <id>` remain.
+- **Leave message**: said only when you leave with the finder's own Leave buttons. The game's
+  `LeaveParty` is no longer wrapped (taint risk); leaving through the game says nothing.
+- **Quieter chat**: the channel probe after login no longer prints unless `/psgf debug` is on;
+  debug mode also traces sent and received messages.
+- **Code layout**: `Comm.lua` split into `Protocol.lua` (formats), `Channels.lua` (channels,
+  probe) and `Comm.lua` (searches, handling); `UI.lua` into `UI/`; `Polestar.lua` and `Hooks.lua`
+  into `Polestar/`. Duplicated code merged (message header, sends, scoring, name helpers).
+- **Compatibility code removed**: nothing was published before 1.0.0, so the `Polestar_GroupFinder`
+  saved-variables migration and the pre-1.0 message and language formats are gone. The language
+  field is now required in every player message.
+- Tooling: `build.sh` writes to `dist/`, CI runs luacheck, the simulation and the build; the
+  mock-ups folder is gone.
+
 ## 1.0.0 — 2026-11-25
 
 First version meant to be installed in game (not tested in the client). Nothing was published
