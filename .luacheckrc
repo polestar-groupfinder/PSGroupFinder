@@ -4,10 +4,10 @@ unused_args = false
 self = false
 globals = {
 	"PSGroupFinderDB", "PSGroupFinderCharDB",
-	"PSGroupFinder_Search", "PSGroupFinder_TogglePanel", "PSGroupFinder_Announce",
+	"PSGroupFinder_Search", "PSGroupFinder_TogglePanel", "PSGroupFinder_Announce", "PSGroupFinder_Hello", "PSGroupFinder_Goodbye",
 	"SLASH_PSGROUPFINDER1", "SLASH_PSGROUPFINDER2", "SLASH_PSGROUPFINDER3", "SlashCmdList",
 	"BINDING_HEADER_PSGROUPFINDER", "BINDING_CATEGORY_POLESTAR",
-	"BINDING_NAME_PSGF_SEARCH", "BINDING_NAME_PSGF_TOGGLE_PANEL", "BINDING_NAME_PSGF_ANNOUNCE", "UISpecialFrames",
+	"BINDING_NAME_PSGF_SEARCH", "BINDING_NAME_PSGF_TOGGLE_PANEL", "BINDING_NAME_PSGF_ANNOUNCE", "BINDING_NAME_PSGF_HELLO", "BINDING_NAME_PSGF_GOODBYE", "UISpecialFrames",
 	"Polestar", -- Hooks.lua wraps two of its functions (under pcall)
 }
 read_globals = {

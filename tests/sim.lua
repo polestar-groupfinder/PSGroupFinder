@@ -1,7 +1,7 @@
 -- Two simulated clients exchanging PSGroupFinder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "ChatWatch", "Group", "Leave", "Announce",
-	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/Dialogs",
+local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "ChatWatch", "Group", "Messages", "Leave", "Announce",
+	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/MessagesWindow", "UI/PartyBox",
 	"Polestar/Polestar", "Polestar/Header", "Polestar/Options", "Polestar/GoalRows" }
 local DIR = "PSGroupFinder/"
 local bus = {}      -- every client's env
@@ -659,6 +659,18 @@ check(true, "scan with no Polestar does nothing")
 -- Leaving a group formed through the finder
 ---------------------------------------------------------------------------
 local function lq(id, have) return { id = id, title = "Quest " .. id, obj = { { "Thing slain: " .. have .. "/6", "monster" } } } end
+local function lastOf(c, chatType)
+	for i = #c.chat, 1, -1 do if c.chat[i][2] == chatType then return c.chat[i] end end
+end
+local function count(c, chatType)
+	local n = 0
+	for _, m in ipairs(c.chat) do if m[2] == chatType then n = n + 1 end end
+	return n
+end
+local function tickBox(c, seconds)
+	local f = c.ns.PartyBox.Frame()
+	if f and f._OnUpdate then f._OnUpdate(f, seconds) end
+end
 local rae = newClient("Rae Fox", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.1, locale = "frFR" })
 local sam = newClient("Sam Lee", { lq(11001, 0), lq(11002, 0) }, { x = 0.11, y = 0.1, locale = "frFR" })
 local noa = newClient("Noa Bell", { lq(11001, 0) }, { x = 0.12, y = 0.1 })
@@ -666,20 +678,22 @@ for _, c in ipairs({ rae, sam, noa }) do c.ns.SetEnabled(true) end
 run(15)
 rae.ns.Channels.Test(true) run(6)
 run(30)
-check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "default leave message in French for a French client")
-check(ned.ns.Leave.Message() == "Thanks for the group, have fun!", "default leave message in English for an English client")
-check(rae.ns.Get("leaveOffer") == true and rae.ns.Get("leaveMsgOn") == false and not rae.ns.Get("leaveMsgAny"),
-	"defaults: offer on, /p message off, not for groups formed by hand")
+check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "default goodbye message in French for a French client")
+check(ned.ns.Leave.Message() == "Thanks for the group, have fun!", "default goodbye message in English for an English client")
+check(rae.ns.Get("partyBox") == true, "default: the party box (hello, goodbye) is on")
 rae.PSGroupFinder_Search()
 run(8)
 check(rae.ns.Matcher.Get("Sam Lee") ~= nil, "Rae found Sam")
--- Rae clicks Invite on Sam's row (the handler records the quests); Sam accepts by hand.
+-- Rae clicks Invite on Sam's row: invitation, and the invite message whispered.
 rae.ns.UI.Show()
 rae.ns.UI.Refresh()
 local inviteBtn
 for _, r in ipairs(rae.ns.UI.RowFrames()) do if type(r.entry) == "table" and r.entry.name == "Sam Lee" then inviteBtn = r.invite end end
-check(inviteBtn ~= nil, "Sam's row exists with its Invite button")
+check(inviteBtn ~= nil and inviteBtn._text == "Inviter", "Sam's row exists with its Invite button")
 inviteBtn._OnClick(inviteBtn)
+local w = lastOf(rae, "WHISPER")
+check(w and w[3] == "Sam Lee" and w[1] == "Salut ! Je fais aussi Quest 11001, Quest 11002, je t'ai envoyé une invitation.",
+	"Invite whispers the invite message, naming the shared quests")
 run(1)
 sam.AcceptGroup()
 rae.fire("GROUP_ROSTER_UPDATE") sam.fire("GROUP_ROSTER_UPDATE")
@@ -688,32 +702,40 @@ local function qset(c) local t = {} for id in pairs((c.ns.char.party or { quests
 local rs, ss = qset(rae), qset(sam)
 check(#rs == 2 and rs[1] == 11001 and rs[2] == 11002, "inviter remembers the shared quests of the group")
 check(#ss == 2, "the player who accepted the invitation remembers them too")
-check(rae.ns.UI.LeaveShown() == false and rae.leaves == 0, "nothing offered while quests are open")
+-- Hello: the box counts down, then says hello with the quests and progress.
+check(rae.ns.PartyBox.Mode() == "hello" and sam.ns.PartyBox.Mode() == "hello", "the group formed: both get the hello box")
+check(count(rae, "PARTY") == 0, "nothing said before the countdown ends")
+tickBox(rae, 6)
+local hi = lastOf(rae, "PARTY")
+check(hi and hi[1] == "Salut tout le monde ! Je fais Quest 11001 (0%), Quest 11002 (0%).",
+	"after 5 s the hello goes out in /p with the quests and the progress")
+check(rae.ns.PartyBox.Mode() == nil, "the box closes once hello is said")
+sam.ns.PartyBox.Other()
+tickBox(sam, 6)
+check(count(sam, "PARTY") == 0 and sam.ns.PartyBox.Mode() == nil, "Cancel keeps quiet")
+check(rae.leaves == 0, "nothing else happens while quests are open")
 
--- One quest done: still one open, no offer. Both done: the offer, no automatic leave.
+-- One quest done: nothing. Both done: the goodbye box, no automatic leave.
 rae.quests[1].obj[1][3] = true
 rae.QuestLogUpdate()
 run(5)
-check(not rae.ns.UI.LeaveShown(), "one quest of two done: no offer yet")
+check(rae.ns.PartyBox.Mode() == nil, "one quest of two done: no goodbye yet")
 rae.quests[2].complete = true
 rae.QuestLogUpdate()
 run(5)
-check(rae.ns.UI.LeaveShown(), "all the group's quests done (objectives / ready): the Leave / Stay window appears")
-run(120)
-check(rae.leaves == 0 and #rae.chat == 0, "nothing left and nothing said automatically (no click yet)")
-check(not sam.ns.UI.LeaveShown(), "Sam still has open quests: no window for him")
--- Stay: not asked again.
-local _, stay = rae.ns.UI.LeaveButtons()
-stay._OnClick(stay)
-check(not rae.ns.UI.LeaveShown() and rae.leaves == 0 and #rae.chat == 0, "Stay closes the window and does nothing else")
+check(rae.ns.PartyBox.Mode() == "goodbye", "all the group's quests done: the goodbye box appears")
+check(rae.ns.PartyBox.Remaining() == 30, "it stays 30 s")
+check(sam.ns.PartyBox.Mode() == nil, "Sam still has open quests: no goodbye for him")
+-- Time out: the box goes, you stay, and it is not offered again.
+tickBox(rae, 31)
+check(rae.ns.PartyBox.Mode() == nil and rae.leaves == 0 and count(rae, "PARTY") == 1, "after 30 s the box goes; nothing said, nobody left")
 rae.QuestLogUpdate() run(5)
-check(not rae.ns.UI.LeaveShown(), "after Stay it is not offered again for this group")
+check(rae.ns.PartyBox.Mode() == nil, "goodbye is not offered again for this group")
 
--- A second group: the /p message is said on the click, then the party is left.
+-- A second group: Goodbye & leave says the message, then leaves.
 local tia = newClient("Tia Moon", { lq(11001, 0) }, { x = 0.1, y = 0.2 })
 tia.ns.SetEnabled(true) run(15) tia.ns.Channels.Test(true) run(6) run(30)
-tia.ns.Set("leaveMsgOn", true)
-tia.ns.Set("leaveMsg", "Thanks, take care!")
+tia.ns.Messages.Save("goodbye", "Thanks, take care!")
 noa.PSGroupFinder_Search() run(8)
 check(noa.ns.Matcher.Get("Tia Moon") ~= nil, "Noa found Tia")
 noa.ns.Leave.NoteInvite("Tia Moon", noa.ns.Matcher.Get("Tia Moon").quests)
@@ -722,18 +744,21 @@ run(1)
 tia.AcceptGroup()
 noa.fire("GROUP_ROSTER_UPDATE") tia.fire("GROUP_ROSTER_UPDATE") run(2)
 check(#qset(tia) == 1 and qset(tia)[1] == 11001, "Tia remembers quest 11001")
+tia.ns.PartyBox.Other()
 tia.quests[1].obj[1][3] = true
 tia.QuestLogUpdate() run(5)
-check(tia.ns.UI.LeaveShown() and tia.leaves == 0 and #tia.chat == 0, "window shown, still nothing said or left")
-local tyes = tia.ns.UI.LeaveButtons()
-tyes._OnClick(tyes)
-check(#tia.chat == 1 and tia.chat[1][1] == "Thanks, take care!" and tia.chat[1][2] == "PARTY", "Leave click: the /p message is sent first (PARTY)")
+check(tia.ns.PartyBox.Mode() == "goodbye" and tia.leaves == 0, "goodbye box shown, still nothing said or left")
+tia.ns.PartyBox.Main()
+check(lastOf(tia, "PARTY")[1] == "Thanks, take care!", "Goodbye & leave: the goodbye message first (PARTY)")
 check(tia.leaves == 1 and party["Tia Moon"] == nil, "...then the party is left")
 check(tia.ns.char.party == nil, "the memory of the group is cleared")
 
--- Without the message option the click only leaves.
+-- An empty goodbye message: the button only leaves.
 local uri = newClient("Uri Cole", { lq(11001, 0) }, { x = 0.1, y = 0.3 })
 uri.ns.SetEnabled(true) run(15) uri.ns.Channels.Test(true) run(6) run(30)
+uri.ns.Messages.Save("goodbye", "")
+uri.ns.Messages.Save("hello", "")
+check(not uri.ns.Messages.On("goodbye"), "an empty message is turned off")
 uri.PSGroupFinder_Search() run(8)
 local noaE = uri.ns.Matcher.Get("Noa Bell")
 check(noaE ~= nil, "Uri found Noa")
@@ -742,115 +767,117 @@ uri.ns.Leave.NoteInvite("Noa Bell", noaE.quests)
 uri.C_PartyInfo.InviteUnit("Noa Bell") run(1)
 noa.AcceptGroup()
 uri.fire("GROUP_ROSTER_UPDATE") noa.fire("GROUP_ROSTER_UPDATE") run(2)
+check(uri.ns.PartyBox.Mode() == nil, "an empty hello message: no hello box")
 uri.quests[1].complete = true
 uri.QuestLogUpdate() run(5)
-local uyes = uri.ns.UI.LeaveButtons()
-uyes._OnClick(uyes)
-check(#uri.chat == 0 and uri.leaves == 1, "message option off: Leave only leaves, nothing is said")
+uri.ns.PartyBox.Main()
+check(count(uri, "PARTY") == 0 and uri.leaves == 1, "empty goodbye message: the button only leaves")
 
--- A group NOT formed through the finder is never offered, even with quests done.
+-- A group NOT formed through the finder: no box, nothing remembered.
 local vic = newClient("Vic Hale", { lq(11001, 0) }, {})
 local wyn = newClient("Wyn Cass", { lq(11001, 0) }, {})
 vic.ns.SetEnabled(true) wyn.ns.SetEnabled(true) run(15)
 party["Vic Hale"] = { "Vic Hale", "Wyn Cass" } party["Wyn Cass"] = party["Vic Hale"]
 vic.fire("GROUP_ROSTER_UPDATE") run(2)
 vic.quests[1].complete = true vic.QuestLogUpdate() run(5)
-check(vic.ns.char.party == nil and not vic.ns.UI.LeaveShown(), "a group formed by hand is not remembered or offered")
+check(vic.ns.char.party == nil and vic.ns.PartyBox.Mode() == nil, "a group formed by hand gets no hello and no goodbye")
 
--- Option off: nothing shown. Abandoned quests do not count as done.
+-- Option off: no box. Abandoned quests do not count as done.
 local xan = newClient("Xan Dyle", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.4 })
 local yui = newClient("Yui Reed", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.41 })
 xan.ns.SetEnabled(true) yui.ns.SetEnabled(true) run(15) xan.ns.Channels.Test(true) run(6) run(30)
+xan.ns.Set("partyBox", false)
 xan.PSGroupFinder_Search() run(8)
-xan.ns.Leave.NoteInvite("Yui Reed", yui.ns.Matcher.Get("Xan Dyle") and { 11001, 11002 } or { 11001, 11002 })
+xan.ns.Leave.NoteInvite("Yui Reed", { 11001, 11002 })
 xan.C_PartyInfo.InviteUnit("Yui Reed") run(1)
 yui.AcceptGroup()
 xan.fire("GROUP_ROSTER_UPDATE") yui.fire("GROUP_ROSTER_UPDATE") run(2)
-xan.ns.Set("leaveOffer", false)
+check(xan.ns.PartyBox.Mode() == nil, "partyBox off: no hello box")
+yui.ns.PartyBox.Other()
 xan.quests[1].complete = true xan.quests[2].complete = true
 xan.QuestLogUpdate() run(5)
-check(not xan.ns.UI.LeaveShown(), "leaveOffer off: no window")
-xan.ns.Set("leaveOffer", true)
+check(xan.ns.PartyBox.Mode() == nil, "partyBox off: no goodbye box")
+xan.ns.Set("partyBox", true)
 xan.QuestLogUpdate() run(5)
-check(xan.ns.UI.LeaveShown(), "...and back on, it is offered")
+check(xan.ns.PartyBox.Mode() == "goodbye", "...and back on, goodbye is offered")
 -- Abandon: a quest that left the log without being done drops out of the memory.
 yui.quests[2] = nil
 yui.QuestLogUpdate() run(5)
 check(#qset(yui) == 1 and qset(yui)[1] == 11001, "an abandoned quest is forgotten, the other still counts")
-check(not yui.ns.UI.LeaveShown(), "...and nothing is offered while the other is open")
--- Group ends: memory cleared.
-party["Yui Reed"] = nil
-yui.fire("GROUP_ROSTER_UPDATE") run(2)
-check(yui.ns.char.party == nil, "the memory goes when the group ends")
+check(yui.ns.PartyBox.Mode() == nil, "...and nothing is offered while the other is open")
+-- Group ends: memory cleared, box closed.
+party["Yui Reed"] = nil party["Xan Dyle"] = nil
+yui.fire("GROUP_ROSTER_UPDATE") xan.fire("GROUP_ROSTER_UPDATE") run(2)
+check(yui.ns.char.party == nil and xan.ns.PartyBox.Mode() == nil, "the memory and the box go when the group ends")
 
--- The message editor saves, strips escapes, and the default comes back on empty.
-sam.ns.UI.EditLeaveMessage()
-check(sam.ns.UI.EditorShown(), "message dialog opens")
-sam.ns.Set("leaveMsg", "Hi |cffff0000!")
-check(sam.ns.Leave.Message() == "Hi |cffff0000!", "a saved message is used as is by Message()")
-sam.ns.Set("leaveMsg", false)
-check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "false brings the default text back")
+-- Messages: saved texts, default, off; the Messages window and its previews.
+local M = sam.ns.Messages
+M.Save("goodbye", "Hi |cffff0000!")
+check(sam.ns.Get("leaveMsg") == "Hi cffff0000!", "escape sequences are stripped from a saved message")
+M.Save("goodbye", "Merci pour le groupe, bon jeu !")
+check(sam.ns.Get("leaveMsg") == false and M.Template("goodbye") == "Merci pour le groupe, bon jeu !", "saving the default text stores it as unset")
+check(M.Expand("ask", { 11001 }) == "Salut ! Je fais aussi Quest 11001, tu peux m'inviter dans ton groupe ?", "{quests} is filled in")
+sam.ns.UI.ShowMessages()
+check(sam.ns.UI.MessagesShown() and #sam.ns.UI.MessageBlocks() == 4, "the Messages window opens with its four messages")
+local blocks = sam.ns.UI.MessageBlocks()
+check(blocks[3].preview._text:find("Salut tout le monde") and blocks[3].preview._text:find("%(0%%%)"), "the hello preview shows the quests with progress")
+blocks[1].edit._text = ""
+blocks[1].edit._OnEnterPressed(blocks[1].edit)
+check(not M.On("invite") and blocks[1].preview._text:find("pas envoy"), "emptying a text turns it off, the preview says so")
+blocks[1].reset._OnClick(blocks[1].reset)
+check(M.On("invite") and sam.ns.Get("inviteMsg") == false, "Default brings the default text back")
+sam.ns.UI.ShowMessages()
 
--- Leaving through the game (LeaveParty / portrait / /leave) says nothing: the
--- game's function is not wrapped. Only our Leave buttons send the /p message,
--- for a finder group unless leaveMsgAny is on.
+-- Ask: a player already in a group cannot be invited; we ask them by whisper.
+local ola = newClient("Ola Dunn", { lq(11003, 0) }, { x = 0.3, y = 0.3 })
+local pam = newClient("Pam Dunn", { lq(11003, 0) }, { x = 0.31, y = 0.3 })
+local quin = newClient("Quin Dunn", {}, {})
+ola.ns.SetEnabled(true) pam.ns.SetEnabled(true) run(15) ola.ns.Channels.Test(true) run(6) run(30)
+party["Pam Dunn"] = { "Pam Dunn", "Quin Dunn" } party["Quin Dunn"] = party["Pam Dunn"]
+ola.PSGroupFinder_Search() run(8)
+ola.ns.UI.Show() ola.ns.UI.Refresh()
+local askBtn
+for _, r in ipairs(ola.ns.UI.RowFrames()) do if type(r.entry) == "table" and r.entry.name == "Pam Dunn" then askBtn = r.invite end end
+check(askBtn and askBtn._text == "Ask", "a player already in a group shows Ask instead of Invite")
+local invitedBefore = #ola.invited
+askBtn._OnClick(askBtn)
+local aw = lastOf(ola, "WHISPER")
+check(#ola.invited == invitedBefore and aw and aw[3] == "Pam Dunn" and aw[1]:find("could you invite me"),
+	"Ask whispers the ask message and sends no invitation")
+party["Pam Dunn"] = nil party["Quin Dunn"] = nil
+
+-- Leaving through the game says nothing; our Leave says goodbye for a finder group only.
 local pip = newClient("Pip Wren", { lq(11001, 0) }, { x = 0.2, y = 0.2 })
 local kit = newClient("Kit Vale", { lq(11001, 0) }, { x = 0.21, y = 0.2 })
 pip.ns.SetEnabled(true) kit.ns.SetEnabled(true) run(15)
 pip.ns.Channels.Test(true) run(6) run(30)
-pip.ns.Set("leaveMsgOn", true)
-pip.ns.Set("leaveMsg", "Have fun, thanks!")
+pip.ns.Messages.Save("goodbye", "Have fun, thanks!")
 pip.PSGroupFinder_Search() run(8)
 check(pip.ns.Matcher.Get("Kit Vale") ~= nil, "Pip found Kit")
 pip.ns.Leave.NoteInvite("Kit Vale", pip.ns.Matcher.Get("Kit Vale").quests)
 pip.C_PartyInfo.InviteUnit("Kit Vale") run(1)
 kit.AcceptGroup()
 pip.fire("GROUP_ROSTER_UPDATE") kit.fire("GROUP_ROSTER_UPDATE") run(2)
+pip.ns.PartyBox.Other()
 check(pip.ns.char.party ~= nil, "Pip remembers the finder group")
--- Game leave, not our window.
 pip.LeaveParty()
-check(#pip.chat == 0 and pip.leaves == 1, "leaving via the game (LeaveParty) says nothing in /p")
+check(count(pip, "PARTY") == 0 and pip.leaves == 1, "leaving via the game (LeaveParty) says nothing in /p")
 
--- Our Leave.Do sends the message once, then leaves.
-local jo = newClient("Jo Pike", { lq(11001, 0) }, { x = 0.22, y = 0.2 })
-local mo = newClient("Mo Pike", { lq(11001, 0) }, { x = 0.23, y = 0.2 })
-jo.ns.SetEnabled(true) mo.ns.SetEnabled(true) run(15)
-jo.ns.Channels.Test(true) run(6) run(30)
-jo.ns.Set("leaveMsgOn", true)
-jo.ns.Set("leaveMsg", "See you!")
-jo.PSGroupFinder_Search() run(8)
-jo.ns.Leave.NoteInvite("Mo Pike", { 11001 })
-jo.C_PartyInfo.InviteUnit("Mo Pike") run(1)
-mo.AcceptGroup()
-jo.fire("GROUP_ROSTER_UPDATE") mo.fire("GROUP_ROSTER_UPDATE") run(2)
-jo.ns.Leave.Do()
-check(#jo.chat == 1 and jo.chat[1][1] == "See you!" and jo.leaves == 1,
-	"Leave.Do sends the /p message once, then leaves")
-
--- A group formed by hand: no message unless leaveMsgAny is on.
 local abb = newClient("Abb Cole", { lq(11001, 0) }, {})
 local bea = newClient("Bea Cole", { lq(11001, 0) }, {})
 abb.ns.SetEnabled(true) bea.ns.SetEnabled(true) run(15)
-abb.ns.Set("leaveMsgOn", true)
-abb.ns.Set("leaveMsg", "Bye")
 party["Abb Cole"] = { "Abb Cole", "Bea Cole" } party["Bea Cole"] = party["Abb Cole"]
 abb.fire("GROUP_ROSTER_UPDATE") run(1)
 check(abb.ns.char.party == nil, "a hand-formed group is not in the finder's memory")
 abb.ns.Leave.Do()
-check(#abb.chat == 0 and abb.leaves == 1, "our Leave on a hand-formed group says nothing by default")
-party["Abb Cole"] = { "Abb Cole", "Bea Cole" } party["Bea Cole"] = party["Abb Cole"]
-abb.ns.Set("leaveMsgAny", true)
-abb.ns.Leave.Do()
-check(#abb.chat == 1 and abb.chat[1][1] == "Bye" and abb.leaves == 2,
-	"with leaveMsgAny, leaving a hand-formed group also sends the /p message")
+check(count(abb, "PARTY") == 0 and abb.leaves == 1, "our Leave on a hand-formed group says nothing")
 
--- Panel "Leave the group" button: visible only in a party, same Leave.Do path.
+-- Panel "Leave the group" button: visible only in a party; says goodbye for a finder group.
 local cy = newClient("Cy Moss", { lq(11001, 0) }, { x = 0.25, y = 0.2 })
 local dy = newClient("Dy Moss", { lq(11001, 0) }, { x = 0.26, y = 0.2 })
 cy.ns.SetEnabled(true) dy.ns.SetEnabled(true) run(15)
 cy.ns.Channels.Test(true) run(6) run(30)
-cy.ns.Set("leaveMsgOn", true)
-cy.ns.Set("leaveMsg", "Goodbye")
+cy.ns.Messages.Save("goodbye", "Goodbye")
 cy.ns.UI.Show()
 cy.ns.UI.Refresh()
 check(not (cy.ns.UI.LeaveGroupButton() and cy.ns.UI.LeaveGroupButton():IsShown()),
@@ -860,15 +887,23 @@ cy.ns.Leave.NoteInvite("Dy Moss", { 11001 })
 cy.C_PartyInfo.InviteUnit("Dy Moss") run(1)
 dy.AcceptGroup()
 cy.fire("GROUP_ROSTER_UPDATE") dy.fire("GROUP_ROSTER_UPDATE") run(2)
+-- Key binding: Say hello now, while the box counts down.
+cy.PSGroupFinder_Hello()
+check(lastOf(cy, "PARTY") and lastOf(cy, "PARTY")[1]:find("^Hi all!") and cy.ns.PartyBox.Mode() == nil,
+	"the Say hello key says hello at once and closes the box")
 cy.ns.UI.Show()
 cy.ns.UI.Refresh()
 local lg = cy.ns.UI.LeaveGroupButton()
 check(lg and lg:IsShown(), "the Leave the group button appears while in a party")
 lg._OnClick(lg)
-check(#cy.chat == 1 and cy.chat[1][1] == "Goodbye" and cy.leaves == 1,
-	"the panel Leave button sends the /p message then leaves")
+check(lastOf(cy, "PARTY")[1] == "Goodbye" and cy.leaves == 1, "the panel Leave button says goodbye then leaves")
 cy.ns.UI.Refresh()
 check(not cy.ns.UI.LeaveGroupButton():IsShown(), "the Leave button hides again once out of the group")
+-- Key binding: Say goodbye and leave.
+dy.ns.PartyBox.Other()
+party["Dy Moss"] = { "Dy Moss", "Eve X" } party["Eve X"] = party["Dy Moss"]
+dy.PSGroupFinder_Goodbye()
+check(dy.leaves == 1, "the goodbye key leaves the group")
 
 -- Header right-click closes the quest list if it is the pane on screen (toggle).
 hal2.ns.QuestUI.Open(12345)
@@ -1211,5 +1246,17 @@ check(#cal.ns.ChatWatch.List() == 0, "chat entries expire after five minutes")
 cal.ns.Set("readChat", false)
 say(cal, "CHAT_MSG_YELL", "need help gath ilzogg", "Bo Hill")
 check(#cal.ns.ChatWatch.List() == 0, "with the option off, chat is not read")
+
+-- The panel's settings fold away: only the master switch shows by default.
+local fy = newClient("Fy Lark", { hogger }, {})
+fy.ns.UI.Show()
+check(not fy.ns.UI.Switch("autoGroup"):IsShown(),
+	"settings folded by default: only Enable shows")
+local sb = fy.ns.UI.SettingsButton()
+sb._OnClick(sb)
+check(fy.ns.UI.Switch("autoGroup"):IsShown() and fy.ns.UI.Switch("partyBox"):IsShown() and sb._text:find("▾"),
+	"Settings unfolds the other switches")
+sb._OnClick(sb)
+check(not fy.ns.UI.Switch("autoGroup"):IsShown(), "and folds them again")
 
 print("all tests passed")

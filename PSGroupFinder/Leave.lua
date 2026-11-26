@@ -1,19 +1,22 @@
--- Group Finder for Polestar (PSGroupFinder): offering to leave a group once its quests are done.
+-- Group Finder for Polestar (PSGroupFinder): the group formed through the finder, from hello
+-- to goodbye.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
--- Only for a group formed through the finder: you invited a player found by
--- it (the Invite button, or auto-group), or you accepted the invitation of a
+-- A group counts as formed through the finder when you invited a player it
+-- found (the Invite button, or auto-group) or accepted the invitation of a
 -- player it had found. The quest ids you shared at that moment (and that are
--- in your log) are remembered, per character, until the group ends. When
--- none of them has anything left to do (objectives complete, ready to hand
--- in, or handed in) a window asks "Leave / Stay" (UI.ShowLeave).
+-- in your log) are remembered, per character, until the group ends.
+--   * When such a player joins, "GROUP_FORMED" fires: the party box
+--     (UI/PartyBox.lua) offers to say hello.
+--   * When none of the remembered quests has anything left to do
+--     (objectives complete, ready to hand in, or handed in), "GROUP_DONE"
+--     fires: the party box offers to say goodbye and leave, for a while.
 --
--- Nothing here leaves, speaks or invites by itself. The /p message (opt-in,
--- editable) is sent just before leaving, only from Leave.Do: the Leave
--- button of that window or of the panel. Leaving through the game (portrait
--- menu, /leave) says nothing: wrapping the game's LeaveParty would taint it.
--- By default the message is only for a group formed through the finder;
--- leaveMsgAny (off) also covers a group joined by hand.
+-- Nothing here leaves by itself. The goodbye message is said just before
+-- leaving a group formed through the finder, from Leave.Do: the party box's
+-- Say goodbye, the panel's Leave button, the key binding. Leaving through
+-- the game (portrait menu, /leave) says nothing: wrapping the game's
+-- LeaveParty would taint it. A group joined by hand gets no message.
 
 local _, ns = ...
 local L = ns.L
@@ -45,12 +48,21 @@ local function inParty(name)
 	return ok and r
 end
 
--- The text to say: the player's own, else the default of the client's language.
+-- The goodbye text (Messages.lua).
 function Leave.Message()
-	local m = ns.Get("leaveMsg")
-	if type(m) == "string" and m:match("%S") then return m end
-	return L.LEAVE_MSG_DEFAULT
+	return ns.Messages.Expand("goodbye", Leave.Quests())
 end
+
+-- The quest ids the current finder group was formed for, sorted.
+function Leave.Quests()
+	local mem = memory()
+	local out = {}
+	for id in pairs(mem and mem.quests or {}) do out[#out + 1] = id end
+	table.sort(out)
+	return out
+end
+
+function Leave.Active() return memory() ~= nil end
 
 -- Remembers `ids` (the ones in the log) as the reason for the current group.
 local function merge(ids)
@@ -95,16 +107,16 @@ local function resolve()
 			outgoing[k] = nil
 		elseif inParty(o.name) then
 			outgoing[k] = nil
-			merge(o.quests)
+			if merge(o.quests) then ns.Fire("GROUP_FORMED", o.name) end
 		end
 	end
 	if incoming then
 		if now - incoming.at > WINDOW then
 			incoming = nil
 		elseif inParty(incoming.name) then
-			local ids = incoming.quests
+			local ids, name = incoming.quests, incoming.name
 			incoming = nil
-			merge(ids)
+			if merge(ids) then ns.Fire("GROUP_FORMED", name) end
 		end
 	end
 end
@@ -113,6 +125,10 @@ local function onInvite(_, inviter)
 	inviter = ns.Readable(inviter)
 	if type(inviter) ~= "string" or not ns.Get("enabled") then return end
 	local ids = ns.Matcher.QuestsOf(inviter)
+	if #ids == 0 and ns.ChatWatch then
+		local e = ns.ChatWatch.Get(inviter)
+		ids = e and e.quests or ids
+	end
 	if #ids == 0 then return end -- not a player the finder found
 	incoming = { name = inviter, quests = ids, at = ns.Now() }
 end
@@ -147,7 +163,7 @@ function Leave.Check()
 		Leave.Forget()
 		return
 	end
-	if not ready or not (ns.Get("enabled") and ns.Get("leaveOffer")) then return end
+	if not ready or not (ns.Get("enabled") and ns.Get("partyBox")) then return end
 	if mem.dismissed or mem.offered then return end
 	if IsInInstance and IsInInstance() then return end
 	if not Leave.AllDone() then return end
@@ -156,7 +172,7 @@ function Leave.Check()
 		return
 	end
 	mem.offered = true
-	if ns.UI and ns.UI.ShowLeave then ns.UI.ShowLeave() end
+	ns.Fire("GROUP_DONE")
 end
 
 local function schedule()
@@ -178,23 +194,15 @@ ns.RegisterEvent("PLAYER_REGEN_ENABLED", function()
 end)
 ns.On("LOGIN", function() ns.After(READY_AFTER, function() ready = true schedule() end) end)
 
--- Say the /p message if the option is on and this group is one we may
--- speak for.
+-- The goodbye message in the party, for a group formed through the finder.
 function Leave.Announce()
-	if not ns.Get("leaveMsgOn") then return false end
-	if not inGroup() then return false end
-	if not memory() and not ns.Get("leaveMsgAny") then return false end
-	local msg = Leave.Message()
-	if type(msg) ~= "string" or msg == "" then return false end
-	local chat = (IsInGroup and LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)) and "INSTANCE_CHAT" or "PARTY"
-	local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
-	if send then pcall(send, msg, chat) end
-	return true
+	if not memory() then return false end
+	return ns.Messages.SayParty("goodbye", Leave.Quests())
 end
 
--- "Leave": our button (panel or the quests-done window). The message first
--- (when the option is on), then the party.
+-- Leave the group: the goodbye message first, then the party.
 function Leave.Do()
+	if not inGroup() then return end
 	Leave.Announce()
 	local leave = (C_PartyInfo and C_PartyInfo.LeaveParty) or LeaveParty
 	if leave then pcall(leave) end
@@ -202,11 +210,10 @@ function Leave.Do()
 	ns.Print(L.LEAVE_LEFT)
 end
 
--- "Stay": the question is not asked again for this group.
+-- Not now: goodbye is not offered again for this group.
 function Leave.Stay()
 	local mem = memory()
 	if mem then mem.dismissed = true end
-	ns.Print(L.LEAVE_STAYED)
 end
 
 Leave.IsReady = function() return ready end

@@ -5,6 +5,12 @@
 	<Binding name="PSGF_ANNOUNCE" category="Polestar">
 		PSGroupFinder_Announce()
 	</Binding>
+	<Binding name="PSGF_HELLO" category="Polestar">
+		PSGroupFinder_Hello()
+	</Binding>
+	<Binding name="PSGF_GOODBYE" category="Polestar">
+		PSGroupFinder_Goodbye()
+	</Binding>
 	<Binding name="PSGF_TOGGLE_PANEL" category="Polestar">
 		PSGroupFinder_TogglePanel()
 	</Binding>

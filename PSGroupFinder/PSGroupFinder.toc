@@ -25,12 +25,14 @@ Comm.lua
 Matcher.lua
 ChatWatch.lua
 Group.lua
+Messages.lua
 Leave.lua
 Announce.lua
 UI\Widgets.lua
 UI\Panel.lua
 UI\QuestPanel.lua
-UI\Dialogs.lua
+UI\MessagesWindow.lua
+UI\PartyBox.lua
 Polestar\Polestar.lua
 Polestar\Header.lua
 Polestar\Options.lua

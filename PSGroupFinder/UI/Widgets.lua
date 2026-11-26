@@ -267,14 +267,27 @@ function W.Whisper(name)
 	end
 end
 
-function W.Invite(name, quests)
-	-- Remembered, so that the finder can offer to leave once these quests are done.
+-- A player already in a group cannot be invited: we ask them to invite us.
+function W.CanOnlyAsk(e)
+	return (e.size or 0) > 0
+end
+
+-- The Invite / Ask click on a player row: invites (or asks to join) and
+-- whispers the matching message (Messages.lua), only on this click.
+function W.Invite(e)
+	local name, quests = e.name, e.quests
+	-- Remembered, so that the finder can say hello, then goodbye once these quests are done.
 	if ns.Leave and quests then ns.Leave.NoteInvite(name, quests) end
+	if W.CanOnlyAsk(e) then
+		ns.Messages.Whisper("ask", name, quests)
+		return
+	end
 	if C_PartyInfo and C_PartyInfo.InviteUnit then
 		C_PartyInfo.InviteUnit(name)
 	elseif InviteUnit then
 		InviteUnit(name)
 	end
+	ns.Messages.Whisper("invite", name, quests)
 end
 
 function W.KindTag(kind)
@@ -320,7 +333,7 @@ function W.PlayerRow(parent)
 	r.info:SetWordWrap(false)
 	r.whisper = W.Button(r, L.WHISPER, BTN_COL, function() if r.entry then W.Whisper(r.entry.name) end end, 19)
 	r.whisper:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -1)
-	r.invite = W.Button(r, L.INVITE, BTN_COL, function() if r.entry then W.Invite(r.entry.name, r.entry.quests) end end, 19)
+	r.invite = W.Button(r, L.INVITE, BTN_COL, function() if r.entry then W.Invite(r.entry) end end, 19)
 	r.invite:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 0, 1)
 	r:SetScript("OnEnter", function(self)
 		local e = self.entry
@@ -351,6 +364,7 @@ function W.FillRow(r, e, info)
 	r.name:SetText(string.format("|c%s%s|r  %s%s", classColor(e.class), ns.ShortName(e.name), level, lang))
 	r.dist:SetText(stateText(e))
 	r.info:SetText(info)
+	r.invite:SetText(W.CanOnlyAsk(e) and L.ASK or L.INVITE)
 end
 
 -- Lays out up to #rows entries of `list` from `y` down; returns the new y.

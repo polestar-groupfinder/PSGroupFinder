@@ -1,10 +1,10 @@
 -- Group Finder for Polestar (PSGroupFinder): the main panel.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
--- From top to bottom: the switches, the message said when leaving, the
--- search languages, Find a group / Stop (/ Options when Polestar's settings
--- have our page), Announce with its language and channel, Leave the group
--- while in a party, the search in progress
+-- From top to bottom: the master switch; Settings (folded by default: the
+-- other switches) and Messages; the search languages; Find a group / Stop
+-- (/ Options when Polestar's settings have our page); Announce with its
+-- language and channel; Leave the group while in a party; the search in progress
 -- (its quests leave it as their objectives are done), the channels with
 -- their legend, and the players found, each with Whisper and Invite (only
 -- ever on your click). The panel is as tall as what it shows.
@@ -23,22 +23,25 @@ ns.UI = UI
 local WIDTH, PAD = W.WIDTH, W.PAD
 local ROWS = 6
 local OPT_H = 20 -- pitch of the switches
+-- key, label, tooltip. The first one turns the whole finder on or off and is
+-- always shown; the others fold under Settings. Polestar's page has them all.
 local SWITCHES = {
-	-- key, label, tooltip; the first one turns the whole finder on or off.
 	{ "enabled", "ENABLE", "ENABLE_TIP" },
 	{ "autoGroup", "AUTO_GROUP", "AUTO_GROUP_TIP" },
-	{ "headerButton", "HEADER_BUTTON", "HEADER_BUTTON_TIP" },
-	{ "shareCoords", "SHARE_COORDS", "SHARE_COORDS_TIP" },
-	{ "autoReply", "AUTO_REPLY", "AUTO_REPLY_TIP" },
+	{ "partyBox", "PARTY_BOX", "PARTY_BOX_TIP" },
 	{ "readChat", "READ_CHAT", "READ_CHAT_TIP" },
-	{ "leaveOffer", "LEAVE_OFFER", "LEAVE_OFFER_TIP" },
-	{ "leaveMsgOn", "LEAVE_MSG", "LEAVE_MSG_TIP" },
-	{ "leaveMsgAny", "LEAVE_MSG_ANY", "LEAVE_MSG_ANY_TIP" },
+	{ "autoReply", "AUTO_REPLY", "AUTO_REPLY_TIP" },
+	{ "shareCoords", "SHARE_COORDS", "SHARE_COORDS_TIP" },
+	{ "headerButton", "HEADER_BUTTON", "HEADER_BUTTON_TIP" },
 }
-local DEFAULT_ON = { headerButton = true, leaveOffer = true, readChat = true } -- read as on unless set to false
-local MSG_H = 22 -- the "message when leaving" line under the switches
-local TOP = 34 + #SWITCHES * OPT_H + MSG_H
+local DEFAULT_ON = { headerButton = true, partyBox = true, readChat = true } -- read as on unless set to false
 local SESSION_LINES = 4
+local settingsOpen = false
+
+-- Where the part under the switches starts.
+local function contentTop()
+	return 34 + OPT_H + 22 + (settingsOpen and (#SWITCHES - 1) * OPT_H or 0)
+end
 
 local panel
 local rows = {}
@@ -155,14 +158,20 @@ function UI.Refresh()
 	local on = ns.Get("enabled") and true or false
 
 	-- Switches: only the master switch and the header one work while off.
-	for _, c in ipairs(switches) do
+	local x = PAD - (W.Theme() and 0 or 4)
+	for i, c in ipairs(switches) do
 		c:SetChecked(setting(c.key))
 		local usable = on or c.key == "enabled" or c.key == "headerButton"
 		c:SetEnabled(usable)
 		c:SetAlpha(usable and 1 or 0.5)
+		if i > 1 then
+			c:SetShown(settingsOpen)
+			at(c, 34 + OPT_H + 22 + (i - 2) * OPT_H, x)
+		end
 	end
-	widgets.msgText:SetText(W.Dim() .. string.format(L.LEAVE_MSG_LABEL, ns.Leave.Message()) .. "|r")
-	widgets.msgText:SetAlpha(ns.Get("leaveMsgOn") and 1 or 0.5)
+	widgets.settings:SetText((settingsOpen and L.SETTINGS_OPEN or L.SETTINGS_CLOSED))
+	local top = contentTop()
+	at(widgets.below, top)
 	widgets.langValue:SetText(W.Dim() .. ns.Lang.MineSummary() .. "|r")
 	widgets.annLang:Refresh()
 	widgets.annTo:Refresh()
@@ -181,7 +190,7 @@ function UI.Refresh()
 	widgets.leaveGroup:SetShown(inParty)
 
 	-- Off: only the switches and the buttons; the rest has nothing to say.
-	local y = TOP + 86 + (inParty and 24 or 0)
+	local y = top + 86 + (inParty and 24 or 0)
 	for _, w in ipairs({ widgets.sessionTitle, widgets.chLabel, widgets.channels, widgets.test, widgets.chHit }) do
 		w:SetShown(on)
 	end
@@ -302,7 +311,7 @@ local function buildLangPicker()
 	local box = W.Box(panel)
 	box:SetFrameStrata("DIALOG")
 	box:SetSize(WIDTH - 16, langPickerHeight(ns.Lang.AcceptsAll(), #ns.Lang.ALL))
-	box:SetPoint("TOPLEFT", panel, "TOPLEFT", 8, -(TOP + 22))
+	box:SetPoint("TOPLEFT", widgets.below, "TOPLEFT", 8 - PAD, -22)
 	local title = W.Text(box, "caption", GameFontNormalSmall)
 	title:SetPoint("TOPLEFT", 8, -8)
 	title:SetText(L.LANGS)
@@ -379,51 +388,50 @@ local function build()
 	W.Title(panel, L.TITLE)
 	W.CloseButton(panel)
 
-	-- The switches, OPT_H apart.
-	local x = PAD - (W.Theme() and 0 or 4)
-	for i, s in ipairs(SWITCHES) do
+	-- The switches (placed in UI.Refresh: all but the first fold away).
+	for _, s in ipairs(SWITCHES) do
 		local key = s[1]
-		local c = W.Check(panel, L[s[2]], L[s[3]], key, key == "enabled" and ns.SetEnabled or nil)
-		c:SetPoint("TOPLEFT", panel, "TOPLEFT", x, -(34 + (i - 1) * OPT_H))
-		switches[#switches + 1] = c
+		switches[#switches + 1] = W.Check(panel, L[s[2]], L[s[3]], key, key == "enabled" and ns.SetEnabled or nil)
 	end
+	switches[1]:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - (W.Theme() and 0 or 4), -34)
+	widgets.settings = W.Button(panel, L.SETTINGS_CLOSED, 110, function()
+		settingsOpen = not settingsOpen
+		UI.Refresh()
+	end, 18)
+	widgets.settings:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -(34 + OPT_H + 2))
+	W.Tip(widgets.settings, L.SETTINGS, L.SETTINGS_TIP)
+	widgets.messages = W.Button(panel, L.MESSAGES .. "…", 96, function() UI.ShowMessages() end, 18)
+	widgets.messages:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -(34 + OPT_H + 2))
+	W.Tip(widgets.messages, L.MESSAGES, L.MESSAGES_TIP)
 
-	-- The message said when you click Leave: shown, edited in a small dialog.
-	local my = 34 + #SWITCHES * OPT_H
-	widgets.msgEdit = W.Button(panel, L.LEAVE_MSG_EDIT, 70, function() UI.EditLeaveMessage() end, 18)
-	widgets.msgEdit:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -my)
-	widgets.msgText = text("small", GameFontHighlightSmall, "LEFT")
-	widgets.msgText:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD + 22, -(my + 3))
-	widgets.msgText:SetPoint("RIGHT", widgets.msgEdit, "LEFT", -6, 0)
-	widgets.msgText:SetWordWrap(false)
+	-- Everything below hangs from this point, moved when Settings unfolds.
+	widgets.below = CreateFrame("Frame", nil, panel)
+	widgets.below:SetSize(1, 1)
 
 	-- Languages: a compact summary; a click opens the picker.
-	local ly = TOP + 2
 	widgets.langLabel = text("small", GameFontHighlightSmall)
-	widgets.langLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -ly)
+	widgets.langLabel:SetPoint("TOPLEFT", widgets.below, "TOPLEFT", 0, -2)
 	widgets.langLabel:SetText(L.LANGS)
 	widgets.langValue = text("small", GameFontHighlightSmall)
 	widgets.langValue:SetPoint("LEFT", widgets.langLabel, "RIGHT", 8, 0)
 	local langHit = CreateFrame("Button", nil, panel)
 	langHit:SetPoint("TOPLEFT", widgets.langLabel, "TOPLEFT", 0, 4)
-	langHit:SetPoint("BOTTOMRIGHT", panel, "TOPRIGHT", -PAD, -(ly + 16))
+	langHit:SetPoint("BOTTOMRIGHT", widgets.langLabel, "BOTTOMLEFT", WIDTH - 2 * PAD, -4)
 	langHit:SetScript("OnClick", UI.ToggleLangPicker)
 	W.Tip(langHit, L.LANGS, L.LANGS_TIP)
 
 	-- Find a group / Stop / Options, then Leave the group on its own row.
-	local by = TOP + 30
 	widgets.search = W.Button(panel, L.SEARCH, 168, function() ns.Search() UI.Refresh() end)
-	widgets.search:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -by)
+	widgets.search:SetPoint("TOPLEFT", widgets.below, "TOPLEFT", 0, -30)
 	widgets.stop = W.Button(panel, L.STOP, 70, function() ns.Comm.StopSearch() UI.Refresh() end)
 	widgets.stop:SetPoint("LEFT", widgets.search, "RIGHT", 6, 0)
 	widgets.stop:Hide()
 	widgets.options = W.Button(panel, L.OPTIONS_SHORT, 64, function() if ns.OpenOptions then ns.OpenOptions() end end)
-	widgets.options:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -by)
+	widgets.options:SetPoint("TOPLEFT", widgets.search, "TOPLEFT", WIDTH - 2 * PAD - 64, 0)
 	widgets.options:SetShown(UI.hasOptions == true)
 	-- Announce in public chat, with the line's language and channel.
-	local ay = by + 24
 	widgets.announce = W.Button(panel, L.ANNOUNCE, 110, function() ns.Announce.Send() UI.Refresh() end)
-	widgets.announce:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -ay)
+	widgets.announce:SetPoint("TOPLEFT", widgets.search, "BOTTOMLEFT", 0, -2)
 	widgets.announce:SetScript("OnEnter", UI.AnnounceTip)
 	widgets.announce:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	widgets.annLang = W.Choice(panel, 64, {
@@ -439,7 +447,7 @@ local function build()
 
 	widgets.leaveGroup = W.Button(panel, L.LEAVE_GROUP, 140, function() ns.Leave.Do() end)
 	W.Tip(widgets.leaveGroup, L.LEAVE_GROUP, L.LEAVE_GROUP_TIP)
-	widgets.leaveGroup:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -(by + 48))
+	widgets.leaveGroup:SetPoint("TOPLEFT", widgets.announce, "BOTTOMLEFT", 0, -2)
 	widgets.leaveGroup:Hide()
 
 	-- The search in progress.
@@ -506,6 +514,10 @@ function UI.EmptyCaption() return widgets.empty and widgets.empty:GetText() or n
 function UI.RowFrames() return rows end
 function UI.LeaveGroupButton() return widgets.leaveGroup end
 function UI.AnnounceWidgets() return widgets.announce, widgets.annLang, widgets.annTo end
+function UI.SettingsButton() return widgets.settings end
+function UI.Switch(key)
+	for _, c in ipairs(switches) do if c.key == key then return c end end
+end
 
 ns.TogglePanel = UI.Toggle
 ns.ResetPanel = UI.Place

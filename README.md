@@ -88,15 +88,23 @@ is in [INSTALLATION.md](INSTALLATION.md).
   and accepts their invitation, with no click. Whoever is already a group leader invites the solo
   player; between two solo players, the lower session id invites. Same faction, party of 5 at
   most, never in an instance, and an invitation is accepted only from a player the finder expects.
-- **Leave the group**: for a group formed through the addon, once every quest you grouped for
-  is done, a window offers **Leave** / **Stay**. Never on its own. An optional /p message
-  (editable) is said when you leave with that window or the panel's **Leave the group** button;
-  leaving through the game (portrait, `/leave`) says nothing.
-- **Options** (saved in `PSGroupFinderDB`), in the panel and on a “Group Finder” page in
-  Polestar's options, each with a tooltip: enable, group automatically, header button, share my
-  map position (otherwise only the zone), answer searches for my quests, spot players asking in
-  chat, offer to leave once the
-  quests are done, the /p message, search languages.
+- **Invite / Ask**: **Invite** sends the invitation and whispers a short message naming the
+  shared quests. A player already in a group cannot be invited: the button reads **Ask** and
+  whispers a request to be invited instead. Only on your click.
+- **Hello and goodbye** (option “Say hello and goodbye to the group”, on by default): when a group
+  formed through the addon gets together, a small floating box shows the group's quests with
+  your progress and the objectives left (like a quest tracker) and says hello in /p after a
+  5-second countdown, with the quest links and your progress (“Hi all! I'm on [Quest] (40%).”);
+  **Cancel** keeps quiet, **Say hello** says it at once. When every quest you grouped for is
+  done, the box offers **Goodbye & leave** for 30 seconds (the goodbye message, then you leave);
+  after that, or with **Stay**, you stay. Key bindings for both. The panel's **Leave the group**
+  also says goodbye for a finder group; leaving through the game (portrait, `/leave`) says nothing.
+- **Messages** (button in the panel and on Polestar's page): the four texts (invite, ask, hello,
+  goodbye) with a live preview. `{quests}` stands for the quests; an empty text is never sent.
+- **Options** (saved in `PSGroupFinderDB`), kept short, each with a tooltip: enable; then, folded
+  under **Settings** in the panel: group automatically, hello and goodbye, spot players asking in
+  chat, answer searches for my quests, share my map position (otherwise only the zone), header
+  button. Polestar's page has the same switches, the Messages button and the key bindings.
 - **Commands**: `/psgf` (panel), `/psgf search`, `/psgf stop`, `/psgf announce`, `/psgf on|off`, `/psgf test`
   (tests the channels), `/psgf reset` (repositions the panel), `/psgf quest <id>`,
   `/psgf hooks` (what was found in the Polestar guide), `/psgf debug` (shows the addon's traffic
@@ -117,9 +125,9 @@ are documented in [`Protocol.lua`](PSGroupFinder/Protocol.lua).
 | Quest reply `A` | whisper to the asker, if you have the quest (any zone), rate-limited | that id and your progress in %, your position, level, class, language |
 | Test `T` | `/psgf test`, or once after enabling | a random id (we listen for our own echo) |
 
-Never free text, never the whole quest log, nothing inside an instance. The only visible chat
-line the addon ever says is the **Announce** line (on your click) and, if you turned it on, the
-/p message when you leave with its Leave button.
+Never free text, never the whole quest log, nothing inside an instance. The visible chat lines
+the addon can say are the **Announce** line (on your click) and the
+messages of the **Messages** window (whispers on your Invite / Ask click, hello and goodbye in /p).
 
 ## Channels and detection
 
@@ -181,9 +189,9 @@ CI runs the first three on every push (`.github/workflows/ci.yml`).
 | `Throttle.lua`, `Protocol.lua`, `Channels.lua`, `Comm.lua` | send queue; message formats; channels and probes; searches and message handling |
 | `ChatFilter.lua` | hides the game's notices about our own traffic (off in debug mode) |
 | `Quests.lua`, `Session.lua`, `Matcher.lua` | which quests count; the search in progress; the players found and their order |
-| `Group.lua`, `Leave.lua`, `Announce.lua` | auto-grouping; offering to leave a finder group; the public announce |
+| `Group.lua`, `Leave.lua`, `Messages.lua`, `Announce.lua` | auto-grouping; the finder group from hello to goodbye; the editable messages; the public announce |
 | `ChatWatch.lua` | reads public chat for players asking for one of your quests |
-| `UI/` | shared widgets, the main panel, the quest panel, the dialogs |
+| `UI/` | shared widgets, the main panel, the quest panel, the Messages window, the party box |
 | `Polestar/` | Polestar detection and live step, header button, options page, goal-row button |
 
 Inspired by the public descriptions of Group Up, QuestScout and Group Quest Finder

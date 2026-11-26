@@ -80,12 +80,12 @@ Do not put the addon in `_retail_` or `_classic_era_`: Forever would not see it.
   second click closes the pane; a click for another quest switches to it. **Search for this quest**
   queries them (once every 15 s). In the Polestar guide, **Alt + click** on an objective does the
   same. `/psgf quest 33` opens the list for quest #33.
-- **Leave the group** (1.1): when every quest you grouped for through the addon is done, a small
-  window asks **Leave** or **Stay**. Option “Say a message in /p before leaving” (off by default,
-  text editable with **Edit…**): it is sent when you click Leave or the panel’s **Leave the group**
-  (visible only while in a group). Leaving through the game (portrait, `/leave`) says nothing.
-  Option “Also when leaving a group not formed by the finder” for a group you joined by hand
-  (off by default). Nothing happens on its own.
+- **Invite / Ask**: Invite also whispers a short message; for a player already in a group the
+  button reads **Ask** and whispers a request to be invited.
+- **Hello and goodbye**: when a group formed through the addon gets together, a small box says
+  hello in /p after 5 s (with your quests and progress; **Cancel** to keep quiet). When every quest
+  you grouped for is done, it offers **Goodbye & leave** for 30 s. The texts are in **Messages…**
+  (empty = never sent).
 - Other commands: `/psgf on`, `/psgf off`, `/psgf test`, `/psgf reset`, `/psgf hooks` (reports
   whether the buttons found their place in the Polestar guide: copy that into a message if a
   button is missing), `/psgf debug` (shows the addon's traffic and notices in chat).
@@ -115,10 +115,11 @@ Do this with two people (two accounts, or two characters of the **same faction**
    objective in the Polestar guide (B may be in another zone); a second click should close the
    pane. **Search for this quest** should show A with their zone and percentage. Type `/psgf hooks` if
    a button is missing.
-6. For leaving the group: invite A from the panel, finish the quest on both sides (or abandon it
-   to see that it does not count): the **Leave / Stay** window should appear for each of you, and
-   nothing should happen before your click. The panel’s **Leave the group** button should also
-   send the /p message if that option is on, only once.
+6. For hello and goodbye: invite A from the panel (A should receive the invite whisper). Once
+   grouped, the hello box should appear on both sides and say hello in /p after 5 s (try
+   **Cancel** on one side). Finish the quest on both sides (or abandon it to see that it does not
+   count): the **Goodbye & leave** box should appear for 30 s, and nothing should happen before
+   your click. The panel’s **Leave the group** button should also say goodbye, once.
 7. For auto-grouping: tick the option on both sides, and make sure each appears on the other’s
    list (each side filters on its own). Leave the group, start a search again. The invitation
    should go out on its own. If an invitation window stays on screen, accept it by hand and

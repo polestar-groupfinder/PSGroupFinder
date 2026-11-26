@@ -97,19 +97,18 @@ local function registerOptions()
 		tab = L.OPT_SECTION, section = L.OPT_SECTION, controls = {
 			toggle("ENABLE", "enabled", ns.SetEnabled),
 			toggle("AUTO_GROUP", "autoGroup"),
-			toggle("HEADER_BUTTON", "headerButton"),
-			toggle("SHARE_COORDS", "shareCoords"),
-			toggle("AUTO_REPLY", "autoReply"),
+			toggle("PARTY_BOX", "partyBox"),
 			toggle("READ_CHAT", "readChat"),
-			toggle("LEAVE_OFFER", "leaveOffer"),
-			toggle("LEAVE_MSG", "leaveMsgOn"),
-			toggle("LEAVE_MSG_ANY", "leaveMsgAny"),
-			{ kind = "button", label = L.LEAVE_DIALOG .. "…", help = L.LEAVE_DIALOG_TIP, onClick = function() ns.UI.EditLeaveMessage() end },
+			toggle("AUTO_REPLY", "autoReply"),
+			toggle("SHARE_COORDS", "shareCoords"),
+			toggle("HEADER_BUTTON", "headerButton"),
+			{ kind = "button", label = L.MESSAGES .. "…", help = L.MESSAGES_TIP, onClick = function() ns.UI.ShowMessages() end },
 			{ kind = "binding", action = "PSGF_SEARCH", label = L.BINDING_SEARCH, help = L.BINDING_SEARCH_TIP },
 			{ kind = "binding", action = "PSGF_TOGGLE_PANEL", label = L.BINDING_PANEL, help = L.BINDING_PANEL_TIP },
 			{ kind = "binding", action = "PSGF_ANNOUNCE", label = L.BINDING_ANNOUNCE, help = L.BINDING_ANNOUNCE_TIP },
+			{ kind = "binding", action = "PSGF_HELLO", label = L.BINDING_HELLO, help = L.BINDING_HELLO_TIP },
+			{ kind = "binding", action = "PSGF_GOODBYE", label = L.BINDING_GOODBYE, help = L.BINDING_GOODBYE_TIP },
 			{ kind = "button", label = L.TEST, help = L.TEST_TIP, onClick = function() ns.TestChannels(true) end },
-			{ kind = "button", label = L.OPEN_PANEL, help = L.OPEN_PANEL_TIP, onClick = function() ns.UI.Show() end },
 		} }
 	if not register(page) then return end
 	registered = true

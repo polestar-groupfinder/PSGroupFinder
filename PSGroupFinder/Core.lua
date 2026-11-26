@@ -39,10 +39,11 @@ local DEFAULTS = {
 	searchLangs = false, -- filled in Lang.Init: the client's language
 	acceptAll = false,   -- search every language (opt-in; folds the language list)
 	panelPos = false,    -- { point, x, y } of the standalone panel
-	leaveOffer = true,   -- offer to leave the group when its quests are done (never leaves by itself)
-	leaveMsgOn = false,  -- say leaveMsg in /p when leaving (opt-in)
-	leaveMsgAny = false, -- also when leaving a group not formed through the finder
-	leaveMsg = false,    -- false: the default text of the client's language
+	partyBox = true,     -- with a finder group: say hello (countdown), then offer goodbye when its quests are done
+	inviteMsg = false,   -- the messages (Messages.lua): false = the default text, "" = off
+	askMsg = false,
+	helloMsg = false,
+	leaveMsg = false,
 	announceLang = false, -- language of the public announce (false: the client's)
 	announceTo = "GENERAL", -- where it goes: GENERAL (zone), LFG, SAY, YELL
 	debug = false,

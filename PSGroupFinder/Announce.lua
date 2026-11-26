@@ -97,16 +97,7 @@ function Announce.Resolve(target)
 	return "CHANNEL", id
 end
 
--- A quest as written in the line: the client's link, else its title.
-local function questText(id)
-	if GetQuestLink then
-		local ok, link = pcall(GetQuestLink, id)
-		link = ok and ns.Readable(link)
-		-- Some clients take a log index, not an id: keep the link only if it names this quest.
-		if type(link) == "string" and link:find("|Hquest:" .. id .. ":", 1, true) then return link end
-	end
-	return ns.Quests.Title(id)
-end
+local function questText(id) return ns.Messages.QuestText(id) end
 
 -- The quests to name: those of the search in progress, else the relevant
 -- ones of the log; `id` names one quest only (the quest panel).

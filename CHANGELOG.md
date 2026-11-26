@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Hello and goodbye**: with a group formed through the finder, a small floating box (quest
+  tracker style: the group's quests, your progress, the objectives left) says hello in /p after a
+  5-second countdown, with the quest links and your progress; Cancel keeps quiet. When the group's
+  quests are done it offers **Goodbye & leave** for 30 s (the old Leave / Stay window is gone).
+  Key bindings “Say hello to the group” and “Say goodbye and leave the group”.
+- **Invite / Ask**: Invite also whispers a short message naming the shared quests; for a player
+  already in a group the button reads **Ask** and whispers a request to be invited instead.
+- **Messages window**: the four texts (invite, ask, hello, goodbye) with a live preview;
+  `{quests}` for the quests, an empty text is never sent.
+- **Lighter options**: the panel shows only the master switch, the others fold under
+  **Settings**; “Offer to leave”, “Say a message in /p before leaving” and “Also for a group not
+  formed by the finder” are replaced by one switch, “Say hello and goodbye to the group”. The
+  panel's Leave button says goodbye for a finder group only.
 - **Spot players asking in chat** (on by default, read only): players without the addon who
   look for a group on one of your open quests in General, the other public channels, /say or
   /yell are listed in both panels, marked “chat”, with their line in the tooltip. A line counts

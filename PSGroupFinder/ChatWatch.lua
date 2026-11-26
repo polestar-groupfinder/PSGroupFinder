@@ -214,6 +214,8 @@ function ChatWatch.List(questID)
 	return list
 end
 
+function ChatWatch.Get(name) return peers[name] end
+
 function ChatWatch.Clear()
 	wipe(peers)
 	ns.Fire("PEERS")
