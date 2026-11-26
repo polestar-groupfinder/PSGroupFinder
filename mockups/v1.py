@@ -10,10 +10,10 @@ SRC_GUIDE = os.path.join(ASSETS, "polestar-guide-window.png")
 
 PW, PAD, ROW_H, OPT_H, BTN_COL = 340, 12, 42, 20, 84
 MUTED, DIM, GREEN, AMBER = TEXT_MUTED, TEXT_DIM, SUCCESS, WARNING
-BANNER = ("MAQUETTE — données d'exemple",
-          "PSGroupFinder v1.0.0 · dessinée d'après UI.lua / Polestar.lua / Lang.lua, pas une capture du jeu")
+BANNER = ("MOCK-UP — sample data",
+          "PSGroupFinder v1.0.0 · drawn from UI.lua / Polestar.lua / Lang.lua, not a game screenshot")
 
-KIND = {"k": "kill", "n": "élite nommé", "l": "loot", "g": "groupe"}
+KIND = {"k": "kill", "n": "named", "l": "loot", "g": "group"}
 ICON = (int(0.85 * 255), int(0.88 * 255), int(0.95 * 255), 255)  # Theme.Color("icon")
 ACCENT_RGBA = (0xe6, 0xba, 0x66, 255)
 MUTED_RGBA = (0x9b, 0xa2, 0xb9, int(255 * 0.55))  # textMuted at 0.55
@@ -133,54 +133,54 @@ def row(y, p):
             f'<div class="t" style="right:{BTN_COL+8}px;top:4px;font-size:11px;font-weight:500;color:{rcol};text-align:right">{e(right)}</div>'
             f'<div class="t ell" style="left:0;top:21px;width:{PW-2*PAD-BTN_COL-8}px;font-size:11px;font-weight:500;color:{DIM}">'
             f'{e(tag(first[1]))}<span style="color:{TEXT}">{e(first[0])}</span>{more}</div>'
-            f'{pbtn(PW-2*PAD-BTN_COL, 1, BTN_COL, "Chuchoter", h=19, size=11)}'
-            f'{pbtn(PW-2*PAD-BTN_COL, ROW_H-20, BTN_COL, "Inviter", h=19, size=11)}</div>')
+            f'{pbtn(PW-2*PAD-BTN_COL, 1, BTN_COL, "Whisper", h=19, size=11)}'
+            f'{pbtn(PW-2*PAD-BTN_COL, ROW_H-20, BTN_COL, "Invite", h=19, size=11)}</div>')
 
 
 def panel(left, top, enabled=True, auto=True, header=True, active=False, quests=(),
-          search_label="Chercher un groupe", search_off=False, channels=None, peers=(),
-          options_btn=True, lang_summary="FR", extra=""):
+          search_label="Find a group", search_off=False, channels=None, peers=(),
+          options_btn=True, lang_summary="EN", extra=""):
     """Mirrors UI.Refresh() v1: 5 switches + language row, then buttons."""
     y = 34 + 5 * OPT_H + 22 + 8
     body = []
-    body.append(f'<div class="t" style="left:{PAD}px;top:10px;font-size:15px;font-weight:600;color:{TEXT}">Recherche de groupe</div>')
+    body.append(f'<div class="t" style="left:{PAD}px;top:10px;font-size:15px;font-weight:600;color:{TEXT}">Group Finder</div>')
     body.append(close_btn())
     checks = [
-        ("Activer la recherche de groupe", enabled, True),
-        ("Grouper automatiquement (même quête)", auto, enabled),
-        ("Bouton dans l'en-tête de Polestar", header, True),
-        ("Partager ma position sur la carte", True, enabled),
-        ("Répondre aux recherches sur mes quêtes", True, enabled),
+        ("Enable the group finder", enabled, True),
+        ("Group automatically (same quest)", auto, enabled),
+        ("Button in the Polestar header", header, True),
+        ("Share my map position", True, enabled),
+        ("Answer searches for my quests", True, enabled),
     ]
     for i, (lab, on, dis) in enumerate(checks):
         body.append(pcheck(PAD, 34 + i * OPT_H, lab, on and True, dis))
     ly = 34 + 5 * OPT_H + 2
-    body.append(f'<div class="t" style="left:{PAD}px;top:{ly}px;font-size:11px;font-weight:500;color:{TEXT}">Langues de recherche</div>')
+    body.append(f'<div class="t" style="left:{PAD}px;top:{ly}px;font-size:11px;font-weight:500;color:{TEXT}">Search languages</div>')
     body.append(f'<div class="t" style="left:{PAD+128}px;top:{ly}px;font-size:11px;font-weight:500;color:{MUTED}">{e(lang_summary)}</div>')
     body.append(pbtn(PAD, y, 168, search_label, search_off or not enabled))
     if active:
-        body.append(pbtn(PAD + 168 + 6, y, 70, "Arrêter"))
+        body.append(pbtn(PAD + 168 + 6, y, 70, "Stop"))
     if options_btn:
         body.append(pbtn(PW - PAD - 64, y, 64, "Options"))
     y += 22 + 10
     if enabled:
-        body.append(f'<div class="t" style="left:{PAD}px;top:{y}px;font-size:11px;font-weight:600;color:{MUTED}">Recherche en cours</div>')
+        body.append(f'<div class="t" style="left:{PAD}px;top:{y}px;font-size:11px;font-weight:600;color:{MUTED}">Search in progress</div>')
         y += 14
         if active:
             for t, k in quests[:4]:
                 body.append(f'<div class="t ell" style="left:{PAD+4}px;top:{y}px;width:{PW-2*PAD-4}px;font-size:11px;font-weight:500;color:{DIM}">{e(tag(k))}<span style="color:{TEXT}">{e(t)}</span></div>')
                 y += 14
         else:
-            body.append(f'<div class="t" style="left:{PAD+4}px;top:{y}px;font-size:11px;font-weight:500;color:{MUTED}">Aucune recherche en cours.</div>')
+            body.append(f'<div class="t" style="left:{PAD+4}px;top:{y}px;font-size:11px;font-weight:500;color:{MUTED}">No search in progress.</div>')
             y += 14
         y += 6
-        body.append(f'<div class="t" style="left:{PAD}px;top:{y+4}px;font-size:11px;font-weight:500;color:{MUTED}">Canaux</div>')
+        body.append(f'<div class="t" style="left:{PAD}px;top:{y+4}px;font-size:11px;font-weight:500;color:{MUTED}">Channels</div>')
         if channels:
             body.append(f'<div class="t" style="left:{PAD+46}px;top:{y+4}px;font-size:11px;font-weight:500">{channel_names(channels)}</div>')
-        body.append(pbtn(PW - PAD - 56, y, 56, "Tester", off=not enabled, h=20, size=11))
+        body.append(pbtn(PW - PAD - 56, y, 56, "Test", off=not enabled, h=20, size=11))
         y += 22 + 6
         if not peers:
-            body.append(f'<div class="t" style="left:{PAD+2}px;top:{y+2}px;width:{PW-2*PAD-4}px;white-space:normal;font-size:11px;font-weight:500;color:{MUTED}">Personne pour l\'instant. Cliquez sur Chercher un groupe.</div>')
+            body.append(f'<div class="t" style="left:{PAD+2}px;top:{y+2}px;width:{PW-2*PAD-4}px;white-space:normal;font-size:11px;font-weight:500;color:{MUTED}">No one yet. Press Find a group.</div>')
             y += 38
         for p in peers[:6]:
             body.append(row(y, p))
@@ -190,7 +190,7 @@ def panel(left, top, enabled=True, auto=True, header=True, active=False, quests=
             + "".join(body) + extra + "</div>"), H
 
 
-def launcher(dim=False, label="Chercher un groupe", wx=None):
+def launcher(dim=False, label="Find a group", wx=None):
     x = (WIN[0] if wx is None else wx) + WIN[2] - 132
     y = WIN[1] + WIN[3] + 2
     b = pbtn(x, y, 132, label, h=20, size=11, weight=600)
@@ -213,27 +213,27 @@ QUESTS3 = [("Kobold Camp Cleanup", "k"), ("Wolves Across the Border", "l"), ("Wa
 P4 = [
     dict(name="Lyra Ashdown", cls="MAGE", lvl=8, lang="FR",
          q=[("Kobold Camp Cleanup", "k"), ("Wolves Across the Border", "l")],
-         where="22 m", state="invité", scol=GREEN, rw=30),
+         where="22 yd", state="invited", scol=GREEN, rw=30),
     dict(name="Torvald Greaves", cls="WARRIOR", lvl=9, lang="FR",
-         q=[("Kobold Camp Cleanup", "k")], where="48 m", state="en attente", scol=AMBER, rw=52),
+         q=[("Kobold Camp Cleanup", "k")], where="48 yd", state="pending", scol=AMBER, rw=52),
     dict(name="Edric Vane", cls="ROGUE", lvl=9, lang="FR",
-         q=[("Kobold Camp Cleanup", "k")], where="même zone", rw=52),
+         q=[("Kobold Camp Cleanup", "k")], where="same zone", rw=52),
     dict(name="Mira Quillon", cls="PRIEST", lvl=7, lang="FR",
-         q=[("Wolves Across the Border", "l")], where="déjà en groupe", rw=74),
+         q=[("Wolves Across the Border", "l")], where="in a group", rw=74),
 ]
 CH = [("CHANNEL", "fail"), ("YELL", "ok"), ("SAY", "sent"), ("GUILD", "skip")]
 
 LANGS = [
-    ("Français", True),
-    ("English", False),
-    ("Deutsch", False),
-    ("Español", False),
-    ("Italiano", False),
-    ("Português", False),
-    ("Русский", False),
-    ("한국어", False),
-    ("简体中文", False),
-    ("繁體中文", False),
+    ("French", False),
+    ("English", True),
+    ("German", False),
+    ("Spanish", False),
+    ("Italian", False),
+    ("Portuguese", False),
+    ("Russian", False),
+    ("Korean", False),
+    ("Chinese (Simplified)", False),
+    ("Chinese (Traditional)", False),
 ]
 
 
@@ -242,20 +242,20 @@ def s1():
     p, H = panel(px, WIN[1], enabled=False, auto=False, header=True, channels=None, options_btn=True)
     body = guide("polestar-guide-header-off.png") + p
     body += caption(
-        "État 1 · addon désactivé : l'icône œil est dans l'en-tête, juste à gauche de la loupe, "
-        "grisée (textMuted). Le bouton sous la fenêtre est masqué. Clic droit sur l'icône ouvre le panneau.",
+        "State 1 · addon disabled: the eye icon is in the header, immediately to the left of the magnifying glass, "
+        "dimmed (textMuted). The button under the window is hidden. Right-clicking the icon opens the panel.",
         H=H)
     return page(body, BANNER)
 
 
 def s2():
     px = WIN[0] + WIN[2] + 6
-    p, H = panel(px, WIN[1], active=True, quests=QUESTS3, search_label="Relancer la recherche",
+    p, H = panel(px, WIN[1], active=True, quests=QUESTS3, search_label="Search again",
                  channels=CH, peers=P4)
     body = guide("polestar-guide-header-active.png") + p
     body += caption(
-        "État 2 · recherche active : l'icône d'en-tête est colorée (accent). Les joueurs listés portent leur langue (FR). "
-        "Par défaut seule la langue du jeu (ici Français) est cochée dans Langues de recherche ; « Toutes les langues » n'est pas cochée.",
+        "State 2 · active search: the header icon is tinted (accent). Listed players show their language (FR). "
+        "By default only the game language (here English) is ticked in Search languages; “All languages” is not ticked.",
         H=H)
     return page(body, BANNER)
 
@@ -272,11 +272,11 @@ def s3():
     tip_w = 250
     panel_left = WIN[0] + WIN[2] + 6
     tip_x = min(gx + OUR_CX - tip_w / 2, panel_left - 8 - tip_w)
-    body += tooltip(tip_x, icon_bottom + 4, "Recherche de groupe",
-                    [("Chercher un groupe pour mes quêtes (clic gauche)", "#c3cadd"),
-                     ("Afficher ou masquer la recherche de groupe (clic droit)", "#c3cadd")], tip_w)
+    body += tooltip(tip_x, icon_bottom + 4, "Group Finder",
+                    [("Find a group for my quests (left click)", "#c3cadd"),
+                     ("Show or hide the group finder (right click)", "#c3cadd")], tip_w)
     body += caption(
-        "État 3 · infobulle de l'icône d'en-tête (addon activé, pas de recherche en cours) : clic gauche cherche, clic droit ouvre ou ferme le panneau.",
+        "State 3 · header-icon tooltip (addon on, no search running): left click searches, right click opens or closes the panel.",
         H=H)
     return page(body, BANNER)
 
@@ -305,21 +305,21 @@ def sw(x, y, on, dim=False):
 def options_page(all_on=False):
     """Polestar options, one 'Search languages' section. all_on: the language list is folded and hidden."""
     L, T, W, Hh = 80, 28, 1120, 668
-    side = ["Guide", "Quêtes", "Carte", "Qualité de vie", "Recherche de groupe", "Apparence", "Profils", "À propos"]
+    side = ["Guide", "Quests", "Map", "Quality of Life", "Group Finder", "Appearance", "Profiles", "About"]
     h = [f'<div class="abs set" style="left:{L}px;top:{T}px;width:{W}px;height:{Hh}px">']
-    h.append(f'<div class="t" style="left:16px;top:10px;font-size:15px;font-weight:600">Options de Polestar</div>')
+    h.append(f'<div class="t" style="left:16px;top:10px;font-size:15px;font-weight:600">Polestar Options</div>')
     h.append('<div class="abs side" style="left:0;top:42px;width:200px">' +
-             "".join(f'<div class="{"sel" if s=="Recherche de groupe" else ""}">{s}</div>' for s in side) + "</div>")
+             "".join(f'<div class="{"sel" if s=="Group Finder" else ""}">{s}</div>' for s in side) + "</div>")
     cx, cw = 220, W - 240
-    h.append(f'<div class="t" style="left:{cx}px;top:44px;font-size:15px;font-weight:600">Recherche de groupe</div>')
+    h.append(f'<div class="t" style="left:{cx}px;top:44px;font-size:15px;font-weight:600">Group Finder</div>')
     h.append(f'<div class="abs card" style="left:{cx}px;top:74px;width:{cw}px;height:268px">')
-    h.append(f'<div class="sec" style="top:8px">RECHERCHE DE GROUPE</div>')
+    h.append(f'<div class="sec" style="top:8px">GROUP FINDER</div>')
     rows = [
-        ("Activer la recherche de groupe", "Interrupteur général. Désactivé : rien n'est envoyé et l'addon ne répond à personne.", True),
-        ("Grouper automatiquement (même quête)", "Invite et accepte tout seul un joueur qui a une quête en commun. Sinon, vous choisissez dans la liste.", False),
-        ("Bouton dans l'en-tête de Polestar", "Affiche l'icône œil à gauche de la loupe : clic gauche pour chercher, clic droit pour le panneau.", True),
-        ("Partager ma position sur la carte", None, True),
-        ("Répondre aux recherches sur mes quêtes", None, True),
+        ("Enable the group finder", "Master switch. Off: the addon sends nothing and does not answer anyone.", True),
+        ("Group automatically (same quest)", "Invites and accepts on its own a player who shares a quest with you. Off: you choose in the list.", False),
+        ("Button in the Polestar header", "Shows the eye icon to the left of the magnifying glass: left click searches, right click opens the panel.", True),
+        ("Share my map position", None, True),
+        ("Answer searches for my quests", None, True),
     ]
     y = 28
     for lab, hp, on in rows:
@@ -328,11 +328,11 @@ def options_page(all_on=False):
             h.append(f'<div class="help" style="top:{y+16}px">{e(hp)}</div>')
         h.append(sw(cw - 14 - 34, y, on))
         y += 44 if hp else 28
-    h.append(f'<div class="rowl" style="top:{y+3}px">Chercher un groupe pour mes quêtes</div>'
-             f'<div class="key" style="left:{cw-14-120}px;top:{y}px">Non assigné</div>')
+    h.append(f'<div class="rowl" style="top:{y+3}px">Find a group for my quests</div>'
+             f'<div class="key" style="left:{cw-14-120}px;top:{y}px">Unbound</div>')
     y += 28
-    h.append(f'<div class="rowl" style="top:{y+3}px">Afficher ou masquer la recherche de groupe</div>'
-             f'<div class="key" style="left:{cw-14-120}px;top:{y}px">Non assigné</div>')
+    h.append(f'<div class="rowl" style="top:{y+3}px">Show or hide the group finder</div>'
+             f'<div class="key" style="left:{cw-14-120}px;top:{y}px">Unbound</div>')
     first_h = y + 28
     h.append("</div>")
     # Search languages: folded (only "All languages") or unfolded (one language per row).
@@ -340,10 +340,10 @@ def options_page(all_on=False):
     y_langs = 28 + 40
     ch = (y_langs + 16) if all_on else (y_langs + math.ceil(len(LANGS) / 2) * 24 + 16)
     h.append(f'<div class="abs card" style="left:{cx}px;top:{ly}px;width:{cw}px;height:{ch}px">')
-    h.append(f'<div class="sec" style="top:8px">LANGUES DE RECHERCHE</div>')
+    h.append(f'<div class="sec" style="top:8px">SEARCH LANGUAGES</div>')
     y = 28
-    h.append(f'<div class="rowl" style="top:{y}px">Toutes les langues</div>')
-    h.append(f'<div class="help" style="top:{y+16}px;right:54px">Cochée, elle replie la liste et cherche parmi tout le monde. Décochée par défaut.</div>')
+    h.append(f'<div class="rowl" style="top:{y}px">All languages</div>')
+    h.append(f'<div class="help" style="top:{y+16}px;right:54px">When ticked, it folds the list and searches among everyone. Off by default.</div>')
     h.append(sw(cw - 14 - 34, y, all_on))
     if not all_on:
         y = y_langs
@@ -356,11 +356,11 @@ def options_page(all_on=False):
     h.append("</div></div>")
     body = "".join(h)
     if all_on:
-        cap = ("État 5 · options Polestar, « Toutes les langues » cochée : la liste des langues est repliée et masquée "
-               "(plus de grisage). La section se réduit, sans trou. Le payload reste la langue du client (ici FR).")
+        cap = ("State 5 · Polestar options, “All languages” ticked: the language list is folded and hidden "
+               "(no more greying). The section shrinks, with no gap. The payload stays the client language (here EN).")
     else:
-        cap = ("État 4 · options Polestar, liste dépliée. En jeu : une langue par ligne (la fenêtre défile si besoin) ; "
-               "ici deux colonnes pour tout montrer. Client frFR : seule Français est cochée. Infobulle au survol de chaque réglage.")
+        cap = ("State 4 · Polestar options, list unfolded. In game: one language per row (the window scrolls if needed); "
+               "here two columns to show them all. enUS client: only English is ticked. Tooltip on hover of every setting.")
     body += f'<div class="caption" style="left:{L}px;top:{T+Hh+4}px;width:1120px">{cap}</div>'
     return page(body, BANNER, OPT_CSS)
 
@@ -385,8 +385,8 @@ def lang_picker(panel_left, panel_top, all_on=False):
     box_w = PW - 16
     box_h = lang_picker_height(all_on)
     h = [f'<div class="abs" style="left:{box_l}px;top:{box_t}px;width:{box_w}px;height:{box_h}px;z-index:10;background:#181d2d;box-shadow:0 0 0 1px rgba(0,0,5,.42),inset 0 0 0 1px rgba(255,255,255,.10),0 8px 18px rgba(0,0,5,.55);overflow:hidden">']
-    h.append(f'<div class="t" style="left:8px;top:8px;font-size:11px;font-weight:600;color:{MUTED}">Langues de recherche</div>')
-    h.append(pcheck(6, 24, "Toutes les langues", all_on))
+    h.append(f'<div class="t" style="left:8px;top:8px;font-size:11px;font-weight:600;color:{MUTED}">Search languages</div>')
+    h.append(pcheck(6, 24, "All languages", all_on))
     if not all_on:
         col_w = box_w // 2
         for i, (lab, on) in enumerate(LANGS):
@@ -401,8 +401,8 @@ def s7():
     p, H = panel(px, WIN[1], enabled=True, auto=False, header=True, channels=CH, peers=[], options_btn=True)
     body = guide("polestar-guide-header-idle.png") + p + lang_picker(px, WIN[1], all_on=False)
     body += caption(
-        "État 7 · sélecteur « Langues de recherche » du panneau, liste dépliée en deux colonnes (client frFR). "
-        "Français est coché ; « Toutes les langues » est décochée par défaut.",
+        "State 7 · panel “Search languages” picker, list unfolded in two columns (enUS client). "
+        "English is ticked; “All languages” is off by default.",
         y=WIN[1] + 34 + 5 * OPT_H + 22 + lang_picker_height(False) + 16)
     return page(body, BANNER)
 
@@ -410,11 +410,11 @@ def s7():
 def s8():
     px = WIN[0] + WIN[2] + 6
     p, H = panel(px, WIN[1], enabled=True, auto=False, header=True, channels=CH, peers=[], options_btn=True,
-                 lang_summary="Toutes")
+                 lang_summary="All")
     body = guide("polestar-guide-header-idle.png") + p + lang_picker(px, WIN[1], all_on=True)
     body += caption(
-        "État 8 · même sélecteur, « Toutes les langues » cochée : la liste des langues est repliée et masquée "
-        "(le cadre se réduit, sans trou). Tous les joueurs apparaissent, y compris un peer v0.2 sans langue.",
+        "State 8 · the same picker, “All languages” ticked: the language list is folded and hidden "
+        "(the frame shrinks, with no gap). Every player appears, including a v0.2 peer with no language.",
         y=WIN[1] + 34 + 5 * OPT_H + 22 + lang_picker_height(True) + 16)
     return page(body, BANNER)
 
@@ -424,8 +424,8 @@ def s6():
     p, H = panel(px, WIN[1], enabled=True, auto=False, header=False, channels=CH, peers=[], options_btn=True)
     body = guide_window(WIN[0] - 6, WIN[1] - 6) + launcher() + p
     body += caption(
-        "État 6 · option « Bouton dans l'en-tête » décochée : l'icône quitte la barre (Skip / Nearby / AllSteps reprennent leur place à gauche de la loupe) "
-        "et le bouton « Chercher un groupe » réapparaît sous la fenêtre (repli si l'accroche d'en-tête échoue aussi).",
+        "State 6 · “Button in the Polestar header” unticked: the icon leaves the bar (Skip / Nearby / AllSteps take their place back to the left of the magnifying glass) "
+        "and the “Find a group” button reappears under the window (also the fallback if the header hook fails).",
         H=H)
     return page(body, BANNER)
 
@@ -435,14 +435,14 @@ if __name__ == "__main__":
     bake_guide("polestar-guide-header-idle.png", ICON)
     bake_guide("polestar-guide-header-active.png", ACCENT_RGBA)
     for n, f in (
-        ("01-etat1-bouton-entete-desactive", s1),
-        ("02-etat2-bouton-entete-recherche-active", s2),
-        ("03-etat3-infobulle-bouton-entete", s3),
-        ("04-etat4-options-polestar-langues", s4),
-        ("05-etat5-options-toutes-langues", s5),
-        ("06-etat6-bouton-sous-la-fenetre", s6),
-        ("07-etat7-selecteur-langues", s7),
-        ("08-etat8-selecteur-toutes-langues", s8),
+        ("01-state1-header-button-disabled", s1),
+        ("02-state2-header-button-search-active", s2),
+        ("03-state3-header-button-tooltip", s3),
+        ("04-state4-polestar-options-languages", s4),
+        ("05-state5-options-all-languages", s5),
+        ("06-state6-button-under-the-window", s6),
+        ("07-state7-language-picker", s7),
+        ("08-state8-language-picker-all", s8),
     ):
         path = render(n, f(), OUT)
         print(path)

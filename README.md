@@ -1,220 +1,212 @@
 # Group Finder for Polestar (PSGroupFinder)
 
-Module **optionnel** pour [Polestar](https://github.com/fitzforge/polestar) (WoW: Forever 1.60.1) :
-trouve les joueurs qui font **la même quête que vous, près de vous** (mobs à tuer, élite nommé,
-objets à looter sur des monstres, quêtes de groupe) et propose de les **chuchoter** ou de les
-**inviter**. Le groupage peut être **automatique** (option, désactivée par défaut).
+An **optional** module for [Polestar](https://github.com/fitzforge/polestar) (WoW: Forever 1.60.1):
+it finds players who are on **the same quest as you, near you** (kills, named elites, loot from
+mobs, group quests) and lets you **whisper** or **invite** them. Grouping can be **automatic**
+(an option, off by default).
 
-Addon séparé : il ne modifie pas Polestar et fonctionne aussi sans lui (fenêtre autonome).
-Licence GPL-3.0-or-later (compatible avec Polestar, GPL-3.0).
+It is a separate addon: it does not modify Polestar and also works without it (standalone window).
+Licence: GPL-3.0-or-later (compatible with Polestar, GPL-3.0).
 
 ## Installation
 
-La procédure détaillée (chemins Windows et Mac, activation, premier test à deux
-comptes) est dans [INSTALLATION.md](INSTALLATION.md). En bref :
+The full procedure (Windows and Mac paths, enabling the addon, a first two-account test)
+is in [INSTALLATION.md](INSTALLATION.md). In short:
 
-1. Installez d'abord [Polestar](https://www.curseforge.com/wow/addons/polestar).
-2. Décompressez `PSGroupFinder-1.0.0.zip` dans
-   `World of Warcraft/_forever_/Interface/AddOns/` : vous devez obtenir
-   `.../AddOns/PSGroupFinder/PSGroupFinder.toc` (pas un dossier dans un dossier).
-   Si vous aviez l'ancienne version `Polestar_GroupFinder`, supprimez ce dossier.
-3. Redémarrez complètement le jeu (un `/reload` ne charge pas un nouvel addon).
+1. Install [Polestar](https://www.curseforge.com/wow/addons/polestar) first.
+2. Unzip `PSGroupFinder-1.0.0.zip` into
+   `World of Warcraft/_forever_/Interface/AddOns/`: you should end up with
+   `.../AddOns/PSGroupFinder/PSGroupFinder.toc` (not a folder inside a folder).
+   If you still have the old `Polestar_GroupFinder` folder, delete it.
+3. Fully restart the game (a `/reload` does not load a new addon).
 
-## Utilisation
+## Usage
 
-- **Activer** : `/psgf on`, ou cochez « Activer la recherche de groupe » dans le panneau.
-  **Désactivé par défaut** : tant que c’est coupé, l’addon ne rejoint aucun canal,
-  n’envoie et n’écoute rien.
-- **Chercher un groupe** :
-  - par défaut, une **icône œil** dans l'en-tête du guide Polestar, juste à gauche de la loupe
-    (clic gauche = chercher, clic droit = panneau ; atténuée si l'addon est coupé, colorée
-    si une recherche est en cours). Option « Bouton dans l'en-tête de Polestar » : en la
-    décochant, l'ancien bouton sous la fenêtre réapparaît (c'est aussi le repli si
-    l'accroche d'en-tête échoue) ;
-  - ou le bouton du panneau ;
-  - ou un **raccourci** : Échap > Options > Raccourcis > *Polestar* >
-    « Chercher un groupe pour mes quêtes » (et « Afficher ou masquer la recherche de groupe ») ;
-  - ou `/psgf search`.
-- **Recherche en cours** : un clic ouvre une *session* sur vos quêtes pertinentes (le panneau
-  les liste). Dès qu'un **objectif est terminé** (journal de quêtes : plus d'objectif ouvert,
-  « prête à rendre » ou quête retirée), la quête **sort de la recherche** (1 s après la dernière
-  mise à jour du journal), une recherche mise à jour part vers les joueurs trouvés (et le canal
-  caché / la guilde), et la recherche **continue pour les autres quêtes** du même endroit. Quand
-  il n'en reste aucune, la recherche s'arrête et un message `X` prévient les autres. Elle s'arrête
-  aussi si vous désactivez l'addon, entrez en instance, cliquez **Arrêter** (`/psgf stop`) ou
-  que le groupe est complet (5).
-- **Résultats** : le panneau (collé à droite de la fenêtre Polestar, à gauche si l'écran n'a pas
-  la place, sinon fenêtre déplaçable) liste les joueurs trouvés, triés par quêtes en commun
-  (l'étape Polestar en cours d'abord), distance (mètres, sinon « même zone »), déjà groupé ou
-  non, état de l'invitation automatique. Chaque ligne indique la langue du joueur (ex. `FR`).
-  Boutons **Chuchoter** et **Inviter** (à votre clic). Survol d'une ligne : toutes les quêtes communes.
-- **Langues de recherche** : par défaut, seule la langue du client (`GetLocale()`, ex. frFR →
-  Français) est cochée. Vous pouvez en cocher d'autres une par une. « Toutes les langues »
-  (décochée par défaut) replie et masque la liste des langues, et affiche tout le monde. Le filtrage est
-  **unilatéral** : un joueur apparaît chez vous si sa langue de jeu est dans votre recherche
-  (ou si vous avez coché Toutes). Chacun filtre de son côté ; pour le groupage automatique,
-  il faut donc que chacun apparaisse chez l'autre. Un peer v0.2 sans langue n'est visible
-  que si Toutes est cochée. Réglable dans le panneau et dans les options Polestar.
-- **Groupage automatique** (option « Grouper automatiquement (même quête) », **désactivée par
-  défaut**) : après *votre* recherche, l'addon invite le joueur trouvé (ou lui demande de vous
-  inviter) et accepte son invitation, sans clic. Il faut que **les deux** aient l'option. Qui
-  invite : celui qui est déjà en groupe (et chef) invite le solo ; deux solos : l'identifiant de
-  session le plus bas invite (l'autre lui envoie un message `G`) ; deux groupes : personne. Même
-  faction obligatoire, groupe de 5 maximum, jamais en instance. Une invitation n'est acceptée
-  que d'un joueur *attendu* (qui a lancé une recherche avec l'option et à qui vous avez répondu,
-  ou à qui vous avez demandé).
-- **Options** (sauvegardées dans `PSGroupFinderDB`), dans le panneau **et**, avec Polestar,
-  dans une page « Recherche de groupe » des options de Polestar (activer, grouper automatiquement,
-  bouton d'en-tête, langues, position, répondre, raccourcis, test des canaux).
-  Chaque réglage a une infobulle au survol :
-  - activer / désactiver ; grouper automatiquement ;
-  - bouton dans l'en-tête de Polestar (activé par défaut) ;
-  - langues de recherche (défaut : langue du jeu seulement ; « Toutes » est opt-in) ;
-  - partager ma position (sinon seule la zone est envoyée) ;
-  - répondre aux recherches sur mes quêtes.
-  - proposer de quitter quand les quêtes du groupe sont finies (activé par défaut), et dire un
-    message dans /p avant de quitter (désactivé par défaut, texte modifiable) ;
-- **Liste par quête** (1.1) : un petit bouton (œil) ouvre le panneau en « mode quête »,
-  la liste des joueurs qui ont **cette** quête, où qu'ils soient, avec leur zone, leur progression,
-  Chuchoter et Inviter ; **Rechercher pour cette quête** les interroge (quête identifiée par son
-  numéro). Le bouton est :
-  1. dans la fenêtre de guide Polestar, sous l'icône de l'objectif, à gauche de la sous-ligne ;
-  2. proposé dans l'infobulle de l'objectif (« Alt-clic : voir les joueurs sur cette quête ») ;
-  3. dans le journal de quêtes du jeu, à droite de la case de suivi de chaque quête
-     (le titre est raccourci pour ne pas passer sous le bouton) ;
-  4. dans la vue détail « Carte & journal », à gauche de Retour (ou à droite de Suivi).
-  Un second clic sur le même déclencheur referme le volet ; un clic pour une autre quête bascule.
-  Sans Polestar il reste ceux du journal / du détail et `/psgf quest <id>`.
-- **Quitter le groupe** (1.1) : pour un groupe formé via l'addon, quand toutes les quêtes pour
-  lesquelles vous vous êtes groupé sont finies, une fenêtre propose **Quitter** / **Rester**.
-  Le message dans /p (option) part aussi si vous quittez par le jeu (portrait, `/leave`) ou
-  par le bouton **Quitter le groupe** du panneau (visible seulement en groupe). Jamais tout
-  seul. Option « même hors groupe de l'addon » (`leaveMsgAny`, off) pour un groupe formé à la main.
-- **Commandes** : `/psgf` (panneau), `/psgf search`, `/psgf stop`, `/psgf on|off`, `/psgf test`
-  (teste les canaux), `/psgf reset` (replace le panneau), `/psgf quest <id>` (liste d'une quête),
-  `/psgf hooks` (ce qui a été trouvé chez Polestar et dans le journal), `/psgf debug`.
+- **Enable**: `/psgf on`, or tick “Enable the group finder” in the panel.
+  **Off by default**: while it is off, the addon joins no channel, sends nothing and listens to nothing.
+- **Find a group**:
+  - by default, an **eye icon** in the Polestar guide header, immediately to the left of the magnifying glass
+    (left click = search, right click = panel; dimmed if the addon is off, tinted if a search is running).
+    The “Button in the Polestar header” option: unchecking it brings back the older button under the
+    window (that is also the fallback if the header hook fails);
+  - or the button on the panel;
+  - or a **key bind**: Esc > Options > Key Bindings > *Polestar* >
+    “Find a group for my quests” (and “Show or hide the group finder”);
+  - or `/psgf search`.
+- **Search in progress**: one click opens a *session* on your relevant quests (the panel lists them).
+  As soon as an **objective is done** (quest log: no open objective, “ready to turn in”, or the quest
+  is gone), that quest **leaves the search** (1 s after the last log update), an updated search goes
+  out to the players already found (and the hidden channel / the guild), and the search **continues
+  for the other quests** in the same place. When none remain, the search stops and an `X` message
+  tells the others. It also stops if you turn the addon off, enter an instance, click **Stop**
+  (`/psgf stop`), or the group is full (5).
+- **Results**: the panel (docked to the right of the Polestar window, to the left if the screen has
+  no room, otherwise a movable window) lists the players found, sorted by shared quests (the current
+  Polestar step first), distance (yards, otherwise “same zone”), already grouped or not, and the
+  auto-invite state. Each row shows the player’s language (e.g. `EN`).
+  **Whisper** and **Invite** buttons (only ever on your click). Hover a row: every shared quest.
+- **Search languages**: by default, only the client language (`GetLocale()`, e.g. enUS → English)
+  is ticked. You can tick others one by one. “All languages” (off by default) folds and hides the
+  language list, and shows everyone. Filtering is **unilateral**: a player appears on your list if
+  their game language is in your search (or if you ticked All). Each side filters on its own; for
+  auto-grouping, each player must therefore appear on the other side. A v0.2 peer with no language
+  is visible only if All is ticked. Configurable in the panel and in Polestar’s options.
+- **Auto-grouping** (option “Group automatically (same quest)”, **off by default**): after *your*
+  search, the addon invites the player it found (or asks them to invite you) and accepts their
+  invitation, with no click. **Both** players must have the option on. Who invites: whoever is
+  already in a group (and is leader) invites the solo player; two solos: the lower session id
+  invites (the other sends them a `G` message); two groups: nobody. Same faction required, party
+  of 5 at most, never inside an instance. An invitation is accepted only from an *expected* player
+  (someone who started a search with the option and to whom you replied, or whom you asked).
+- **Options** (saved in `PSGroupFinderDB`), in the panel **and**, with Polestar, on a “Group Finder”
+  page in Polestar’s options (enable, group automatically, header button, languages, position,
+  answering, key binds, channel test). Every setting has a tooltip on hover:
+  - enable / disable; group automatically;
+  - button in the Polestar header (on by default);
+  - search languages (default: game language only; “All” is opt-in);
+  - share my map position (otherwise only the zone is sent);
+  - answer searches for my quests;
+  - offer to leave once the group’s quests are done (on by default), and say a message in /p
+    before leaving (off by default, editable text).
+- **Players on this quest** (1.1): a small button (the eye) opens the panel in “quest mode”,
+  the list of players who have **this** quest, wherever they are, with their zone, their progress,
+  Whisper and Invite; **Search for this quest** queries them (the quest is identified by its id).
+  The button is:
+  1. in the Polestar guide window, under the objective icon, to the left of the sub-line;
+  2. offered in the objective tooltip (“Alt-click: see the players on this quest”);
+  3. in the game’s quest log, to the right of each quest’s tracking checkbox
+     (the title is shortened so it does not run under the button);
+  4. in the Map & Quest Log details view, to the left of Back (or to the right of Track).
+  A second click on the same trigger closes the pane; a click for another quest switches to it.
+  Without Polestar, the log / details buttons and `/psgf quest <id>` remain.
+- **Leave the group** (1.1): for a group formed through the addon, when every quest you grouped
+  for is done, a window offers **Leave** / **Stay**. The /p message (optional) is also sent if you
+  leave through the game (portrait, `/leave`) or with the panel’s **Leave the group** button
+  (visible only while in a group). Never on its own. Option “Also when leaving a group not formed
+  by the finder” (`leaveMsgAny`, off) covers a group you joined by hand.
+- **Commands**: `/psgf` (panel), `/psgf search`, `/psgf stop`, `/psgf on|off`, `/psgf test`
+  (tests the channels), `/psgf reset` (repositions the panel), `/psgf quest <id>` (list for one
+  quest), `/psgf hooks` (what was found on Polestar and in the quest log), `/psgf debug`.
 
-## Ce qui est envoyé
+## What is sent
 
-Seulement quand c’est activé, en messages d’addon cachés (préfixe `PSGF`, ≤ 255 octets) :
+Only when the addon is on, as hidden addon messages (prefix `PSGF`, ≤ 255 bytes):
 
-| Message | Quand | Contenu |
+| Message | When | Contents |
 |---|---|---|
-| Recherche `S` | votre clic / raccourci, au plus toutes les 20 s ; renvoyée **sans clic** (canal caché, guilde, chuchotement aux joueurs trouvés) quand un objectif est terminé | jusqu’à ~12 IDs de quêtes restantes avec leur type (kill, élite nommé, loot, groupe), carte, x/y (si partagé), niveau, classe, taille du groupe, drapeaux (`g` groupage auto, faction `A`/`H`), langue du client (ex. `f`) |
-| Réponse `R` | en chuchotement d’addon au chercheur, au plus 1×/20 s par joueur | uniquement les IDs des quêtes **en commun**, votre carte/position, niveau, classe, drapeaux, langue du client |
-| Fin `X` | dernière quête terminée, arrêt, groupe complet | votre identifiant de session : les autres vous retirent de leur liste |
-| Demande `G` | option groupage auto, chuchoté au joueur qui doit vous inviter | les IDs des quêtes en commun |
-| Recherche de quête `Q` (1.1) | votre clic sur un bouton de quête, au plus toutes les 15 s | l'identifiant d'**une** quête, carte, x/y (si partagé), niveau, classe, taille du groupe, drapeaux, langue du client |
-| Réponse de quête `A` (1.1) | en chuchotement au demandeur, si vous avez la quête dans le journal (quelle que soit la zone), au plus 1×/20 s par demandeur et par quête | cet identifiant et votre progression en % (100 : terminée ou à rendre), votre position, niveau, classe, langue |
-| Test `T` | `/psgf test`, ou une fois après activation | un identifiant aléatoire (on écoute son propre écho) |
+| Search `S` | your click / key bind, at most every 20 s; resent **without a click** (hidden channel, guild, whisper to players already found) when an objective is done | up to ~12 remaining quest IDs with their kind (kill, named, loot, group), map, x/y (if shared), level, class, party size, flags (`g` auto-group, faction `A`/`H`), client language (e.g. `e`) |
+| Reply `R` | addon whisper to the searcher, at most 1×/20 s per player | only the IDs of **shared** quests, your map/position, level, class, flags, client language |
+| End `X` | last quest done, stop, group full | your session id: the others drop you from their list |
+| Request `G` | auto-group option, whispered to the player who should invite you | the IDs of the shared quests |
+| Quest search `Q` (1.1) | your click on a quest button, at most every 15 s | the id of **one** quest, map, x/y (if shared), level, class, party size, flags, client language |
+| Quest reply `A` (1.1) | whisper to the requester, if you have the quest in your log (any zone), at most 1×/20 s per requester and per quest | that id and your progress in % (100: done or ready to turn in), your position, level, class, language |
+| Test `T` | `/psgf test`, or once after enabling | a random id (we listen for our own echo) |
 
-Jamais de texte libre, jamais tout le journal de quêtes, rien en instance.
+Never free text, never the whole quest log, nothing inside an instance.
 
-## Canaux et détection
+## Channels and detection
 
-Ordre essayé : **CHANNEL** (canal caché `PSGroupFinder`, retiré des onglets de chat et rejoint
-6 s après la connexion pour ne pas prendre /1 ou /2), puis **YELL**, **SAY** (portée limitée),
-**GUILD**. Les réponses passent en **WHISPER**.
+Order tried: **CHANNEL** (hidden `PSGroupFinder` channel, removed from the chat tabs and joined
+6 s after login so it does not take /1 or /2), then **YELL**, **SAY** (limited range),
+**GUILD**. Replies go over **WHISPER**.
 
-L’addon détecte en jeu ce qui marche :
+The addon detects in-game what works:
 
-- code de retour de `C_ChatInfo.SendAddonMessage` (`InvalidChannel`,
-  `AddonMessageThrottle`, `NotInGuild`…) ;
-- **écho** : un message qui revient prouve que le canal fonctionne.
+- the return code of `C_ChatInfo.SendAddonMessage` (`InvalidChannel`,
+  `AddonMessageThrottle`, `NotInGuild`…);
+- **echo**: a message that comes back proves the channel works.
 
-Le panneau affiche chaque canal en couleur : vert = écho reçu, jaune = accepté sans écho,
-rouge = refusé, gris = indisponible. `/psgf test` détaille le résultat dans le chat.
-Une recherche part sur le meilleur canal public, plus la guilde si vous en avez une.
+The panel colours each channel: green = echo received, yellow = accepted with no echo,
+red = refused, grey = unavailable. `/psgf test` details the result in chat.
+A search goes out on the best public channel, plus guild if you have one.
 
-Débit : file maison (rafale de 4, puis ~0,8 msg/s), nouvel essai sur `AddonMessageThrottle`.
-La recherche elle-même part immédiatement, dans l’appel du clic ou de la touche (SAY/YELL
-peuvent exiger une action matérielle).
+Rate: a home-grown queue (burst of 4, then ~0.8 msg/s), retry on `AddonMessageThrottle`.
+The search itself goes out immediately, in the click or key-press call (SAY/YELL may require
+a hardware event).
 
-## Intégration avec Polestar
+## Integration with Polestar
 
-| Utilise | Statut chez Polestar | Pour |
+| Uses | Status in Polestar | For |
 |---|---|---|
-| `Polestar.API.version == 1`, `Polestar.On("STEP_CHANGED" / "GUIDE_CHANGED" / "TABS_CHANGED")`, `Polestar.Compat.IsOnQuest` / `IsQuestReadyForTurnIn` | **API publique** (docs/API.md) | savoir quand l’étape change, filtrer les quêtes |
-| `Polestar.Theme.Skin`, `Font`, `OnChanged` | **Skin API publique** (capability `theme.functions`) | peindre le panneau et le bouton au look du joueur |
-| `Polestar.Theme.GuideParts().window` | **Skin API publique** (capability `guideParts`) | accrocher le bouton sous la fenêtre de guide et le panneau à sa droite |
-| `Polestar.RegisterOptions` (ARCHITECTURE.md « Options registry », hors docs/API.md), sous `pcall` | **semi-interne** | page « Recherche de groupe » dans les options de Polestar |
-| champ public `icon` de `RegisterOptions` (chemin complet vers `Media/icon-eye`) | **API publique** du registre | icône de notre entrée dans la barre latérale, le même œil que l'en-tête, 16×16 monochrome comme Guide, Map, Questing et Discovery |
-| `UI.Options.Kit.pages`, `Options.Grouped.NavItems`, `Widgets.NavRowAfter` | **internes**, sous `pcall` | repli si la page groupée des options n'envoie pas l'icône aux lignes indentées |
-| `Polestar.Theme.GuideReach`, `Polestar.Theme.Skin(…, "checkbox" / "close")`, `Theme.Hex` | **Skin API publique** | éviter les onglets du bord bas, cases et bouton de fermeture au look Polestar |
-| `Polestar.UI.ShowOptions(clé)` | **interne**, sous `pcall` | bouton « Options » du panneau (masqué si absent) |
-| `Polestar.Engine.GetGuide()` / `GetLiveStep()` et `step.goals[].quest` | **interne**, appelé sous `pcall` | mettre les quêtes de l’étape en cours en tête |
-| `Polestar.Compat.GetPlayerMapPosition()` | **interne**, sous `pcall` | position (sinon `C_Map`) |
-| `Polestar.Theme.GuideParts().rows` (les lignes d'objectif, « pooled »), et sur chaque ligne `psGoal`, `Icon`, `Check`, `Alt` | `rows` documenté dans la référence des skins ; les champs de ligne sont **internes** | bouton de quête sous l'icône de l'objectif |
-| `Polestar.QuestClickTips(questID, lines)` et `Polestar.QuestRowClick(questID, button)` | **internes** (appelées par nom à chaque infobulle / clic) ; enveloppées sous `pcall`, l'original passe toujours en premier | ligne d'aide « Alt-clic » et Alt-clic |
+| `Polestar.API.version == 1`, `Polestar.On("STEP_CHANGED" / "GUIDE_CHANGED" / "TABS_CHANGED")`, `Polestar.Compat.IsOnQuest` / `IsQuestReadyForTurnIn` | **public API** (docs/API.md) | know when the step changes, filter quests |
+| `Polestar.Theme.Skin`, `Font`, `OnChanged` | **public Skin API** (capability `theme.functions`) | paint the panel and the button in the player’s look |
+| `Polestar.Theme.GuideParts().window` | **public Skin API** (capability `guideParts`) | hook the button under the guide window and the panel to its right |
+| `Polestar.RegisterOptions` (ARCHITECTURE.md “Options registry”, outside docs/API.md), under `pcall` | **semi-internal** | “Group Finder” page in Polestar’s options |
+| public `icon` field of `RegisterOptions` (full path to `Media/icon-eye`) | **public** registry API | icon of our sidebar entry, the same eye as the header, 16×16 monochrome like Guide, Map, Questing and Discovery |
+| `UI.Options.Kit.pages`, `Options.Grouped.NavItems`, `Widgets.NavRowAfter` | **internal**, under `pcall` | fallback if the grouped options page does not send the icon to indented rows |
+| `Polestar.Theme.GuideReach`, `Polestar.Theme.Skin(…, "checkbox" / "close")`, `Theme.Hex` | **public Skin API** | avoid the bottom-edge tabs; checkboxes and close button in the Polestar look |
+| `Polestar.UI.ShowOptions(key)` | **internal**, under `pcall` | panel “Options” button (hidden if missing) |
+| `Polestar.Engine.GetGuide()` / `GetLiveStep()` and `step.goals[].quest` | **internal**, called under `pcall` | put the current step’s quests first |
+| `Polestar.Compat.GetPlayerMapPosition()` | **internal**, under `pcall` | position (otherwise `C_Map`) |
+| `Polestar.Theme.GuideParts().rows` (pooled objective rows), and on each row `psGoal`, `Icon`, `Check`, `Alt` | `rows` documented in the skins reference; the row fields are **internal** | quest button under the objective icon |
+| `Polestar.QuestClickTips(questID, lines)` and `Polestar.QuestRowClick(questID, button)` | **internal** (called by name on every tooltip / click); wrapped under `pcall`, the original always runs first | “Alt-click” help line and Alt-click |
 
-Si un élément interne change dans une version de Polestar, l’addon retombe sur le journal de
-quêtes du client et `C_Map`. Sans Polestar, ou avec une version d’API différente, c’est une
-fenêtre autonome.
+If an internal hook changes in a Polestar version, the addon falls back to the client’s quest log
+and `C_Map`. Without Polestar, or with a different API version, it is a standalone window.
 
-## Journal de quêtes du jeu (1.1)
+## Game quest log (1.1)
 
-Le bouton par quête s'accroche à **`QuestScrollFrame.titleFramePool`** (le journal Carte et
-quêtes, boutons de titre avec `.questID` et `.Checkbox`), sinon aux enfants de son contenu qui
-portent un `questID`, sinon aux boutons `QuestLogTitle1…N` du journal classique. Il est placé
-**à droite de la case de suivi** (3 px, même colonne s'il n'y a pas de case) ; le titre est
-raccourci (`SetPoint` RIGHT) pour ne pas passer dessous. Le bouton est un **enfant** du bouton
-de titre (il suit les lignes recyclées) ; il est replacé après les fonctions de mise à jour du
-journal (`hooksecurefunc` seulement : on ne remplace rien, et on n'appelle jamais
-`QuestMapFrame_OpenToQuestDetails`, qui fait du taint chez Polestar, #2924) et toutes les 0,5 s
-tant qu'un journal est affiché. Sur la vue détail (`QuestMapFrame.DetailsFrame`, ancre
-`BackButton` ou `TrackButton`), un second bouton s'accroche à `QuestMapFrame_ShowQuestDetails`
-et aux mises à jour du détail, sous pcall. Les noms de frames de Forever n'ont **pas** pu être
-vérifiés hors jeu (ils viennent du code du journal de la version Retail et de ce que dit
-Questie) : `/psgf hooks` dit ce qui a été trouvé (cadre, identifiant, bouton, ancre).
+The per-quest button hooks **`QuestScrollFrame.titleFramePool`** (the Map & Quest Log, title
+buttons with `.questID` and `.Checkbox`), otherwise children of its content that carry a
+`questID`, otherwise the classic `QuestLogTitle1…N` buttons. It is placed **to the right of the
+tracking checkbox** (3 px, same column if there is no checkbox); the title is shortened
+(`SetPoint` RIGHT) so it does not run underneath. The button is a **child** of the title button
+(it follows recycled rows); it is repositioned after the log’s update functions (`hooksecurefunc`
+only: nothing is replaced, and `QuestMapFrame_OpenToQuestDetails` is never called, which taints
+Polestar, #2924) and every 0.5 s while a log is shown. On the details view
+(`QuestMapFrame.DetailsFrame`, anchor `BackButton` or `TrackButton`), a second button hooks
+`QuestMapFrame_ShowQuestDetails` and the details updates, under pcall. Forever’s frame names
+could **not** be verified out of game (they come from Retail quest-log code and from what
+Questie documents): `/psgf hooks` reports what was found (frame, id, button, anchor).
 
-## Limites du groupage automatique (à confirmer en jeu)
+## Auto-grouping limits (to confirm in game)
 
-- **Invitation** : `InviteUnit` peut être appelé depuis un gestionnaire d'événement, sans touche
-  (des addons Forever d'auto-invitation le font) ; seul le **chef** (ou un joueur solo) peut
-  inviter, 5 membres maximum, **même faction** (et même ruleset), pas d'invitation de guilde
-  automatisable.
-- **Acceptation** : `AcceptGroup()` sur `PARTY_INVITE_REQUEST` est documenté pour Classic, mais
-  **non confirmé sur Forever**. Si le client refuse, la fenêtre d'invitation reste affichée et un
-  message dans le chat demande d'accepter à la main.
-- Pas de `SendChatMessage` (SAY/YELL) sans action matérielle : les mises à jour sans clic
-  passent par le canal caché, la guilde et le chuchotement d'addon. Un joueur joint seulement par
-  YELL/SAY garde l'ancienne liste jusqu'à expiration de son entrée (5 min).
-- Les noms de session servent à décider qui invite ; deux clients avec des versions
-  différentes (v0.1 / v0.2) ne se comprennent pas pour les nouvelles fonctions.
+- **Invite**: `InviteUnit` can be called from an event handler, with no key press (Forever
+  auto-inviter addons do this); only the **leader** (or a solo player) can invite, 5 members
+  at most, **same faction** (and same ruleset), no automatable guild invite.
+- **Accept**: `AcceptGroup()` on `PARTY_INVITE_REQUEST` is documented for Classic, but
+  **unconfirmed on Forever**. If the client refuses, the invitation window stays on screen and
+  a chat message asks you to accept by hand.
+- No `SendChatMessage` (SAY/YELL) without a hardware event: click-less updates go through the
+  hidden channel, guild and addon whisper. A player only reached by YELL/SAY keeps the old list
+  until their entry expires (5 min).
+- Session names are used to decide who invites; two clients on different versions (v0.1 / v0.2)
+  do not understand each other for the new features.
 
-## Limites connues / à tester en jeu
+## Known limits / to test in game
 
-- **Canal CHANNEL** : WoW Classic interdit les messages d’addon sur canal custom depuis 1.13.3.
-  Sur Forever, ils renvoyaient `InvalidChannel (7)` au lancement (6 nov. 2026), puis un joueur a
-  écrit « appears to be fixed », sans confirmation de Blizzard. **Lancez `/psgf test`** pour
-  savoir. Sans CHANNEL, YELL/SAY ne touchent que les joueurs proches (c’est souvent ce qu’on
-  veut pour une quête de kill) et GUILD que votre guilde.
-- Les comptes d’essai / vétérans ne peuvent pas envoyer de messages d’addon (1.60.1).
-- Les quêtes de type « item » ne disent pas si l’objet vient d’un monstre ou du sol : toutes
-  comptent comme « loot ».
-- « Élite nommé » est une heuristique : objectif de kill qui demande exactement 1 mob.
-- Les noms Forever ont un nom de famille (« Ana Smith ») : le chuchotement et l’invitation
-  utilisent le nom tel que le serveur l’envoie. À vérifier en jeu, surtout entre royaumes.
-- Seuls les autres joueurs **qui ont cet addon et l’ont activé** répondent.
-- **Fragilités de la 1.1** (rien n'a été vu dans le client) : noms des frames du journal et
-  du détail Forever (`QuestMapFrame.DetailsFrame`, `BackButton`, `TrackButton`) ; le trim du
-  titre dépend de trouver le FontString ; hauteur de ligne d'objectif Polestar (≥ 36 pour
-  placer le bouton sous l'icône, sinon à gauche de la case à cocher) ; `QuestClickTips` /
-  `QuestRowClick` / `row.psGoal` sont internes à Polestar (sans eux : ni ligne d'aide ni
-  Alt-clic, le bouton reste) ; une version 1.0.x ne répond pas aux recherches de quête (elle
-  les ignore). Le message dans /p passe par `SendChatMessage` juste avant `LeaveParty` (pré-
-  accroche, donc possible taint si le jeu l'appelle de façon sécurisée — accepté, le joueur
-  déclenche le départ) ; si Forever refuse le message, le groupe est quand même quitté.
-- Testé uniquement hors jeu : `luac` + `luacheck` + une simulation multi-clients (recherche, session, retrait des quêtes, groupage auto, recherche de quête, boutons, offre de quitter) avec un faux
-  API WoW et un faux Polestar (`lua5.1 tests/sim.lua`). Pas encore testé dans le client.
+- **CHANNEL**: WoW Classic has forbidden addon messages on custom channels since 1.13.3.
+  On Forever they returned `InvalidChannel (7)` at launch (6 Nov 2026), then a player wrote
+  “appears to be fixed”, with no confirmation from Blizzard. **Run `/psgf test`** to find out.
+  Without CHANNEL, YELL/SAY only reach nearby players (often what you want for a kill quest)
+  and GUILD only your guild.
+- Trial / veteran accounts cannot send addon messages (1.60.1).
+- “Item” quests do not say whether the item comes from a mob or the ground: they all count as
+  “loot”.
+- “Named elite” is a heuristic: a kill objective that asks for exactly 1 mob.
+- Forever names include a last name (“Ana Smith”): whisper and invite use the name as the
+  server sends it. To verify in game, especially across realms.
+- Only other players **who have this addon and have enabled it** will answer.
+- **1.1 fragilities** (nothing has been seen in the client): Forever quest-log and details frame
+  names (`QuestMapFrame.DetailsFrame`, `BackButton`, `TrackButton`); title trimming depends on
+  finding the FontString; Polestar goal-row height (≥ 36 to place the button under the icon,
+  otherwise to the left of the checkbox); `QuestClickTips` / `QuestRowClick` / `row.psGoal` are
+  internal to Polestar (without them: no help line and no Alt-click, the button remains); a
+  1.0.x version does not answer quest searches (it ignores them). The /p message goes through
+  `SendChatMessage` just before `LeaveParty` (a pre-hook, so possible taint if the game calls
+  it securely — accepted, the player initiates the leave); if Forever refuses the message, the
+  group is still left.
+- Tested only out of game: `luac` + `luacheck` + a multi-client simulation (search, session,
+  quest removal, auto-grouping, quest search, buttons, leave offer) with a fake WoW API and a
+  fake Polestar (`lua5.1 tests/sim.lua`). Not yet tested in the client.
 
-## Développement
+## Development
 
 ```
 luacheck PSGroupFinder      # lint (config .luacheckrc)
-lua5.1 tests/sim.lua               # simulation multi-clients
-./build.sh                         # zip versionné dans ../polestar-groupfinder-release/
+lua5.1 tests/sim.lua        # multi-client simulation
+./build.sh                  # versioned zip in ../polestar-groupfinder-release/
 ```
 
-Inspiré par les descriptions publiques de Group Up, QuestScout et Group Quest Finder
-(CurseForge, « All Rights Reserved ») : **aucun code de ces addons n’a été lu ni copié**.
+Inspired by the public descriptions of Group Up, QuestScout and Group Quest Finder
+(CurseForge, “All Rights Reserved”): **none of those addons’ code was read or copied**.

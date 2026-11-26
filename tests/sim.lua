@@ -14,7 +14,7 @@ local function newClient(name, quests, opts)
 	local frames = {}
 	local printed = {}
 	env.printed = printed
-	env.GetLocale = function() return opts.locale or "frFR" end
+	env.GetLocale = function() return opts.locale or "enUS" end
 	env.GetTime = function() return now end
 	env.C_Timer = { After = function(s, fn) timers[#timers + 1] = { at = now + s, fn = fn } end }
 	env.UISpecialFrames = {}
@@ -201,9 +201,9 @@ local cid = newClient("Cid Vale", { other }, {})
 
 -- Off by default: nothing is sent.
 check(ana.ns.db.enabled == false, "disabled by default")
-check(ana.ns.Lang.DefaultCode() == "f" and ana.ns.Lang.Search()[1] == "f" and not ana.ns.Lang.AcceptsAll(),
-	"default languages: the client's only (frFR -> FR), not all languages")
-check(ana.ns.Lang.Encode() == "f", "language payload is the client letter (f)")
+check(ana.ns.Lang.DefaultCode() == "e" and ana.ns.Lang.Search()[1] == "e" and not ana.ns.Lang.AcceptsAll(),
+	"default languages: the client's only (enUS -> EN), not all languages")
+check(ana.ns.Lang.Encode() == "e", "language payload is the client letter (e)")
 check(ana.ns.Get("headerButton") == true, "header button is on by default")
 ana.PSGroupFinder_Search()
 run(1)
@@ -231,7 +231,7 @@ check(#ben.ns.Matcher.List() == 1, "Ben sees Ana as also looking")
 check(#cid.ns.Matcher.List() == 0, "Cid (no shared quest) sees nobody and answers nothing")
 
 ana.PSGroupFinder_Search()
-check(ana.printed[#ana.printed]:find("Attendez"), "search cooldown enforced")
+check(ana.printed[#ana.printed]:find("Wait"), "search cooldown enforced")
 
 -- The panel builds and refreshes with a session and a player found (stub frames).
 ana.ns.UI.Show()
@@ -244,7 +244,7 @@ for i = 1, 40 do many[i] = { id = 100000 + i, kind = "k" } end
 local text, n = ana.ns.Comm.EncodeSearch(many)
 check(#text <= 255 and n < 40, "search text cut to 255 bytes (" .. #text .. " bytes, " .. n .. " quests)")
 local m = ana.ns.Comm.Decode(text)
-check(m and m.kind == "S" and #m.quests == n and m.class == "WARRIOR" and m.langs and m.langs.code == "f", "decode round trip (with langs)")
+check(m and m.kind == "S" and #m.quests == n and m.class == "WARRIOR" and m.langs and m.langs.code == "e", "decode round trip (with langs)")
 check(ana.ns.Comm.Decode("S|zz|1|2") == nil and ana.ns.Comm.Decode(("x"):rep(300)) == nil, "malformed messages dropped")
 local oldS = "S|abc123|1436|400|500|20|WARRIOR|0|gA|176:n,86:l"
 local oldm = ana.ns.Comm.Decode(oldS)
@@ -299,7 +299,7 @@ check(dee.ns.Session.Active(), "left click on the header starts a search")
 check(not dee.ns.UI.IsShown(), "left click does not open the panel")
 local sawSent = false
 for _, p in ipairs(dee.printed) do
-	if p:find("Recherche envoyée") or p:find("Search sent") then sawSent = true end
+	if p:find("Search sent") or p:find("Recherche envoyée") then sawSent = true end
 end
 check(sawSent, "left click prints a short search confirmation in chat")
 if dee.ns.UI.IsShown() then dee.ns.UI.Toggle() end
@@ -318,11 +318,11 @@ lea.PSGroupFinder_Search()
 lea.ns.UI.Show()
 lea.ns.UI.Refresh()
 check(lea.ns.Session.Active() and #lea.ns.Matcher.List() == 0, "Lea is searching and has no one yet")
-check(lea.ns.UI.EmptyCaption() == "Recherche en cours… aucun joueur pour l'instant.",
+check(lea.ns.UI.EmptyCaption() == "Searching… no player found yet.",
 	"active search with no one found uses the searching-empty caption")
 lea.ns.Session.Stop("manual")
 lea.ns.UI.Refresh()
-check(lea.ns.UI.EmptyCaption() == "Personne pour l'instant. Cliquez sur Chercher un groupe.",
+check(lea.ns.UI.EmptyCaption() == "No one yet. Press Find a group.",
 	"with no search in progress the empty caption invites to search")
 lea.ns.UI.Toggle()
 fakePolestar.Engine.GetGuide = function() error("internal API moved") end
@@ -364,7 +364,7 @@ run(3)
 local left = collect(eve)
 table.sort(left)
 check(#left == 2 and left[1] == 5002 and left[2] == 5003, "quest A removed from the search, B and C stay")
-check(eve.printed[#eve.printed - 1]:find("Objectif terminé") ~= nil, "the player is told (objective done)")
+check(eve.printed[#eve.printed - 1]:find("Objective done") ~= nil, "the player is told (objective done)")
 check(peerQuests(finn, "Eve Dawn") == 1, "Finn's list of Eve updated to the quests left (B only)")
 check(peerQuests(gus, "Eve Dawn") == 1, "Gus still shares B with Eve")
 
@@ -381,7 +381,7 @@ eve.quests[3].obj[1][3] = true
 eve.QuestLogUpdate()
 run(3)
 check(not eve.ns.Session.Active(), "last quest done: search stopped")
-check(eve.printed[#eve.printed]:find("Tous les objectifs") ~= nil, "the player is told the search is over")
+check(eve.printed[#eve.printed]:find("Every objective") ~= nil, "the player is told the search is over")
 
 -- Auto group.
 local function mk(name, opts, quests)
@@ -435,7 +435,7 @@ run(30)
 inviter.PSGroupFinder_Search()
 run(10)
 local told = false
-for _, p in ipairs(invitee.printed) do if p:find("à la main") then told = true end end
+for _, p in ipairs(invitee.printed) do if p:find("by hand") then told = true end end
 check(party["Lou Vance"] == nil and party["Max Teal"] == nil and told, "AcceptGroup refused by the client: popup stays, the player is told to click")
 
 -- A full party ends the search (5 members).
@@ -487,8 +487,8 @@ check(pia.ns.Lang.Compatible(nil), "a v0.2 peer is visible when we accept all")
 ---------------------------------------------------------------------------
 local kc = { id = 12345, title = "Kobold Camp Cleanup", obj = { { "Kobold Vermin slain: 8/10", "monster" } } }
 local function kq(have) return { id = 12345, title = kc.title, obj = { { "Kobold Vermin slain: " .. have .. "/10", "monster" } } } end
-local qua = newClient("Qua Dell", {}, { map = 1436 })
-local rex = newClient("Rex Holt", { kq(8) }, { map = 1429, class = "HUNTER" })
+local qua = newClient("Qua Dell", {}, { map = 1436, locale = "frFR" })
+local rex = newClient("Rex Holt", { kq(8) }, { map = 1429, class = "HUNTER", locale = "frFR" })
 local sue = newClient("Sue Park", { kq(2) }, { map = 1436, locale = "enUS" })
 local tom = newClient("Tom Gray", { { id = 31337, title = "Else", obj = { { "x: 0/1", "monster" } } } }, { map = 1436 })
 local uma = newClient("Uma Wood", { kq(1) }, { map = 1436 })
@@ -511,7 +511,7 @@ check(qua.ns.Comm.Decode("S|abc123|1436|400|500|20|WARRIOR|0|gA|f|176:n").quests
 -- Quest panel: opened with no result yet.
 qua.ns.QuestUI.Open(12345)
 check(qua.ns.QuestUI.IsShown() and qua.ns.QuestUI.Quest() == 12345 and not qua.ns.UI.IsShown(), "quest panel opens in quest mode, the main panel is not shown")
-check(qua.ns.QuestUI.EmptyCaption() == "Personne pour l'instant. Appuyez sur Rechercher pour cette quête.", "quest panel: empty caption before any search")
+check(qua.ns.QuestUI.EmptyCaption() == "Personne pour l'instant. Appuyez sur Rechercher pour cette quête.", "quest panel: empty caption before any search (frFR client)")
 check(#qua.ns.Matcher.QuestList(12345) == 0, "nobody known on the quest before searching")
 
 -- A targeted search by quest id: found in ANOTHER zone, language filter applied.
@@ -531,7 +531,7 @@ local qrowFrames = qua.ns.QuestUI.RowFrames()
 check(qrowFrames[1] and qrowFrames[1].entry and qrowFrames[1].entry.name ~= nil and qrowFrames[1].invite.who ~= nil, "quest panel shows a row with Whisper / Invite for the player")
 
 -- Throttle: one quest search every 15 s; replies answered once per asker.
-check(not qua.ns.Comm.SearchQuest(12345) and qua.printed[#qua.printed]:find("Patientez"), "second quest search within 15 s is refused")
+check(not qua.ns.Comm.SearchQuest(12345) and (qua.printed[#qua.printed]:find("Wait") or qua.printed[#qua.printed]:find("Patientez")), "second quest search within 15 s is refused")
 local rexAnswers = 0
 local sentA = rex.C_ChatInfo.SendAddonMessage
 rex.C_ChatInfo.SendAddonMessage = function(prefix, txt, chatType, target)
@@ -608,7 +608,7 @@ check(gRows[1].psgfBtn and gRows[1].psgfBtn.questID == 12345, "a button on the g
 check(gRows[2].psgfBtn == nil and gRows[3].psgfBtn == nil and gRows[5].psgfBtn == nil, "none on a row without quest, a done goal or a pooled hidden row")
 check(gRows[4].psgfBtn and gRows[4].psgfBtn.questID == 12345, "one-line row gets one too (left of its checkbox)")
 local lines = fp2.QuestClickTips(12345, {})
-check(origTipCalls == 1 and #lines == 2 and lines[2][1] == "Alt-clic : voir les joueurs sur cette quête", "tooltip: Polestar's lines kept, our Alt-click help line added")
+check(origTipCalls == 1 and #lines == 2 and lines[2][1] == "Alt-click: see the players on this quest", "tooltip: Polestar's lines kept, our Alt-click help line added")
 check(#fp2.QuestClickTips("x", {}) == 1, "no help line for a goal without a quest id")
 hal2.altDown = false
 check(fp2.QuestRowClick(12345, "LeftButton") == false and origClickCalls == 1, "plain click: Polestar's own handler answers")
@@ -711,7 +711,7 @@ hal2.ns.Hooks.Scan()
 local dbtn = hal2.ns.Hooks.DetailsButton()
 check(dbtn and dbtn.questID == 12345 and dbtn:IsShown(), "the details pane has an eye button for the displayed quest")
 check(dbtn._rel == details.BackButton and dbtn._point == "RIGHT" and dbtn._relPoint == "LEFT",
-	"the details button sits just left of Back (Retour)")
+	"the details button sits just left of Back")
 check(dbtn.Icon and dbtn.Icon._texture and dbtn.Icon._texture:find("icon%-eye"),
 	"the details button uses our eye texture")
 dbtn._OnClick(dbtn)
@@ -743,8 +743,8 @@ check(true, "scan with no Polestar and no quest log does nothing")
 -- Leaving a group formed through the finder
 ---------------------------------------------------------------------------
 local function lq(id, have) return { id = id, title = "Quest " .. id, obj = { { "Thing slain: " .. have .. "/6", "monster" } } } end
-local rae = newClient("Rae Fox", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.1 })
-local sam = newClient("Sam Lee", { lq(11001, 0), lq(11002, 0) }, { x = 0.11, y = 0.1 })
+local rae = newClient("Rae Fox", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.1, locale = "frFR" })
+local sam = newClient("Sam Lee", { lq(11001, 0), lq(11002, 0) }, { x = 0.11, y = 0.1, locale = "frFR" })
 local noa = newClient("Noa Bell", { lq(11001, 0) }, { x = 0.12, y = 0.1 })
 for _, c in ipairs({ rae, sam, noa }) do c.ns.SetEnabled(true) end
 run(15)
@@ -797,7 +797,7 @@ check(not rae.ns.UI.LeaveShown(), "after Stay it is not offered again for this g
 local tia = newClient("Tia Moon", { lq(11001, 0) }, { x = 0.1, y = 0.2 })
 tia.ns.SetEnabled(true) run(15) tia.ns.Comm.TestChannels(true) run(6) run(30)
 tia.ns.Set("leaveMsgOn", true)
-tia.ns.Set("leaveMsg", "Merci, à plus !")
+tia.ns.Set("leaveMsg", "Thanks, take care!")
 noa.PSGroupFinder_Search() run(8)
 check(noa.ns.Matcher.Get("Tia Moon") ~= nil, "Noa found Tia")
 noa.ns.Leave.NoteInvite("Tia Moon", noa.ns.Matcher.Get("Tia Moon").quests)
@@ -811,7 +811,7 @@ tia.QuestLogUpdate() run(5)
 check(tia.ns.UI.LeaveShown() and tia.leaves == 0 and #tia.chat == 0, "window shown, still nothing said or left")
 local tyes = tia.ns.UI.LeaveButtons()
 tyes._OnClick(tyes)
-check(#tia.chat == 1 and tia.chat[1][1] == "Merci, à plus !" and tia.chat[1][2] == "PARTY", "Leave click: the /p message is sent first (PARTY)")
+check(#tia.chat == 1 and tia.chat[1][1] == "Thanks, take care!" and tia.chat[1][2] == "PARTY", "Leave click: the /p message is sent first (PARTY)")
 check(tia.leaves == 1 and party["Tia Moon"] == nil, "...then the party is left")
 check(tia.ns.char.party == nil, "the memory of the group is cleared")
 
@@ -870,8 +870,8 @@ check(yui.ns.char.party == nil, "the memory goes when the group ends")
 -- The message editor saves, strips escapes, and the default comes back on empty.
 sam.ns.UI.EditLeaveMessage()
 check(sam.ns.UI.EditorShown(), "message dialog opens")
-sam.ns.Set("leaveMsg", "Salut |cffff0000!")
-check(sam.ns.Leave.Message() == "Salut |cffff0000!", "a saved message is used as is by Message()")
+sam.ns.Set("leaveMsg", "Hi |cffff0000!")
+check(sam.ns.Leave.Message() == "Hi |cffff0000!", "a saved message is used as is by Message()")
 sam.ns.Set("leaveMsg", false)
 check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "false brings the default text back")
 
@@ -883,7 +883,7 @@ local kit = newClient("Kit Vale", { lq(11001, 0) }, { x = 0.21, y = 0.2 })
 pip.ns.SetEnabled(true) kit.ns.SetEnabled(true) run(15)
 pip.ns.Comm.TestChannels(true) run(6) run(30)
 pip.ns.Set("leaveMsgOn", true)
-pip.ns.Set("leaveMsg", "Bon jeu, merci !")
+pip.ns.Set("leaveMsg", "Have fun, thanks!")
 pip.PSGroupFinder_Search() run(8)
 check(pip.ns.Matcher.Get("Kit Vale") ~= nil, "Pip found Kit")
 pip.ns.Leave.NoteInvite("Kit Vale", pip.ns.Matcher.Get("Kit Vale").quests)
@@ -893,7 +893,7 @@ pip.fire("GROUP_ROSTER_UPDATE") kit.fire("GROUP_ROSTER_UPDATE") run(2)
 check(pip.ns.char.party ~= nil, "Pip remembers the finder group")
 -- Game leave (the hooked LeaveParty), not our window.
 pip.LeaveParty()
-check(#pip.chat == 1 and pip.chat[1][1] == "Bon jeu, merci !" and pip.chat[1][2] == "PARTY",
+check(#pip.chat == 1 and pip.chat[1][1] == "Have fun, thanks!" and pip.chat[1][2] == "PARTY",
 	"leaving via the game (LeaveParty) sends the /p message first")
 check(pip.leaves == 1, "LeaveParty then leaves the group")
 
@@ -903,14 +903,14 @@ local mo = newClient("Mo Pike", { lq(11001, 0) }, { x = 0.23, y = 0.2 })
 jo.ns.SetEnabled(true) mo.ns.SetEnabled(true) run(15)
 jo.ns.Comm.TestChannels(true) run(6) run(30)
 jo.ns.Set("leaveMsgOn", true)
-jo.ns.Set("leaveMsg", "À plus !")
+jo.ns.Set("leaveMsg", "See you!")
 jo.PSGroupFinder_Search() run(8)
 jo.ns.Leave.NoteInvite("Mo Pike", { 11001 })
 jo.C_PartyInfo.InviteUnit("Mo Pike") run(1)
 mo.AcceptGroup()
 jo.fire("GROUP_ROSTER_UPDATE") mo.fire("GROUP_ROSTER_UPDATE") run(2)
 jo.ns.Leave.Do()
-check(#jo.chat == 1 and jo.chat[1][1] == "À plus !" and jo.leaves == 1,
+check(#jo.chat == 1 and jo.chat[1][1] == "See you!" and jo.leaves == 1,
 	"Leave.Do sends the /p message once, even though LeaveParty is pre-hooked")
 
 -- A group formed by hand: no message unless leaveMsgAny is on.
@@ -918,7 +918,7 @@ local abb = newClient("Abb Cole", { lq(11001, 0) }, {})
 local bea = newClient("Bea Cole", { lq(11001, 0) }, {})
 abb.ns.SetEnabled(true) bea.ns.SetEnabled(true) run(15)
 abb.ns.Set("leaveMsgOn", true)
-abb.ns.Set("leaveMsg", "Ciao")
+abb.ns.Set("leaveMsg", "Bye")
 party["Abb Cole"] = { "Abb Cole", "Bea Cole" } party["Bea Cole"] = party["Abb Cole"]
 abb.fire("GROUP_ROSTER_UPDATE") run(1)
 check(abb.ns.char.party == nil, "a hand-formed group is not in the finder's memory")
@@ -927,7 +927,7 @@ check(#abb.chat == 0 and abb.leaves == 1, "LeaveParty on a hand-formed group say
 party["Abb Cole"] = { "Abb Cole", "Bea Cole" } party["Bea Cole"] = party["Abb Cole"]
 abb.ns.Set("leaveMsgAny", true)
 abb.LeaveParty()
-check(#abb.chat == 1 and abb.chat[1][1] == "Ciao" and abb.leaves == 2,
+check(#abb.chat == 1 and abb.chat[1][1] == "Bye" and abb.leaves == 2,
 	"with leaveMsgAny, leaving a hand-formed group also sends the /p message")
 
 -- Panel "Leave the group" button: visible only in a party, same Leave.Do path.
@@ -936,7 +936,7 @@ local dy = newClient("Dy Moss", { lq(11001, 0) }, { x = 0.26, y = 0.2 })
 cy.ns.SetEnabled(true) dy.ns.SetEnabled(true) run(15)
 cy.ns.Comm.TestChannels(true) run(6) run(30)
 cy.ns.Set("leaveMsgOn", true)
-cy.ns.Set("leaveMsg", "Au revoir")
+cy.ns.Set("leaveMsg", "Goodbye")
 cy.ns.UI.Show()
 cy.ns.UI.Refresh()
 check(not (cy.ns.UI.LeaveGroupButton() and cy.ns.UI.LeaveGroupButton():IsShown()),
@@ -951,7 +951,7 @@ cy.ns.UI.Refresh()
 local lg = cy.ns.UI.LeaveGroupButton()
 check(lg and lg:IsShown(), "the Leave the group button appears while in a party")
 lg._OnClick(lg)
-check(#cy.chat == 1 and cy.chat[1][1] == "Au revoir" and cy.leaves == 1,
+check(#cy.chat == 1 and cy.chat[1][1] == "Goodbye" and cy.leaves == 1,
 	"the panel Leave button sends the /p message then leaves")
 cy.ns.UI.Refresh()
 check(not cy.ns.UI.LeaveGroupButton():IsShown(), "the Leave button hides again once out of the group")

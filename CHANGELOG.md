@@ -2,20 +2,53 @@
 
 ## 1.0.0 — 2026-11-25
 
-Première version destinée à être installée en jeu (non testée dans le client). Rien n'a été publié avant : les identifiants 0.1, 0.2, 1.0.1 et 1.1 n'étaient que des étapes locales.
+First version meant to be installed in game (not tested in the client). Nothing was published
+before this: the 0.1, 0.2, 1.0.1 and 1.1 identifiers were only local steps.
 
-- Le dossier de l'addon s'appelle **PSGroupFinder**. Titre affiché : « Group Finder for Polestar » / « Recherche de groupe (Polestar) ». Variables sauvegardées : `PSGroupFinderDB` / `PSGroupFinderCharDB`.
-- Recherche de joueurs sur les mêmes quêtes (kill, élite nommé, loot, groupe), canaux d'addon (CHANNEL, YELL, SAY, GUILD ; réponses en chuchotement), panneau (Chuchoter / Inviter sur votre clic seulement).
-- Une recherche est une session : les quêtes quittent la recherche quand leur objectif est terminé ; la recherche continue pour les autres, puis s'arrête. Option « Grouper automatiquement (même quête) », désactivée par défaut.
-- Bouton dans l'en-tête du guide Polestar, juste à gauche de la loupe (activé par défaut) : icône œil monochrome (`Media/icon-eye.tga`, dessinée pour l'addon ; repli : les deux silhouettes `Media/icon-group` si le fichier manque). Clic gauche pour chercher **sans** ouvrir le panneau (icône accent + message de chat), clic droit pour ouvrir ou fermer le panneau (y compris la liste par quête). Repli : bouton « Chercher un groupe » sous la fenêtre. Accroche interne sur `Theme.GuideParts().nav.Lookup`, sous pcall.
-- Pendant une recherche active sans résultat, le panneau affiche « Recherche en cours… aucun joueur pour l'instant ».
-- Langues de recherche (un seul réglage). Chaque joueur diffuse la langue de son client. Par défaut, seule cette langue est cochée ; on peut en ajouter d'autres, ou cocher « Toutes les langues », qui **replie et masque** la liste (accordéon : la section se redimensionne, sans trou). Filtrage unilatéral. Un peer plus ancien sans langue n'est visible que si Toutes est cochée.
-- Page « Recherche de groupe » dans les options de Polestar. Chaque réglage, raccourci et bouton a une **infobulle** au survol (champ public `help` de `RegisterOptions`, frFR et enUS). L'entrée de la barre latérale porte **le même œil** que l'en-tête (`Media/icon-eye`, 16×16, monochrome comme les autres). Champ public `icon`, chemin complet. Repli interne sous pcall si la page groupée des options n'envoie pas l'icône aux lignes indentées. La liste des langues utilise `needs` pour masquer les lignes quand « Toutes » est cochée, plus `Widgets.RefreshAll` et `Options.Relayout` (sous pcall) pour que la carte se réduise ; le grisage reste un dernier recours.
-- **Liste par quête** : un petit bouton (œil) ouvre le panneau en mode quête (nom, niveau, classe, langue, zone, progression, distance ou « autre zone », Chuchoter / Inviter) avec **Rechercher pour cette quête**. Un second clic sur le même déclencheur (ligne d'objectif, Alt-clic, journal, vue détail, clic droit de l'en-tête) referme le volet ; un clic pour une autre quête bascule sur celle-ci.
-  1. fenêtre de guide Polestar : sous l'icône de l'objectif, à gauche de la sous-ligne ;
-  2. infobulle d'un objectif : ligne d'aide « Alt-clic : voir les joueurs sur cette quête » et Alt-clic (les autres clics restent à Polestar) ;
-  3. journal de quêtes du jeu : un bouton par quête, **à droite** de la case de suivi (2–4 px, même colonne s'il n'y a pas de case) ; le titre est raccourci pour ne pas passer sous le bouton ;
-  4. vue « Carte & journal » (détail à droite) : un bouton œil à gauche de **Retour**, ou à défaut à droite de **Suivi**, pour la quête affichée.
-  Aussi `/psgf quest <id>` et `/psgf hooks` (cadre, identifiant, bouton, ancre).
-- **Protocole** : messages `Q` (« qui a la quête N ? ») et `A` (réponse chuchotée avec le pourcentage), quelle que soit la zone. Mêmes règles de langue, pause de 15 s entre deux recherches de quête, limites d'envoi.
-- **Quitter le groupe** quand les quêtes pour lesquelles vous vous êtes groupé via l'addon sont toutes finies : fenêtre **Quitter** / **Rester**. Option : message dans /p (texte modifiable, défaut FR/EN selon le client). Le message part au moment de quitter — clic **Quitter** de cette fenêtre, bouton **Quitter le groupe** du panneau (visible seulement en groupe), ou sortie par le jeu (portrait, `/leave`, `LeaveParty`) — jamais tout seul. Pré-accroche de `LeaveParty` / `C_PartyInfo.LeaveParty` pour parler **avant** de partir, avec garde contre un double envoi. Un groupe formé à la main n'est jamais proposé ni annoncé, sauf option « même hors groupe de l'addon » (`leaveMsgAny`, off par défaut).
+- The addon folder is named **PSGroupFinder**. Displayed title: “Group Finder for Polestar” /
+  “Recherche de groupe (Polestar)”. Saved variables: `PSGroupFinderDB` / `PSGroupFinderCharDB`.
+- Search for players on the same quests (kill, named elite, loot, group), addon channels
+  (CHANNEL, YELL, SAY, GUILD; replies by whisper), panel (Whisper / Invite only on your click).
+- A search is a session: quests leave the search when their objective is done; the search
+  continues for the others, then stops. Option “Group automatically (same quest)”, off by default.
+- Button in the Polestar guide header, immediately to the left of the magnifying glass (on by
+  default): monochrome eye icon (`Media/icon-eye.tga`, drawn for this addon; fallback: the two
+  silhouettes `Media/icon-group` if the file is missing). Left click searches **without** opening
+  the panel (accent icon + chat message), right click opens or closes the panel (including the
+  per-quest list). Fallback: “Find a group” button under the window. Internal hook on
+  `Theme.GuideParts().nav.Lookup`, under pcall.
+- During an active search with no result, the panel shows “Searching… no player found yet.”
+- Search languages (a single setting). Each player broadcasts their client language. By default
+  only that language is ticked; others can be added, or “All languages” can be ticked, which
+  **folds and hides** the list (accordion: the section resizes, with no gap). Unilateral
+  filtering. An older peer with no language is visible only if All is ticked.
+- “Group Finder” page in Polestar’s options. Every setting, key bind and button has a **tooltip**
+  on hover (public `help` field of `RegisterOptions`, frFR and enUS). The sidebar entry uses
+  **the same eye** as the header (`Media/icon-eye`, 16×16, monochrome like the others). Public
+  `icon` field, full path. Internal fallback under pcall if the grouped options page does not
+  send the icon to indented rows. The language list uses `needs` to hide the rows when “All” is
+  ticked, plus `Widgets.RefreshAll` and `Options.Relayout` (under pcall) so the card shrinks;
+  greying remains a last resort.
+- **Players on this quest**: a small button (the eye) opens the panel in quest mode (name, level,
+  class, language, zone, progress, distance or “other zone”, Whisper / Invite) with **Search for
+  this quest**. A second click on the same trigger (objective row, Alt-click, quest log, details
+  view, header right-click) closes the pane; a click for another quest switches to it.
+  1. Polestar guide window: under the objective icon, to the left of the sub-line;
+  2. objective tooltip: help line “Alt-click: see the players on this quest” and Alt-click
+     (other clicks stay with Polestar);
+  3. game quest log: one button per quest, **to the right** of the tracking checkbox (2–4 px,
+     same column if there is no checkbox); the title is shortened so it does not run under the
+     button;
+  4. Map & Quest Log details view (details on the right): an eye button to the left of **Back**,
+     or failing that to the right of **Track**, for the displayed quest.
+  Also `/psgf quest <id>` and `/psgf hooks` (frame, id, button, anchor).
+- **Protocol**: `Q` messages (“who has quest N?”) and `A` (whispered reply with the percentage),
+  regardless of zone. Same language rules, 15 s pause between two quest searches, send limits.
+- **Leave the group** when every quest you grouped for through the addon is done: **Leave** /
+  **Stay** window. Option: a /p message (editable text, default FR/EN according to the client).
+  The message is sent when you leave — **Leave** on that window, the panel’s **Leave the group**
+  button (visible only while in a group), or leaving through the game (portrait, `/leave`,
+  `LeaveParty`) — never on its own. Pre-hook of `LeaveParty` / `C_PartyInfo.LeaveParty` so the
+  message is said **before** leaving, with a guard against a double send. A group joined by hand
+  is never offered or announced, unless the option “Also when leaving a group not formed by the
+  finder” (`leaveMsgAny`, off by default) is on.
