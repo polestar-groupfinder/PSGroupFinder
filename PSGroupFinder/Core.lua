@@ -183,7 +183,7 @@ SlashCmdList.PSGROUPFINDER = function(msg)
 		if ns.GoalRows then ns.GoalRows.Report() end
 	elseif cmd == "debug" then
 		ns.Set("debug", not ns.db.debug)
-		ns.Print("debug %s", ns.db.debug and "on" or "off")
+		ns.Print(ns.db.debug and L.DEBUG_ON or L.DEBUG_OFF)
 	else
 		ns.Print(L.HELP)
 	end

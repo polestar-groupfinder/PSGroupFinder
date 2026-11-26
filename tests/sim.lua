@@ -1,6 +1,6 @@
 -- Two simulated clients exchanging PSGroupFinder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "Comm", "Matcher", "Group", "Leave",
+local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "Group", "Leave",
 	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/Dialogs",
 	"Polestar/Polestar", "Polestar/Header", "Polestar/Options", "Polestar/GoalRows" }
 local DIR = "PSGroupFinder/"
@@ -140,6 +140,9 @@ local function newClient(name, quests, opts)
 	env.InCombatLockdown = function() return false end
 	env.chat = {}
 	env.SendChatMessage = function(m, t) env.chat[#env.chat + 1] = { m, t } end
+	env.ERR_CHAT_PLAYER_NOT_FOUND_S = "No player named '%s' is currently playing."
+	env.chatFilters = {}
+	env.ChatFrame_AddMessageEventFilter = function(ev, fn) env.chatFilters[ev] = fn end
 	env.leaves = 0
 	env.LeaveParty = function()
 		env.leaves = env.leaves + 1
@@ -366,7 +369,7 @@ run(3)
 local left = collect(eve)
 table.sort(left)
 check(#left == 2 and left[1] == 5002 and left[2] == 5003, "quest A removed from the search, B and C stay")
-check(eve.printed[#eve.printed - 1]:find("Objective done") ~= nil, "the player is told (objective done)")
+check(eve.printed[#eve.printed]:find("Objective done") ~= nil and eve.printed[#eve.printed]:find("2 quest"), "the player is told in one line (objective done, 2 quests left)")
 check(peerQuests(finn, "Eve Dawn") == 1, "Finn's list of Eve updated to the quests left (B only)")
 check(peerQuests(gus, "Eve Dawn") == 1, "Gus still shares B with Eve")
 
@@ -1023,4 +1026,43 @@ check(box:GetHeight() > foldedH, "the picker grows when the list unfolds, with n
 
 ana.ns.SetEnabled(false)
 check(#ana.ns.Matcher.List() == 0 and ana.joined == false, "turning off clears the list and leaves the channel")
+
+---------------------------------------------------------------------------
+-- Chat noise: the game's notices about our own traffic are hidden, unless
+-- debug is on.
+---------------------------------------------------------------------------
+local zoe = newClient("Zoe Hart", { hogger }, {})
+zoe.ns.SetEnabled(true)
+run(15)
+local sys, notice = zoe.chatFilters.CHAT_MSG_SYSTEM, zoe.chatFilters.CHAT_MSG_CHANNEL_NOTICE
+check(type(sys) == "function" and type(notice) == "function", "chat filters registered for system lines and channel notices")
+zoe.ns.Channels.Whisper("X|abc123", "Gone Player")
+check(sys(nil, "CHAT_MSG_SYSTEM", "No player named 'Gone Player' is currently playing.") == true,
+	"'no player named' after our addon whisper is hidden")
+check(sys(nil, "CHAT_MSG_SYSTEM", "No player named 'Someone Else' is currently playing.") == false,
+	"'no player named' for a name we did not whisper stays")
+check(sys(nil, "CHAT_MSG_SYSTEM", "Ana Smith has come online.") == false, "other system lines stay")
+run(11)
+check(sys(nil, "CHAT_MSG_SYSTEM", "No player named 'Gone Player' is currently playing.") == false,
+	"the hiding only lasts a few seconds after our whisper")
+check(notice(nil, "CHAT_MSG_CHANNEL_NOTICE", "YOU_CHANGED", "", "", "5. PSGroupFinder") == true,
+	"notices of the hidden channel are hidden")
+check(notice(nil, "CHAT_MSG_CHANNEL_NOTICE", "YOU_CHANGED", "", "", "1. General - Elwynn Forest") == false,
+	"notices of other channels stay")
+zoe.SlashCmdList.PSGROUPFINDER("debug")
+check(zoe.printed[#zoe.printed]:find("Debug mode on"), "/psgf debug says what it does")
+zoe.ns.Channels.Whisper("X|abc123", "Gone Player")
+check(sys(nil, "CHAT_MSG_SYSTEM", "No player named 'Gone Player' is currently playing.") == false
+	and notice(nil, "CHAT_MSG_CHANNEL_NOTICE", "YOU_CHANGED", "", "", "5. PSGroupFinder") == false,
+	"with debug on, nothing is hidden")
+local before = #zoe.printed
+zoe.ns.Channels.Test(false)
+run(6)
+check(#zoe.printed > before, "with debug on, the quiet channel probe reports in chat")
+zoe.SlashCmdList.PSGROUPFINDER("debug")
+before = #zoe.printed
+zoe.ns.Channels.Test(false)
+run(6)
+check(#zoe.printed == before, "with debug off, the quiet channel probe prints nothing")
+
 print("all tests passed")

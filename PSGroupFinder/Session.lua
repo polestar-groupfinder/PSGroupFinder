@@ -70,14 +70,15 @@ local function check()
 	if not active then return end
 	local gone = Session.Prune()
 	if #gone == 0 then return end
-	for _, id in ipairs(gone) do ns.Print(L.QUEST_DONE, ns.Quests.Title(id)) end
+	local titles = {}
+	for i, id in ipairs(gone) do titles[i] = ns.Quests.Title(id) end
 	if #list == 0 then
 		active = false
 		ns.Print(L.SESSION_DONE)
 		ns.Fire("SESSION", "done")
 		if ns.Comm.Stop then ns.Comm.Stop() end
 	else
-		ns.Print(L.SEARCH_UPDATED, #list)
+		ns.Print(L.QUEST_DONE, table.concat(titles, ", "), #list)
 		ns.Fire("SESSION", "pruned")
 		if ns.Comm.Update then ns.Comm.Update() end
 	end

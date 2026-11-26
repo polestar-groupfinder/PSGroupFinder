@@ -9,8 +9,11 @@
   in the Polestar guide, Alt-click and `/psgf quest <id>` remain.
 - **Leave message**: said only when you leave with the finder's own Leave buttons. The game's
   `LeaveParty` is no longer wrapped (taint risk); leaving through the game says nothing.
-- **Quieter chat**: the channel probe after login no longer prints unless `/psgf debug` is on;
-  debug mode also traces sent and received messages.
+- **Quieter chat**: the game's “No player named X is currently playing.” after an addon whisper
+  to a player who logged off, and the notices of the hidden channel, are filtered out natively
+  (`ChatFilter.lua`). The channel probe after login and the “player found” lines no longer print;
+  a finished objective is one line. `/psgf debug` turns the filters off and traces every message
+  sent and received.
 - **Code layout**: `Comm.lua` split into `Protocol.lua` (formats), `Channels.lua` (channels,
   probe) and `Comm.lua` (searches, handling); `UI.lua` into `UI/`; `Polestar.lua` and `Hooks.lua`
   into `Polestar/`. Duplicated code merged (message header, sends, scoring, name helpers).

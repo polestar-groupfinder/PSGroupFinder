@@ -81,7 +81,8 @@ is in [INSTALLATION.md](INSTALLATION.md).
   quests are done, the /p message, search languages.
 - **Commands**: `/psgf` (panel), `/psgf search`, `/psgf stop`, `/psgf on|off`, `/psgf test`
   (tests the channels), `/psgf reset` (repositions the panel), `/psgf quest <id>`,
-  `/psgf hooks` (what was found in the Polestar guide), `/psgf debug`.
+  `/psgf hooks` (what was found in the Polestar guide), `/psgf debug` (shows the addon's traffic
+  and the game's notices about it, which are hidden otherwise).
 
 ## What is sent
 
@@ -158,6 +159,7 @@ CI runs the first three on every push (`.github/workflows/ci.yml`).
 | `Core.lua` | settings, internal message bus, events, slash commands, key bindings |
 | `Locales.lua`, `Lang.lua` | interface strings (enUS, frFR); search languages |
 | `Throttle.lua`, `Protocol.lua`, `Channels.lua`, `Comm.lua` | send queue; message formats; channels and probes; searches and message handling |
+| `ChatFilter.lua` | hides the game's notices about our own traffic (off in debug mode) |
 | `Quests.lua`, `Session.lua`, `Matcher.lua` | which quests count; the search in progress; the players found and their order |
 | `Group.lua`, `Leave.lua` | auto-grouping; offering to leave a finder group |
 | `UI/` | shared widgets, the main panel, the quest panel, the dialogs |

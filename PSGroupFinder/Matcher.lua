@@ -57,7 +57,7 @@ function Matcher.Add(sender, m, common, source)
 	local isNew = not peers[sender]
 	peers[sender] = e
 	if isNew then
-		ns.Print(ns.L.FOUND, ns.ShortName(sender), ns.Quests.Title(common[1]),
+		ns.Debug(ns.L.FOUND, ns.ShortName(sender), ns.Quests.Title(common[1]),
 			source == "asking" and ns.L.ASKING or "")
 	end
 	ns.Fire("PEERS")
