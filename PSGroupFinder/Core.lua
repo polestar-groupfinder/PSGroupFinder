@@ -14,11 +14,9 @@ local L = ns.L
 ns.name = ADDON
 ns.version = (C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata or function() end)(ADDON, "Version") or "dev"
 
--- Our monochrome eye, used everywhere a PSGroupFinder icon is shown.
--- The two-silhouette texture (icon-group) is kept only as a fallback
--- if the eye file is ever missing.
-ns.ICON = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-eye"
-ns.ICON_FALLBACK = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-group"
+-- Our monochrome icon (two line-art people, tools/make-icons.py), used
+-- everywhere a PSGroupFinder icon is shown and tinted by the caller.
+ns.ICON = "Interface\\AddOns\\PSGroupFinder\\Media\\icon-group"
 
 function ns.Icon()
 	return ns.ICON

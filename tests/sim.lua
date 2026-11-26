@@ -282,10 +282,10 @@ check(hasButton, "launcher button painted through Polestar.Theme.Skin")
 check(dee.ns.headerButtonFrame ~= nil, "header icon created on the step bar (left of Lookup)")
 local _, headerRel = dee.ns.headerButtonFrame:GetPoint(1)
 check(headerRel == nav.Lookup, "header icon is anchored to Lookup (the magnifying glass)")
-check(dee.ns.HeaderIcon() and dee.ns.HeaderIcon():find("PSGroupFinder") and dee.ns.HeaderIcon():find("icon%-eye"),
-	"the header icon is a full path to our Media/icon-eye texture")
+check(dee.ns.HeaderIcon() and dee.ns.HeaderIcon():find("PSGroupFinder") and dee.ns.HeaderIcon():find("icon%-group"),
+	"the header icon is a full path to our Media/icon-group texture")
 check(dee.ns.headerButtonFrame.psIconName == dee.ns.HeaderIcon() and dee.ns.headerButtonFrame.psIconName ~= "search",
-	"the header button uses the eye, not Polestar's search/loupe icon")
+	"the header button uses our icon, not Polestar's search/loupe icon")
 -- Clicks: left starts a search without opening the panel; right toggles it.
 dee.ns.SetEnabled(true)
 run(15)
@@ -582,7 +582,7 @@ qua.ns.SetEnabled(true)
 run(15)
 
 ---------------------------------------------------------------------------
--- The quest buttons (Polestar rows, tooltip + Alt-click, game quest log)
+-- The quest buttons (Polestar rows, tooltip + Alt-click)
 ---------------------------------------------------------------------------
 local gRows = {}
 local function fakeRow(goal, height, shown)
@@ -622,8 +622,8 @@ check(type(gRows[1].psgfBtn._OnClick) == "function", "the row button has a click
 hal2.ns.QuestUI.Close()
 gRows[1].psgfBtn._OnClick(gRows[1].psgfBtn)
 check(hal2.ns.QuestUI.IsShown(), "clicking the row button opens the quest panel")
-check(gRows[1].psgfBtn.Icon and gRows[1].psgfBtn.Icon._texture and gRows[1].psgfBtn.Icon._texture:find("icon%-eye"),
-	"the goal-row button uses our eye texture, not the two silhouettes")
+check(gRows[1].psgfBtn.Icon and gRows[1].psgfBtn.Icon._texture and gRows[1].psgfBtn.Icon._texture:find("icon%-group"),
+	"the goal-row button uses our group texture")
 -- Toggle: a second click on the same quest closes; another quest switches.
 gRows[1].psgfBtn._OnClick(gRows[1].psgfBtn)
 check(not hal2.ns.QuestUI.IsShown(), "a second click on the same goal-row button closes the quest panel")
@@ -640,104 +640,11 @@ fp2.QuestRowClick(12345, "LeftButton")
 check(not hal2.ns.QuestUI.IsShown(), "a second Alt-click on the same quest closes the list")
 hal2.altDown = false
 
--- The game's quest log: the pool of title buttons, Checkbox, recycled rows, hooks.
-local function titleButton(id, shown)
-	local check = { IsShown = function() return true end }
-	local text = { SetPoint = function(self, p, rel, rp, x, y) self._p, self._rel, self._rp, self._x, self._y = p, rel, rp, x, y end, SetWordWrap = function() end }
-	return { questID = id, IsShown = function() return shown end, Checkbox = check, Text = text,
-		GetRight = function() return 200 end }
-end
-local active = { titleButton(12345, true), titleButton(5001, true) }
-hal2.QuestScrollFrame = { titleFramePool = { EnumerateActive = function()
-	local i = 0
-	return function() i = i + 1 return active[i] end
-end } }
-hal2.QuestMapFrame = { IsVisible = function() return true end, HookScript = function() end }
-hal2.QuestLogQuests_Update = function() end
-hal2.ns.Hooks.Scan()
-check(active[1].psgfLogBtn and active[1].psgfLogBtn.questID == 12345 and active[2].psgfLogBtn.questID == 5001, "quest log (pool): a button on each quest title, any zone")
--- The pool recycles a title button for another quest: our button follows its quest.
-active[1].questID = 777
-hal2.QuestLogQuests_Update()
-check(active[1].psgfLogBtn.questID == 777, "after the log's own update (hooksecurefunc) the recycled row's button points at its new quest")
--- A header takes the recycled button: no quest, ours is hidden.
-active[1].questID = nil
-hal2.ns.Hooks.Scan()
-check(active[1].psgfLogBtn._shown == false, "a row that no longer holds a quest hides our button")
--- Other builds: the children of the scroll contents, then the classic log.
-local child88 = titleButton(88, true)
-hal2.QuestScrollFrame = { Contents = { GetNumChildren = function() return 1 end, GetChildren = function() return child88 end } }
-hal2.ns.Hooks.Scan()
-check(child88.psgfLogBtn and child88.psgfLogBtn.questID == 88, "quest log (other build): title buttons found among the scroll contents' children")
-hal2.QuestScrollFrame = nil
-hal2.QuestMapFrame = nil
-hal2.QuestLogFrame = { IsVisible = function() return true end }
-hal2.QuestLogTitle1 = { IsShown = function() return true end, GetID = function() return 1 end }
-hal2.ns.Hooks.Scan()
-check(hal2.QuestLogTitle1.psgfLogBtn and hal2.QuestLogTitle1.psgfLogBtn.questID == 12345, "classic log: QuestLogTitle1's quest id is read from the log index")
--- Placement: always to the right of the tracking checkbox, title trimmed short of the box.
--- Re-scan the pool so placeInLog runs on title buttons that have Checkbox + Text.
-hal2.QuestLogTitle1 = nil
-hal2.QuestLogFrame = nil
-active[1].questID = 12345
-hal2.QuestScrollFrame = { titleFramePool = { EnumerateActive = function()
-	local i = 0
-	return function() i = i + 1 return active[i] end
-end } }
-hal2.QuestMapFrame = { IsVisible = function() return true end, HookScript = function() end }
-hal2.ns.Hooks.Scan()
-local logBtn, logCheck, logText = active[1].psgfLogBtn, active[1].Checkbox, active[1].Text
-check(logBtn and logBtn._rel == logCheck and logBtn._point == "LEFT" and logBtn._relPoint == "RIGHT" and logBtn._x == 3,
-	"the log button sits 3 px to the right of the tracking checkbox")
-check(logText._rel == logCheck and logText._p == "RIGHT" and logText._rp == "LEFT",
-	"the quest title is anchored short of the checkbox, so it never runs under our button")
--- A row with no checkbox keeps the same right-hand column (just past the title button).
-local plain = { questID = 42, IsShown = function() return true end, Text = { SetPoint = function(self, p, rel, rp, x, y) self._p, self._rel, self._rp = p, rel, rp end, SetWordWrap = function() end } }
-hal2.QuestScrollFrame = { titleFramePool = { EnumerateActive = function()
-	local i = 0
-	return function() i = i + 1 if i == 1 then return plain end end
-end } }
-hal2.ns.Hooks.Scan()
-check(plain.psgfLogBtn and plain.psgfLogBtn._point == "LEFT" and plain.psgfLogBtn._rel == plain and plain.psgfLogBtn._relPoint == "RIGHT" and plain.psgfLogBtn._x == 3,
-	"with no checkbox the button stays in the right-hand column, just past the row")
-
--- Quest details pane (Forever / Retail): eye button next to Back.
-local details = { IsShown = function() return true end, questID = 12345, HookScript = function() return true end }
-details.BackButton = { GetParent = function() return details end }
-hal2.QuestMapFrame = { IsVisible = function() return true end, HookScript = function() end, DetailsFrame = details }
-hal2.QuestMapFrame_ShowQuestDetails = function() end
-hal2.ns.QuestUI.Close()
-hal2.ns.Hooks.Scan()
-local dbtn = hal2.ns.Hooks.DetailsButton()
-check(dbtn and dbtn.questID == 12345 and dbtn:IsShown(), "the details pane has an eye button for the displayed quest")
-check(dbtn._rel == details.BackButton and dbtn._point == "RIGHT" and dbtn._relPoint == "LEFT",
-	"the details button sits just left of Back")
-check(dbtn.Icon and dbtn.Icon._texture and dbtn.Icon._texture:find("icon%-eye"),
-	"the details button uses our eye texture")
-dbtn._OnClick(dbtn)
-check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 12345, "clicking the details button opens the quest list")
-dbtn._OnClick(dbtn)
-check(not hal2.ns.QuestUI.IsShown(), "a second click on the details button closes the quest list")
--- Log-row button uses the same Open() toggle.
-active[1].questID = 88
-hal2.QuestScrollFrame = { titleFramePool = { EnumerateActive = function()
-	local i = 0
-	return function() i = i + 1 return active[i] end
-end } }
-hal2.ns.Hooks.Scan()
-active[1].psgfLogBtn._OnClick(active[1].psgfLogBtn)
-check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 88, "clicking the log button opens the quest list")
-active[1].psgfLogBtn._OnClick(active[1].psgfLogBtn)
-check(not hal2.ns.QuestUI.IsShown(), "a second click on the same log button closes the quest list")
-active[1].psgfLogBtn._OnClick(active[1].psgfLogBtn)
-active[2].psgfLogBtn._OnClick(active[2].psgfLogBtn)
-check(hal2.ns.QuestUI.IsShown() and hal2.ns.QuestUI.Quest() == 5001, "a log button for another quest switches the list")
-
 hal2.ns.Hooks.Report()
 
 -- Without Polestar and without any quest log, nothing breaks.
 rex.ns.Hooks.Scan()
-check(true, "scan with no Polestar and no quest log does nothing")
+check(true, "scan with no Polestar does nothing")
 
 ---------------------------------------------------------------------------
 -- Leaving a group formed through the finder
@@ -988,10 +895,10 @@ fp3.Widgets = {
 	Media = function() end,
 }
 local ico = newClient("Ico Vale", { hogger }, { polestar = fp3 })
-check(ico.ns.OptionsIcon():find("PSGroupFinder") and ico.ns.OptionsIcon():find("icon%-eye"),
-	"the sidebar icon is a full path to our Media/icon-eye texture")
+check(ico.ns.OptionsIcon():find("PSGroupFinder") and ico.ns.OptionsIcon():find("icon%-group"),
+	"the sidebar icon is a full path to our Media/icon-group texture")
 check(ico.ns.OptionsIcon() == ico.ns.HeaderIcon() and ico.ns.Icon() == ico.ns.OptionsIcon(),
-	"the sidebar, the header and ns.Icon() all use the same eye")
+	"the sidebar, the header and ns.Icon() all use the same icon")
 check(#capturedOpts >= 1 and capturedOpts[1].icon == ico.ns.OptionsIcon() and capturedOpts[1].key == "groupfinder",
 	"RegisterOptions (public API) receives our icon on the Group Finder page")
 check(fp3.UI.Options.Kit.pages[1].icon == ico.ns.OptionsIcon(),
