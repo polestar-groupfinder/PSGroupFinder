@@ -1,5 +1,9 @@
 # Group Finder for Polestar (PSGroupFinder)
 
+<p align="center">
+  <img src="docs/infographic.png" alt="PSGroupFinder: Group Finder for Polestar, features and installation" width="900">
+</p>
+
 An **optional** module for [Polestar](https://github.com/fitzforge/polestar) (WoW: Forever 1.60.1):
 it finds players who are on **the same quest as you, near you** (kills, named elites, loot from
 mobs, group quests) and lets you **whisper** or **invite** them. Grouping can be **automatic**
@@ -10,15 +14,39 @@ Licence: GPL-3.0-or-later (compatible with Polestar, GPL-3.0).
 
 ## Installation
 
-The full procedure (Windows and Mac paths, enabling the addon, a first two-account test)
-is in [INSTALLATION.md](INSTALLATION.md). In short:
+> [!IMPORTANT]
+> Download **`PSGroupFinder-1.0.0.zip`** from the
+> [v1.0.0 release page](https://github.com/polestar-groupfinder/PSGroupFinder/releases/tag/v1.0.0) (under **Assets**).
+> Do **not** use the “Source code (zip)” / “Source code (tar.gz)” links: they are not the addon.
 
 1. Install [Polestar](https://www.curseforge.com/wow/addons/polestar) first.
-2. Unzip `PSGroupFinder-1.0.0.zip` into
-   `World of Warcraft/_forever_/Interface/AddOns/`: you should end up with
-   `.../AddOns/PSGroupFinder/PSGroupFinder.toc` (not a folder inside a folder).
+2. On the [release page](https://github.com/polestar-groupfinder/PSGroupFinder/releases/tag/v1.0.0), download **`PSGroupFinder-1.0.0.zip`** and unzip it into
+   `World of Warcraft/_forever_/Interface/AddOns/`. The final path must be exactly
+   `AddOns/PSGroupFinder/PSGroupFinder.toc` (not a folder inside a folder).
    If you still have the old `Polestar_GroupFinder` folder, delete it.
 3. Fully restart the game (a `/reload` does not load a new addon).
+
+The full procedure (Windows and Mac paths, enabling the addon, a first two-account test)
+is in [INSTALLATION.md](INSTALLATION.md).
+
+## Features
+
+| | |
+|---|---|
+| <img src="docs/screenshots/01-guide-eye-button.png" alt="Eye button in the Polestar guide" width="420"> | **The eye in the guide.** An eye joins Polestar's header (click to search) and sits on every quest step. |
+| <img src="docs/screenshots/02-players-on-this-quest.png" alt="Players on this quest panel and tooltip" width="420"> | **Players on this quest.** Hover the eye on a step to see who has that quest, wherever they are, and search for it with one click. |
+| <img src="docs/screenshots/03-floating-panel.png" alt="Floating Group Finder panel" width="420"> | **Floating panel.** Find a group, then Whisper or Invite, only ever on your click. Live channel status and a Test button. |
+| <img src="docs/screenshots/04-settings-page.png" alt="Group Finder page in Polestar's settings" width="420"> | **A page in Polestar's settings.** Enable it, tune it, bind keys and test channels without leaving Polestar's own window. |
+
+### Search languages
+
+Only your game language is ticked by default. Tick **All languages** and the list folds away;
+untick it to choose languages one by one.
+
+<p>
+  <img src="docs/screenshots/05-languages-collapsed.png" alt="Search languages with All languages on" width="520"><br>
+  <img src="docs/screenshots/06-languages-expanded.png" alt="Search languages with All languages off" width="520">
+</p>
 
 ## Usage
 
