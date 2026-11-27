@@ -16,7 +16,9 @@ local Channels = ns.Channels
 local Comm = {}
 ns.Comm = Comm
 
-local SEARCH_GAP = 20     -- seconds between two searches of yours
+local SEARCH_GAP = 10     -- seconds between two searches of yours (a click)
+local RETRY_EVERY = 10    -- while nobody is found, the search is asked again this often
+local SEARCH_FOR = 300    -- for at most this long, then it is over
 local REPLY_GAP = 20      -- seconds between two answers to the same player (a searcher's own gap)
 local QUEST_GAP = 15      -- seconds between two quest searches of yours
 local QUEST_ASK_TTL = 180 -- seconds an answer to a quest search is still wanted
@@ -24,6 +26,8 @@ local QUEST_ANSWERS = 6   -- answers to other players' quest searches per QUEST_
 local QUEST_WINDOW = 30
 
 local lastSearch = -math.huge
+local searchStart       -- when the click started the search in progress
+local run = 0           -- the retry loop in force (a new search or Stop ends the old one)
 local lastQuestSearch = -math.huge
 local lastReply = {} -- sender (or sender#quest) -> time
 local asked = {}     -- questID -> time of our quest search
@@ -57,18 +61,48 @@ function Comm.Search()
 	if #sentOn == 0 then ns.Print(L.NO_CHANNEL) return false end
 	lastSearch = ns.Now()
 	ns.searchedAt = lastSearch
+	searchStart = lastSearch
 	ns.Session.Start(quests)
 	ns.Print(L.SENT, table.concat(sentOn, ", "), count)
 	ns.Fire("SEARCHED", quests, sentOn)
-	-- Nobody answered by the end of the wait: the search is over (nothing
-	-- is sent; players who search later still show up, from their search).
-	local stamp = lastSearch
-	ns.After(SEARCH_GAP, function()
-		if ns.searchedAt == stamp and ns.Session.Active() and #ns.Matcher.List() == 0 then
-			ns.Session.Stop("nobody")
-		end
-	end)
+	run = run + 1
+	Comm.Retry(run)
 	return true
+end
+
+-- Is the search still asking (nobody found yet, within SEARCH_FOR)?
+function Comm.Searching()
+	return ns.Session.Active() and searchStart ~= nil and #ns.Matcher.List() == 0
+		and ns.Now() - searchStart < SEARCH_FOR
+end
+
+-- Seconds before the search is asked again.
+function Comm.RetryLeft()
+	return math.max(0, RETRY_EVERY - (ns.Now() - lastSearch))
+end
+Comm.RETRY_EVERY, Comm.SEARCH_FOR = RETRY_EVERY, SEARCH_FOR
+
+-- The search you started asks again every RETRY_EVERY seconds while nobody
+-- is found, for SEARCH_FOR at most: then it is over. It stops asking once
+-- someone is found (the search stays, for its updates), at Stop, at a new
+-- search, in an instance or with the finder off.
+function Comm.Retry(id)
+	ns.After(RETRY_EVERY, function()
+		if id ~= run or not ns.Session.Active() or not ns.Get("enabled") then return end
+		if #ns.Matcher.List() > 0 then return end
+		if ns.Now() - (searchStart or 0) >= SEARCH_FOR then
+			ns.Session.Stop("nobody")
+			ns.Print(L.SEARCH_TIMEOUT)
+			return
+		end
+		if IsInInstance and IsInInstance() then return end
+		if #Channels.SendPublic((Protocol.Search(ns.Session.List()))) > 0 then
+			lastSearch = ns.Now()
+			ns.searchedAt = lastSearch
+			ns.Fire("SEARCH_RETRY")
+		end
+		Comm.Retry(id)
+	end)
 end
 
 Comm.QUEST_GAP = QUEST_GAP
@@ -111,6 +145,7 @@ end
 function Comm.StopSearch()
 	if not ns.Session.Active() then return end
 	Comm.Stop()
+	run = run + 1
 	ns.searchedAt = nil
 	ns.Session.Stop("manual")
 	ns.Print(L.SEARCH_STOPPED)
@@ -186,7 +221,10 @@ local function onSearchOrReply(sender, m, chatType)
 	if #answer == 0 then return end
 	if ns.Get("autoGroup") and m.flags:find("g", 1, true) then ns.Group.Expect(sender) end
 	-- A whispered search is an update to a player already found: no new answer.
-	if ns.Get("autoReply") and chatType ~= "WHISPER" and ns.Now() - (lastReply[sender] or -math.huge) >= REPLY_GAP then
+	-- Two players with auto-group on group without a click: the answer goes
+	-- even with autoReply off.
+	local wantsGroup = ns.Get("autoGroup") and m.flags:find("g", 1, true)
+	if (ns.Get("autoReply") or wantsGroup) and chatType ~= "WHISPER" and ns.Now() - (lastReply[sender] or -math.huge) >= REPLY_GAP then
 		lastReply[sender] = ns.Now()
 		answerLater(Protocol.Reply(answer), sender)
 	end

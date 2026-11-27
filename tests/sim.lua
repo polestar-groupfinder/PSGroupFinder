@@ -343,11 +343,20 @@ lea.PSGroupFinder_Search()
 lea.ns.UI.Show()
 lea.ns.UI.Refresh()
 check(lea.ns.Session.Active() and #lea.ns.Matcher.List() == 0, "Lea is searching and has no one yet")
-check(lea.ns.UI.EmptyCaption() == "Searching…",
-	"active search with no one found, while answers come: Searching…")
-run(21) lea.ns.UI.Refresh()
+check(lea.ns.UI.EmptyCaption():find("^Searching…") and lea.ns.Comm.Searching(),
+	"active search with no one found: Searching…, asked again on its own")
+local leaSent = 0
+local leaOrig = lea.C_ChatInfo.SendAddonMessage
+lea.C_ChatInfo.SendAddonMessage = function(p, t, ...) if t:sub(1, 1) == "S" then leaSent = leaSent + 1 end return leaOrig(p, t, ...) end
+run(31) lea.ns.UI.Refresh()
+check(leaSent == 3 and lea.ns.Session.Active(), "nobody yet: the search is asked again every 10 s")
+run(280) lea.ns.UI.Refresh()
 check(not lea.ns.Session.Active() and lea.ns.UI.EmptyCaption():find("later show up here", 1, true),
-	"after the wait, still nobody: the search ends (no Stop), later searches will show up here")
+	"after 5 minutes with nobody: the search is over (no Stop), later searches still show up")
+local before = leaSent
+run(30)
+check(leaSent == before, "once over, nothing more is sent")
+lea.C_ChatInfo.SendAddonMessage = leaOrig
 run(300) lea.ns.UI.Refresh()
 check(lea.ns.UI.EmptyCaption() == "No one yet. Press Find a group.",
 	"with no search in progress the empty caption invites to search")
@@ -1317,6 +1326,17 @@ check(nea.ns.Nearby.Check() == true and nea.ns.UI.IsShown(), "on, near the objec
 check(next(nea.ns.Channels.status) == nil, "...and nothing is sent: the search stays a click")
 nea.ns.UI.Toggle()
 check(nea.ns.Nearby.Check() == false and not nea.ns.UI.IsShown(), "once per step: closed, it does not open again")
+
+-- Two players with auto-group on group without a click, even with
+-- "Let others find me" off.
+local ag1 = newClient("Ag One", { lq(12001, 0) }, { x = 0.4, y = 0.4 })
+local ag2 = newClient("Ag Two", { lq(12001, 0) }, { x = 0.41, y = 0.4 })
+for _, c in ipairs({ ag1, ag2 }) do c.ns.SetEnabled(true) c.ns.Set("autoGroup", true) c.ns.Set("autoReply", false) end
+run(15)
+ag1.ns.Channels.Test() run(6) run(30)
+ag1.PSGroupFinder_Search() run(8)
+check(party["Ag One"] and party["Ag Two"] and party["Ag One"] == party["Ag Two"],
+	"both with auto-group: grouped without a click, though Ag Two's answers are off")
 
 -- Demo mode (TEMPORARY): made-up players through the real receiving code,
 -- and nothing leaves the client.

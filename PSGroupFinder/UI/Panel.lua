@@ -149,8 +149,9 @@ local function layoutMain(on)
 	-- Their wait drains their accent fill (W.Drain), no number to read.
 	local active = ns.Session.Active()
 	local cd = ns.Comm.SearchCooldown()
-	widgets.search:SetEnabled(cd == 0)
-	widgets.search:SetText(cd > 0 and L.SEARCHING or (active and L.SEARCH_AGAIN or L.SEARCH))
+	local asking = ns.Comm.Searching()
+	widgets.search:SetEnabled(cd == 0 and not asking)
+	widgets.search:SetText((asking or cd > 0) and L.SEARCHING or (active and L.SEARCH_AGAIN or L.SEARCH))
 	widgets.search:SetWidth(WIDTH - 2 * PAD - (active and 76 or 0))
 	at(widgets.search, y)
 	widgets.stop:SetShown(active)
@@ -209,7 +210,7 @@ local function layoutMain(on)
 	widgets.empty:SetShown(#found == 0)
 	if #found == 0 then
 		local recent = ns.searchedAt and ns.Now() - ns.searchedAt < 300
-		widgets.empty:SetText(active and (cd > 0 and L.EMPTY_SEARCHING or L.EMPTY_WAITING) or (recent and L.EMPTY_WAITING or L.EMPTY))
+		widgets.empty:SetText(active and ((asking or cd > 0) and L.EMPTY_SEARCHING or L.EMPTY_WAITING) or (recent and L.EMPTY_WAITING or L.EMPTY))
 		at(widgets.empty, y + 4, PAD + 2)
 		y = y + 34
 	end
@@ -427,7 +428,11 @@ local function build()
 	widgets.offText:SetText(W.Dim() .. L.OFF_TEXT .. "|r")
 	widgets.turnOn = add(MAIN, W.Button(panel, L.TURN_ON, 120, function() ns.SetEnabled(true) end))
 	widgets.search = add(MAIN, W.Button(panel, L.SEARCH, WIDTH - 2 * PAD, function() ns.Search() UI.Refresh() end))
-	W.Drain(widgets.search, function() return ns.Comm.SearchCooldown() / ns.Comm.SEARCH_GAP end)
+	-- While it asks again on its own, the fill drains to the next try.
+	W.Drain(widgets.search, function()
+		if ns.Comm.Searching() then return ns.Comm.RetryLeft() / ns.Comm.RETRY_EVERY end
+		return ns.Comm.SearchCooldown() / ns.Comm.SEARCH_GAP
+	end)
 	widgets.stop = add(MAIN, W.Button(panel, L.STOP, 70, function() ns.Comm.StopSearch() UI.Refresh() end))
 	widgets.stop:SetPoint("LEFT", widgets.search, "RIGHT", 6, 0)
 	widgets.announce = add(MAIN, W.Button(panel, L.ANNOUNCE, WIDTH - 2 * PAD, function() ns.Announce.Send() UI.Refresh() end))
@@ -541,7 +546,7 @@ ns.TogglePanel = UI.Toggle
 ns.RegisterEvent("GROUP_ROSTER_UPDATE", function() listOpen = false end)
 ns.ResetPanel = UI.Place
 
-for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION", "LANG", "QUEST_SEARCHED", "ANNOUNCED" }) do
+for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SEARCH_RETRY", "SESSION", "LANG", "QUEST_SEARCHED", "ANNOUNCED" }) do
 	ns.On(msg, UI.Refresh)
 end
 

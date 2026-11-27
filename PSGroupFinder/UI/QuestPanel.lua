@@ -64,7 +64,7 @@ function QuestUI.Refresh()
 	qw.empty:SetShown(#found == 0)
 	if #found == 0 then
 		local waiting = searched[qid] and ns.Now() - searched[qid] < SEARCHED_FOR
-		qw.empty:SetText(not on and L.QUEST_OFF or (cd > 0 and L.EMPTY_SEARCHING or (waiting and L.QUEST_EMPTY_WAITING or L.QUEST_EMPTY)))
+		qw.empty:SetText(not on and L.QUEST_OFF or (cd > 0 and L.QUEST_EMPTY_SEARCHING or (waiting and L.QUEST_EMPTY_WAITING or L.QUEST_EMPTY)))
 		qw.empty:ClearAllPoints()
 		qw.empty:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD + 2, -(y + 2))
 		y = y + 38
