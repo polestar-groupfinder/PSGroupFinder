@@ -103,8 +103,7 @@ function Announce.Send(id)
 	if not text then ns.Print(L.NO_QUESTS) return false end
 	local chatType, target = Announce.Resolve(Announce.Target())
 	if not chatType then ns.Print(target) return false end
-	local send = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
-	if not (send and pcall(send, text, chatType, nil, target)) then return false end
+	if not ns.SendChat(text, chatType, target) then return false end
 	last = ns.Now()
 	ns.Fire("ANNOUNCED", text, chatType)
 	return true

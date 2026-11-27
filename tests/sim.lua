@@ -2,7 +2,7 @@
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
 local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "Group", "Messages", "Leave", "Announce",
 	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/MessagesWindow", "UI/PartyBox",
-	"Polestar/Polestar", "Polestar/Menu", "Polestar/Options", "Polestar/Nearby", "Polestar/GoalRows" }
+	"Polestar/Polestar", "Polestar/Menu", "Polestar/Options", "Polestar/Nearby", "Polestar/GoalRows", "Demo" }
 local DIR = "PSGroupFinder/"
 local bus = {}      -- every client's env
 local now = 0
@@ -1251,5 +1251,61 @@ check(nea.ns.Nearby.Check() == true and nea.ns.UI.IsShown(), "on, near the objec
 check(next(nea.ns.Channels.status) == nil, "...and nothing is sent: the search stays a click")
 nea.ns.UI.Toggle()
 check(nea.ns.Nearby.Check() == false and not nea.ns.UI.IsShown(), "once per step: closed, it does not open again")
+
+-- Demo mode (TEMPORARY): made-up players through the real receiving code,
+-- and nothing leaves the client.
+local dem = newClient("Dem Oak", { hogger, boars }, { polestar = fpN })
+local demSent = 0
+local demOrig = dem.C_ChatInfo.SendAddonMessage
+dem.C_ChatInfo.SendAddonMessage = function(...) demSent = demSent + 1 return demOrig(...) end
+local function demPrinted(pat)
+	for _, m in ipairs(dem.printed) do if m:find(pat, 1, true) then return true end end
+	return false
+end
+dem.SlashCmdList.PSGROUPFINDER("demo search")
+check(demPrinted("Turn the demo on first"), "demo: subcommands wait for /psgf demo")
+dem.SlashCmdList.PSGROUPFINDER("demo")
+check(dem.ns.Demo.Active() and dem.ns.Get("enabled") and dem.ns.UI.IsShown(), "demo on: the finder turns on and the panel opens")
+run(10)
+demSent = 0
+dem.SlashCmdList.PSGROUPFINDER("demo search") run(6)
+check(demSent == 0, "demo: the search is not sent")
+check(demPrinted("[demo]|r -> CHANNEL: search"), "demo: the search is printed instead")
+check(#dem.ns.Matcher.List() == 3, "demo: the three made-up players answer the search")
+local bran = dem.ns.Matcher.Get("Brannok")
+check(bran and bran.size == 2 and dem.ns.Widgets.CanOnlyAsk(bran), "demo: Brannok is in a group, so the row offers Ask")
+check(#dem.ns.Matcher.Get("Tibbs").quests == 1, "demo: Tibbs shares the first quest only")
+local aely = dem.ns.Matcher.Get("Aelyra")
+check(aely.counts and aely.counts[176], "demo: their progress comes with their answer")
+-- Invite Aelyra: she joins, the hello box comes up.
+dem.ns.Widgets.Invite(aely) run(4)
+check(#dem.invited == 0 and count(dem, "WHISPER") == 0, "demo: the invite and its whisper are printed, not done")
+check(dem.ns.InGroup() and dem.ns.Demo.IsMember("Aelyra"), "demo: Aelyra joins the pretend group")
+check(dem.ns.PartyBox.Mode() == "hello", "demo: the hello box comes up")
+dem.ns.PartyBox.Main()
+check(count(dem, "PARTY") == 0 and demPrinted("-> PARTY: \"Hi all!"), "demo: Say hello prints the line instead of saying it")
+-- Ask Brannok: he invites you.
+dem.ns.Widgets.Invite(bran) run(5)
+check(dem.ns.Demo.IsMember("Brannok"), "demo: after Ask, Brannok invites you and you join")
+-- Progress, stop, goodbye, leave.
+dem.SlashCmdList.PSGROUPFINDER("demo players") run(4)
+dem.SlashCmdList.PSGROUPFINDER("demo stop") run(1)
+check(dem.ns.Matcher.Get("Tibbs") == nil, "demo: Tibbs ends their search and leaves the list")
+dem.SlashCmdList.PSGROUPFINDER("demo goodbye") run(3)
+check(dem.ns.PartyBox.Mode() == "goodbye", "demo: the goodbye box comes up")
+dem.ns.PartyBox.Main() run(1)
+check(not dem.ns.InGroup() and dem.leaves == 0 and demPrinted("-> leave the party"), "demo: Goodbye & leave breaks up the pretend group, the real party is not left")
+-- The channel test answers with its echo.
+dem.SlashCmdList.PSGROUPFINDER("test") run(5)
+check(dem.ns.Channels.status.CHANNEL and dem.ns.Channels.status.CHANNEL.state == "ok", "demo: /psgf test hears its echo")
+-- Near the objective.
+dem.ns.Set("openNear", true)
+dem.SlashCmdList.PSGROUPFINDER("demo near") run(1)
+check(dem.ns.UI.IsShown() and demPrinted("Pretending you are 50 m"), "demo near: the panel opens as if 50 m from the objective")
+dem.SlashCmdList.PSGROUPFINDER("demo hello") run(2)
+check(dem.ns.PartyBox.Mode() == "hello", "demo hello: the hello box at once")
+dem.SlashCmdList.PSGROUPFINDER("demo")
+check(not dem.ns.Demo.Active() and not dem.ns.InGroup(), "demo off: the pretend group is gone")
+check(demSent == 0 and count(dem, "WHISPER") == 0 and count(dem, "PARTY") == 0, "demo: nothing at all was sent")
 
 print("all tests passed")

@@ -31,6 +31,7 @@ local function stepQuests()
 end
 
 local function distance()
+	if ns.Demo and ns.Demo.Active() and ns.Demo.Distance() then return ns.Demo.Distance() end
 	local N = Polestar and Polestar.Nav
 	if not (N and type(N.GetDistance) == "function") then return nil end
 	local ok, d = pcall(N.GetDistance)
@@ -51,6 +52,9 @@ function Nearby.Check()
 	ns.Print(L.NEAR_OPENED, ns.Quests.Title(quests[1]))
 	return true
 end
+
+-- The demo: every step may open the panel again.
+function Nearby.Reset() wipe(opened) end
 
 ns.On("POLESTAR", function()
 	local function tick()

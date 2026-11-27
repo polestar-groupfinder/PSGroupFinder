@@ -283,11 +283,7 @@ function W.Invite(e)
 		ns.Messages.Whisper("ask", name, quests)
 		return
 	end
-	if C_PartyInfo and C_PartyInfo.InviteUnit then
-		C_PartyInfo.InviteUnit(name)
-	elseif InviteUnit then
-		InviteUnit(name)
-	end
+	ns.InviteUnit(name)
 	ns.Messages.Whisper("invite", name, quests)
 end
 

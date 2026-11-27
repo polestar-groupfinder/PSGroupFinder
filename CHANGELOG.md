@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Demo mode (temporary)**: `/psgf demo` plays the flow alone in game with three made-up
+  players fed through the real receiving code; nothing is sent while it is on, every outgoing
+  message, invite and leave is printed instead. The calls that act on the world (invite, leave,
+  chat lines, group state) now go through one helper each in `Core.lua`.
+
 - **Draining button**: the message box no longer shows its countdown in brackets; the time left
   drains the main button's accent colour, and the pointer on the box pauses it, so a
   last-moment click still lands.

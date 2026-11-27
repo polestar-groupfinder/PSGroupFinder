@@ -71,7 +71,7 @@ local enUS = {
 	TESTING = "Testing the channels, results in %d s...",
 	POLESTAR_STEP = "Polestar step",
 	KIND_k = "kill", KIND_n = "named", KIND_l = "loot", KIND_g = "group",
-	HELP = "/psgf: panel. /psgf search, stop, announce, on, off, test, reset, quest <id>, hooks, debug.",
+	HELP = "/psgf: panel. /psgf search, stop, announce, on, off, test, reset, quest <id>, hooks, debug, demo.",
 	BINDING_SEARCH = "Find a group for my quests",
 	BINDING_SEARCH_TIP = "Starts or stops the search for your quests.",
 	BINDING_PANEL = "Show or hide the group finder",

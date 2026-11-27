@@ -176,7 +176,7 @@ local function layoutMain(on)
 	widgets.announce:SetText(acd > 0 and string.format("%s (%d)", L.ANNOUNCE, math.ceil(acd)) or L.ANNOUNCE)
 	at(widgets.announce, y, WIDTH - PAD - widgets.announce:GetWidth())
 	y = y + 28
-	local inParty = (IsInGroup and IsInGroup()) and true or false
+	local inParty = ns.InGroup()
 	widgets.leaveGroup:SetShown(inParty)
 	if inParty then
 		at(widgets.leaveGroup, y)
@@ -206,7 +206,7 @@ function UI.Refresh()
 	if not (panel and panel:IsShown()) then return end
 	local on = ns.Get("enabled") and true or false
 	local settings = view == "settings"
-	widgets.title:SetText(settings and L.SETTINGS or L.TITLE)
+	widgets.title:SetText((settings and L.SETTINGS or L.TITLE) .. (ns.Demo and ns.Demo.Active() and " |cff66ccff(demo)|r" or ""))
 	widgets.gear.psActive = settings
 	widgets.gear.psPaint(false)
 	show(SETTINGS, settings)

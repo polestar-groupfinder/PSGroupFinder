@@ -39,7 +39,9 @@ local key = ns.NameKey
 
 local function partySize()
 	local n = (GetNumGroupMembers and GetNumGroupMembers()) or 0
-	if n == 0 and IsInGroup and IsInGroup() then n = 1 end
+	local pretend = ns.Demo and ns.Demo.Active() and ns.Demo.Members() or 0
+	if pretend > 0 then n = math.max(n, 1) + pretend end
+	if n == 0 and ns.InGroup() then n = 1 end
 	return n
 end
 
@@ -67,12 +69,10 @@ local function state(e, s)
 end
 
 local function invite(e)
-	local fn = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit
-	if not fn then return end
 	local k = key(e.name)
 	tried[k] = ns.Now()
 	pending[k] = e.name
-	pcall(fn, e.name)
+	ns.InviteUnit(e.name)
 	if ns.Leave then ns.Leave.NoteInvite(e.name, e.quests) end
 	state(e, "invited")
 	ns.Print(L.AUTO_INVITED, ns.ShortName(e.name))
@@ -131,6 +131,7 @@ local function onInviteRequest(_, inviter)
 	if not (ns.Get("enabled") and ns.Get("autoGroup") and expected(inviter)) then return end
 	if IsInInstance and IsInInstance() then return end
 	if partySize() > 0 then return end -- already grouped: leave that choice to the player
+	if ns.Demo and ns.Demo.Active() then ns.Demo.Note("accepts the invitation of %s (auto-group)", ns.ShortName(inviter)) return end
 	local accept = AcceptGroup or (C_PartyInfo and C_PartyInfo.ConfirmInviteUnit)
 	if accept then pcall(accept) end
 	-- The popup is closed only once we are in the group, so that a client

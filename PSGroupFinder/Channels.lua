@@ -85,6 +85,7 @@ local function targetFor(chatType)
 end
 
 local function trySend(chatType, text)
+	if ns.Demo and ns.Demo.Active() then return ns.Demo.Outgoing(chatType, text) end
 	local target, why = targetFor(chatType)
 	if target == nil then
 		Channels.SetStatus(chatType, "skip", why)
@@ -125,6 +126,7 @@ end
 
 -- Through the queue: answers, group requests, updates.
 function Channels.Whisper(text, name)
+	if ns.Demo and ns.Demo.Active() then return ns.Demo.Outgoing("WHISPER", text, name) end
 	Channels.RegisterPrefix()
 	ns.Debug("-> %s whispered to %s", text:sub(1, 1), name)
 	if ns.ChatFilter then ns.ChatFilter.NoteWhisper(name) end

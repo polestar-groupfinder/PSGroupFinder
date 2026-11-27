@@ -35,3 +35,4 @@ Polestar\Menu.lua
 Polestar\Options.lua
 Polestar\Nearby.lua
 Polestar\GoalRows.lua
+Demo.lua

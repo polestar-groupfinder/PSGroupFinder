@@ -195,6 +195,8 @@ end
 
 function PartyBox.Mode() return box and box:IsShown() and mode or nil end
 function PartyBox.Remaining() return remaining end
+-- The demo: offer hello again at once (nil), or not for a minute (now).
+function PartyBox.ResetHello(at) lastHello = at or -math.huge end
 
 -- The accent fill of the main button, as wide as the time left.
 function PartyBox.Drain()
@@ -212,14 +214,14 @@ end
 
 function PSGroupFinder_Goodbye()
 	if PartyBox.Mode() then close() end
-	if IsInGroup and IsInGroup() then ns.Leave.Do() end
+	if ns.InGroup() then ns.Leave.Do() end
 end
 
 -- The roster settles a moment after the join: then say hello.
 ns.On("GROUP_FORMED", function() ns.After(1, PartyBox.ShowHello) end)
 ns.On("GROUP_DONE", PartyBox.ShowGoodbye)
 ns.RegisterEvent("GROUP_ROSTER_UPDATE", function()
-	if PartyBox.Mode() and not (IsInGroup and IsInGroup()) then close() end
+	if PartyBox.Mode() and not ns.InGroup() then close() end
 end)
 ns.RegisterEvent("QUEST_LOG_UPDATE", function() PartyBox.Refresh() end)
 ns.On("ENABLED", function(on) if not on then close() end end)

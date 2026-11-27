@@ -36,7 +36,7 @@ local waitingCombat = false
 local key = ns.NameKey
 
 local function inGroup()
-	return (IsInGroup and IsInGroup()) and true or false
+	return ns.InGroup()
 end
 
 local function memory()
@@ -200,8 +200,7 @@ end
 function Leave.Do()
 	if not inGroup() then return end
 	Leave.Announce()
-	local leave = (C_PartyInfo and C_PartyInfo.LeaveParty) or LeaveParty
-	if leave then pcall(leave) end
+	ns.LeaveParty()
 	Leave.Forget()
 	ns.Print(L.LEAVE_LEFT)
 end

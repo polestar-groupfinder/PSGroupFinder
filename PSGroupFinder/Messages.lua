@@ -161,9 +161,7 @@ function Messages.PartyChat()
 end
 
 local function send(text, chatType, target)
-	local fn = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
-	if not (fn and type(text) == "string" and text ~= "") then return false end
-	return pcall(fn, text, chatType, nil, target) and true or false
+	return ns.SendChat(text, chatType, target)
 end
 
 function Messages.Whisper(kind, name, ids)
@@ -172,6 +170,6 @@ function Messages.Whisper(kind, name, ids)
 end
 
 function Messages.SayParty(kind, ids)
-	if not (IsInGroup and IsInGroup()) or not Messages.On(kind) then return false end
+	if not ns.InGroup() or not Messages.On(kind) then return false end
 	return send(Messages.Expand(kind, ids), Messages.PartyChat())
 end

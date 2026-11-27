@@ -69,6 +69,17 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 - **Quiet chat**: the game's notices about the addon's own traffic are hidden; `/psgf debug`
   shows them and traces every message.
 
+## Demo mode (temporary)
+
+`/psgf demo` tries the whole flow alone in game. While it is on (until you type it again or
+`/reload`), **nothing leaves your client**: every addon message, whisper, party line, announce,
+invite and leave is printed in the chat as `[demo] -> ...`. Three made-up players answer
+through the real receiving code: Aelyra (solo, auto-group on), Brannok (in a group of 2, so the
+row offers Ask), Tibbs (solo, farther, your first quest only). They answer your search and your
+quest search, join when you invite them, invite you when you ask. Subcommands: `search`,
+`players`, `progress`, `stop`, `invite`, `hello`, `goodbye`, `near`, `reset` (`/psgf demo help`).
+You need an open quest with an objective in your log. `Demo.lua` goes before the Polestar port.
+
 ## Options
 
 The panel has two views. The main one holds Find a group / Stop, Announce, the search in

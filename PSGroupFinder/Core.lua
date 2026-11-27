@@ -117,12 +117,44 @@ function ns.RegisterEvent(event, fn)
 	end
 	table.insert(handlers[event], fn)
 end
-frame:SetScript("OnEvent", function(_, event, ...)
+-- Runs our handlers for `event` (the demo feeds made-up events through it).
+function ns.Dispatch(event, ...)
 	for _, fn in ipairs(handlers[event] or {}) do
 		local ok, err = pcall(fn, event, ...)
 		if not ok then ns.Debug("%s: %s", event, tostring(err)) end
 	end
-end)
+end
+frame:SetScript("OnEvent", function(_, event, ...) ns.Dispatch(event, ...) end)
+
+-- The calls that act on the world, in one place: while the demo is on
+-- (Demo.lua, TEMPORARY) it prints them instead.
+local function demo() return ns.Demo and ns.Demo.Active() end
+
+function ns.InGroup()
+	if demo() and ns.Demo.InGroup() then return true end
+	return (IsInGroup and IsInGroup()) and true or false
+end
+
+function ns.InviteUnit(name)
+	if demo() then return ns.Demo.Invite(name) end
+	local fn = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit
+	if fn then pcall(fn, name) end
+end
+
+function ns.LeaveParty()
+	if demo() then return ns.Demo.Leave() end
+	local fn = (C_PartyInfo and C_PartyInfo.LeaveParty) or LeaveParty
+	if fn then pcall(fn) end
+end
+
+-- A chat line (whisper, party, channel); true when the client took it.
+function ns.SendChat(text, chatType, target)
+	if type(text) ~= "string" or text == "" then return false end
+	if demo() then return ns.Demo.Chat(text, chatType, target) end
+	local fn = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
+	if not fn then return false end
+	return pcall(fn, text, chatType, nil, target) and true or false
+end
 
 ns.RegisterEvent("ADDON_LOADED", function(_, name)
 	if name ~= ADDON then return end
@@ -188,6 +220,8 @@ SlashCmdList.PSGROUPFINDER = function(msg)
 		if id and ns.QuestUI then ns.QuestUI.Open(id) else ns.Print(L.QUEST_USAGE) end
 	elseif cmd == "hooks" then
 		if ns.GoalRows then ns.GoalRows.Report() end
+	elseif cmd == "demo" then
+		if ns.Demo then ns.Demo.Command((msg or ""):match("^%s*%S+%s*(.-)%s*$")) end
 	elseif cmd == "debug" then
 		ns.Set("debug", not ns.db.debug)
 		ns.Print(ns.db.debug and L.DEBUG_ON or L.DEBUG_OFF)

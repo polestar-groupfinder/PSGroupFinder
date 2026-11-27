@@ -91,6 +91,7 @@ function Matcher.Clear()
 end
 
 local function inMyGroup(name)
+	if ns.Demo and ns.Demo.IsMember(name) then return true end
 	return UnitInParty and (UnitInParty(name) or (UnitInRaid and UnitInRaid(name))) and true or false
 end
 Matcher.InGroup = function(name) local ok, r = pcall(inMyGroup, name) return ok and r end
