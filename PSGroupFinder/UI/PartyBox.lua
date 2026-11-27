@@ -289,7 +289,9 @@ function PartyBox.DrawPreview(art, style)
 	end
 	local quote = put("small", GameFontHighlightSmall, W.Dim() .. "\226\128\156" .. said .. "\226\128\157|r", y)
 	quote:SetWordWrap(not compact)
-	y = y + (compact and 14 or math.max(14, math.min(28, tonumber(quote:GetStringHeight()) or 14))) + 8
+	local sh = quote:GetStringHeight()
+	sh = type(sh) == "number" and sh or 14
+	y = y + (compact and 14 or math.max(14, math.min(28, sh))) + 8
 	-- The buttons as the box has them, the time left half drained; not clickable.
 	local main = W.Button(top, L.BOX_SAY_HELLO, 160, nil, 22)
 	main:SetPoint("TOPLEFT", top, "TOPLEFT", PAD, -y)
