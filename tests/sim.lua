@@ -1245,14 +1245,14 @@ check(sty.ns.PartyBox.Style() == "compact", "the compact style can be chosen")
 -- Polestar's page: an Essentials tab and a Messages tab.
 local tabs = {}
 for _, spec in ipairs(capturedOpts) do tabs[spec.tab] = (tabs[spec.tab] or 0) + 1 end
-check(tabs.Essentials and tabs.Messages and tabs.Messages >= 6, "the options page has an Essentials tab and a Messages tab (box + five messages)")
+check(tabs.Essentials and tabs.Messages and tabs.Messages >= 7, "the options page has an Essentials tab and a Messages tab (box, its style, five messages)")
 local helloSpec
 for _, spec in ipairs(capturedOpts) do if spec.section == "Hello" then helloSpec = spec end end
 check(helloSpec and helloSpec.controls[1].kind == "toggle" and helloSpec.controls[2].action == "PSGF_HELLO"
 	and helloSpec.controls[3].kind == "button" and helloSpec.controls[3].wide,
 	"a message's section: its switch and its key binding on one line, its text on a whole line")
 local boxSpec, styleCtl
-for _, spec in ipairs(capturedOpts) do if spec.section == "Message box" then boxSpec = spec end end
+for _, spec in ipairs(capturedOpts) do if spec.section == "Message box style" then boxSpec = spec end end
 for _, c in ipairs(boxSpec and boxSpec.controls or {}) do if c.kind == "cards" then styleCtl = c end end
 check(styleCtl and #styleCtl.choices == 2, "the box style is two picture cards")
 check(styleCtl.disabled() == false and helloSpec.controls[1].disabled() == false, "box on: the style cards and Hello are usable")

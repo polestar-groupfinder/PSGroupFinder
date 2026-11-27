@@ -233,23 +233,16 @@ local function sample()
 	return ex.quest, ex.left, ns.Messages.Preview(ns.Messages.Template("hello"))
 end
 
+-- The box is small: the card shows it at its real size, filling the card's
+-- picture (PREVIEW_W x PREVIEW_H), no miniature.
+PartyBox.PREVIEW_W, PartyBox.PREVIEW_H = WIDTH, 134
+
 function PartyBox.DrawPreview(art, style)
 	local compact = style == "compact"
 	local T = W.Theme()
-	local cw, ch = art:GetWidth(), art:GetHeight()
-	if not (cw and cw > 0) then cw = 154 end
-	if not (ch and ch > 0) then ch = 88 end
-	-- The sky behind, as on Polestar's own cards.
-	local sky = T and T.Band and select(2, pcall(T.Band, art, "BACKGROUND", -6))
-	if type(sky) == "table" and sky.SetAllPoints then
-		sky:SetAllPoints(art)
-	else
-		local bg = art:CreateTexture(nil, "BACKGROUND")
-		bg:SetAllPoints(art)
-		if bg.SetColorTexture then bg:SetColorTexture(0.1, 0.12, 0.2, 1) end
-	end
 	-- The box: its ground, then its content over it.
 	local m = CreateFrame("Frame", nil, art)
+	m:SetAllPoints(art)
 	m.Ground = CreateFrame("Frame", nil, m)
 	m.Ground:SetAllPoints(m)
 	m.Ground.psGuide = true
@@ -288,12 +281,9 @@ function PartyBox.DrawPreview(art, style)
 	end
 	local quote = put("small", GameFontHighlightSmall, W.Dim() .. "\226\128\156" .. said .. "\226\128\157|r", y)
 	quote:SetWordWrap(not compact)
-	local sh = quote:GetStringHeight()
-	sh = type(sh) == "number" and sh or 14
-	y = y + (compact and 14 or math.max(14, math.min(28, sh))) + 8
 	-- The buttons as the box has them, the time left half drained; not clickable.
 	local main = W.Button(top, L.BOX_SAY_HELLO, 160, nil, 22)
-	main:SetPoint("TOPLEFT", top, "TOPLEFT", PAD, -y)
+	main:SetPoint("BOTTOMLEFT", top, "BOTTOMLEFT", PAD, PAD)
 	local fill = main:CreateTexture(nil, "ARTWORK", nil, -8)
 	fill:SetPoint("TOPLEFT", main, "TOPLEFT", 1, -1)
 	fill:SetPoint("BOTTOMLEFT", main, "BOTTOMLEFT", 1, 1)
@@ -303,11 +293,6 @@ function PartyBox.DrawPreview(art, style)
 	local other = W.Button(top, L.BOX_CANCEL, WIDTH - 2 * PAD - 166, nil, 22)
 	other:SetPoint("LEFT", main, "RIGHT", 6, 0)
 	for _, b in ipairs({ main, other }) do if b.EnableMouse then b:EnableMouse(false) end end
-	local height = y + 22 + PAD
-	m:SetSize(WIDTH, height)
-	m:SetScale(math.max(0.05, math.min((cw - 16) / WIDTH, (ch - 12) / height)))
-	m:ClearAllPoints()
-	m:SetPoint("CENTER", art, "CENTER", 0, 0)
 end
 
 -- Tests: the frame, to drive its countdown.

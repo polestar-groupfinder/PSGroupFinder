@@ -14,6 +14,7 @@ local enUS = {
 	TAB_ESSENTIALS = "Essentials",
 	TAB_MESSAGES = "Messages",
 	BOX_SECTION = "Message box",
+	BOX_STYLE_SECTION = "Message box style",
 	BOX_STYLE = "Style",
 	BOX_STYLE_TIP = "Polestar: the group's quests and the objectives left, then the message.\nCompact: only the message and the buttons.",
 	BOX_STYLE_POLESTAR = "Polestar",

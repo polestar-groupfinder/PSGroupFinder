@@ -274,10 +274,15 @@ local function sections()
 			binding("PSGF_TOGGLE_PANEL", "BINDING_PANEL"),
 		} },
 		-- The Messages tab: the message box, then each message.
+		-- The box's switch on its own, then its style: picture cards showing
+		-- the box itself at its real size (it is small), as the guide window's
+		-- presets stand in their own section.
 		{ L.BOX_SECTION, {
 			toggle("PARTY_BOX", "partyBox"),
-			-- Picture cards: a miniature of the box in each style.
+		}, L.TAB_MESSAGES },
+		{ L.BOX_STYLE_SECTION, {
 			{ kind = "cards", label = L.BOX_STYLE, help = L.BOX_STYLE_TIP, search = "style compact preview", disabled = boxOff,
+				art = { ns.PartyBox.PREVIEW_W, ns.PartyBox.PREVIEW_H },
 				choices = {
 					{ value = "polestar", label = L.BOX_STYLE_POLESTAR, draw = function(art) ns.PartyBox.DrawPreview(art, "polestar") end },
 					{ value = "compact", label = L.BOX_STYLE_COMPACT, draw = function(art) ns.PartyBox.DrawPreview(art, "compact") end },
