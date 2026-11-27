@@ -139,6 +139,7 @@ local function sections()
 			toggle("AUTO_GROUP", "autoGroup"),
 			toggle("AUTO_REPLY", "autoReply"),
 			toggle("SHARE_COORDS", "shareCoords"),
+			toggle("OPEN_NEAR", "openNear"),
 		} },
 		{ L.LANGS, langs },
 		{ L.CAT_KEYS, {

@@ -33,4 +33,5 @@ UI\PartyBox.lua
 Polestar\Polestar.lua
 Polestar\Menu.lua
 Polestar\Options.lua
+Polestar\Nearby.lua
 Polestar\GoalRows.lua

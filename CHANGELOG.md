@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Draining button**: the message box no longer shows its countdown in brackets; the time left
+  drains the main button's accent colour, and the pointer on the box pauses it, so a
+  last-moment click still lands.
+- **Open the finder near my quest** (off by default): when Polestar's arrow brings you within
+  about 120 m of an objective of a kill, named, loot or group quest, the panel opens, once per
+  step, out of combat and outside instances. Nothing is sent.
+- The channel line and its Test button leave the panel's settings view; the test stays on
+  Polestar's page and as `/psgf test`, and the main view still warns when the channel is down.
+
 - **Chat reading removed**: the beta “Spot players asking in chat” is gone.
 - **Search languages by region**: only the languages played in the game's region are offered
   (`GetCurrentRegion`), plus the client's own; all of them when the region is unknown.
@@ -19,7 +28,7 @@
   is sent. The search languages are set on Polestar's options page (in the panel's settings view
   only without it).
 - **Tidier panel**: the settings move behind a cog in the title bar (a settings view in the same
-  panel: on/off, the categories, languages, where Announce speaks, the channel test, Messages,
+  panel: on/off, the categories, languages, where Announce speaks, Messages,
   Polestar's options). The main view keeps Find a group / Stop, Announce, the search in progress
   and the players; while off, it only says so with a Turn on button. The channel line shows only
   when the channel does not work.

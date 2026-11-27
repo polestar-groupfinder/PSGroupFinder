@@ -2,7 +2,7 @@
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
 local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "Group", "Messages", "Leave", "Announce",
 	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/MessagesWindow", "UI/PartyBox",
-	"Polestar/Polestar", "Polestar/Menu", "Polestar/Options", "Polestar/GoalRows" }
+	"Polestar/Polestar", "Polestar/Menu", "Polestar/Options", "Polestar/Nearby", "Polestar/GoalRows" }
 local DIR = "PSGroupFinder/"
 local bus = {}      -- every client's env
 local now = 0
@@ -1231,5 +1231,25 @@ local helloSpec
 for _, spec in ipairs(capturedOpts) do if spec.section == "Hello" then helloSpec = spec end end
 check(helloSpec and helloSpec.controls[1].kind == "toggle" and helloSpec.controls[2].kind == "button" and helloSpec.controls[3].action == "PSGF_HELLO",
 	"a message's section: its switch, Edit the text, its key binding")
+
+-- Opening the panel near the live step's objective (option, off by default).
+local fpN = {}
+for k, v in pairs(fakePolestar) do fpN[k] = v end
+fpN.Engine = { GetGuide = function() return { steps = { { goals = { { t = "loot", quest = 86 } } } } } end, GetLiveStep = function() return 1 end }
+local dist = 500
+fpN.Nav = { GetDistance = function() return dist end }
+local nea = newClient("Nea Vale", { hogger, boars }, { polestar = fpN })
+nea.ns.SetEnabled(true) run(15)
+check(nea.ns.Get("openNear") == false, "opening near a quest is off by default")
+dist = 50
+check(nea.ns.Nearby.Check() == false and not nea.ns.UI.IsShown(), "off: nothing opens near the objective")
+nea.ns.Set("openNear", true)
+dist = 500
+check(nea.ns.Nearby.Check() == false and not nea.ns.UI.IsShown(), "on, but far from the objective: nothing opens")
+dist = 80
+check(nea.ns.Nearby.Check() == true and nea.ns.UI.IsShown(), "on, near the objective of a quest worth a group: the panel opens")
+check(next(nea.ns.Channels.status) == nil, "...and nothing is sent: the search stays a click")
+nea.ns.UI.Toggle()
+check(nea.ns.Nearby.Check() == false and not nea.ns.UI.IsShown(), "once per step: closed, it does not open again")
 
 print("all tests passed")

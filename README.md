@@ -9,7 +9,7 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 > Work in progress: this version is being ported into Polestar itself. It has not been tested in
 > the game client yet; screenshots will follow. Renders of the windows beside Polestar's guide
 > (drawn, not captured in game): [the panel and its settings view](docs/mockup/panel.png),
-> [the message box, both styles](docs/mockup/message-box.png), [Say hello](docs/mockup/hello.gif),
+> [the message box, both styles](docs/mockup/message-box.png), [Say hello](docs/mockup/hello.gif), [the draining button](docs/mockup/message-box-drain.gif),
 > the options page's [Essentials](docs/mockup/options-essentials.png) and
 > [Messages](docs/mockup/options-messages-1.png) ([scrolled](docs/mockup/options-messages-2.png)) tabs.
 
@@ -44,7 +44,9 @@ without it (standalone window). Licence: GPL-3.0-or-later.
   have the addon. Only on your click, key binding or `/psgf announce`, at most once a minute; the
   tooltip previews the line.
 - **Message box**: when a group formed through the finder gets together, a small box offers
-  **Say hello** for 5 seconds, only on your click or key; then the chance is gone. Two styles:
+  **Say hello** for 5 seconds, only on your click or key; then the chance is gone. The time left
+  drains the button's colour (no number to read), and the pointer on the box holds it, so a
+  last-moment click still lands. Two styles:
   **Polestar** (the group's quests and the objectives left, as counts, then the message) and
   **Compact** (the message and the buttons). When every quest you grouped for is done, it offers
   **Goodbye & leave** for 30 seconds (the goodbye message, then you leave). The panel's **Leave
@@ -61,6 +63,9 @@ without it (standalone window). Licence: GPL-3.0-or-later.
   ES, IT, PT, RU; the Americas: EN, ES, PT; Korea, Taiwan, China: their own and EN; every
   language when the region is unknown), plus your own. A player appears on your list if their
   game language is in your search.
+- **Open the finder near my quest** (off by default): when Polestar's arrow brings you within
+  about 120 m of an objective of a kill, named, loot or group quest, the panel opens, once per
+  step, out of combat and outside instances. It only opens the panel: nothing is sent.
 - **Quiet chat**: the game's notices about the addon's own traffic are hidden; `/psgf debug`
   shows them and traces every message.
 
@@ -68,14 +73,13 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 
 The panel has two views. The main one holds Find a group / Stop, Announce, the search in
 progress and the players found. The **cog** in its title bar opens the settings view: the master
-switch, the grouping and party settings, where Announce speaks, the channel's test,
-**Messages…** and Polestar's options page.
+switch, the grouping and party settings, where Announce speaks, **Messages…** and Polestar's options page.
 
 The “Group Finder” page in Polestar's options has two tabs:
 
 | Tab | Sections |
 |---|---|
-| Essentials | Group Finder (enable, test the channel); Grouping (group automatically, off; let others find me when they search, off: answers their searches with a hidden whisper; show others my distance, on: sends your map position); Search languages; Key bindings (search, panel) |
+| Essentials | Group Finder (enable, test the channel); Grouping (group automatically, off; let others find me when they search, off: answers their searches with a hidden whisper; show others my distance, on: sends your map position; open the finder near my quest, off); Search languages; Key bindings (search, panel) |
 | Messages | Message box (show it when grouping, on; style: Polestar or Compact); then one section per message (Hello, Goodbye, Announce, Invite, Ask to join): its switch, its text, its key binding where it has one |
 
 Nothing acts on its own by default: answering other players' searches and auto-grouping are

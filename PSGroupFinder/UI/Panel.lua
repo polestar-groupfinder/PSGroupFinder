@@ -7,7 +7,7 @@
 -- Whisper and Invite (only ever on your click); while the finder is off,
 -- only a line saying so and Turn on. The cog in the title bar switches to
 -- the settings view: the master switch, the settings by category, where
--- Announce speaks, Messages, the channel's test
+-- Announce speaks, Messages
 -- and, with Polestar, its options page (which also holds the search
 -- languages; without Polestar they are in the settings view). The panel is
 -- as tall as what it shows.
@@ -35,6 +35,7 @@ local FOLDED = {
 	{ "autoGroup", "AUTO_GROUP", "AUTO_GROUP_TIP" },
 	{ "autoReply", "AUTO_REPLY", "AUTO_REPLY_TIP" },
 	{ "shareCoords", "SHARE_COORDS", "SHARE_COORDS_TIP" },
+	{ "openNear", "OPEN_NEAR", "OPEN_NEAR_TIP" },
 	{ header = "CAT_PARTY" },
 	{ "partyBox", "PARTY_BOX", "PARTY_BOX_TIP" },
 }
@@ -50,36 +51,6 @@ local widgets = {}
 local docked = false
 local host            -- the guide window to sit against, or nil
 local dockable = {}   -- the frames that take the panel's place
-
----------------------------------------------------------------------------
--- Channels: the four names coloured by what each did, with a legend
----------------------------------------------------------------------------
-
-local STATE_COLOR = { ok = "ff40ff40", sent = "ffffd100", fail = "ffff5050", skip = "ff909090" }
-
-local function channelLine()
-	local parts = {}
-	for _, ct in ipairs(ns.Channels.ORDER) do
-		local s = ns.Channels.status[ct]
-		parts[#parts + 1] = "|c" .. (STATE_COLOR[s and s.state] or "ffaaaaaa") .. ct .. "|r"
-	end
-	return table.concat(parts, "  ")
-end
-
-local function channelTip(self)
-	GameTooltip:SetOwner(self, "ANCHOR_TOP")
-	GameTooltip:SetText(L.LEGEND_TITLE, 1, 1, 1)
-	GameTooltip:AddLine(L.LEGEND_BODY, nil, nil, nil, true)
-	local best = ns.Channels.Best()
-	if best then GameTooltip:AddLine(string.format(L.LEGEND_BEST, best), 0.25, 1, 0.25) end
-	for _, ct in ipairs(ns.Channels.ORDER) do
-		local s = ns.Channels.status[ct]
-		if s and (s.state == "fail" or s.state == "skip") and s.code then
-			GameTooltip:AddLine(ct .. ": " .. tostring(s.code), 1, 0.4, 0.4)
-		end
-	end
-	GameTooltip:Show()
-end
 
 ---------------------------------------------------------------------------
 -- Refresh
@@ -170,14 +141,7 @@ local function layoutSettings(on)
 	at(widgets.annLabel, y + 5)
 	widgets.annTo:Refresh()
 	at(widgets.annTo, y, WIDTH - PAD - widgets.annTo:GetWidth())
-	y = y + 28
-	widgets.chLabel:SetText(W.Dim() .. L.CHANNELS .. "|r  " .. channelLine())
-	at(widgets.chLabel, y + 5)
-	at(widgets.test, y, WIDTH - PAD - 56)
-	widgets.chHit:ClearAllPoints()
-	widgets.chHit:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -y)
-	widgets.chHit:SetPoint("BOTTOMRIGHT", panel, "TOPLEFT", WIDTH - PAD - 62, -(y + 22))
-	y = y + 30
+	y = y + 32
 	at(widgets.messages, y)
 	widgets.options:SetShown(UI.hasOptions == true)
 	at(widgets.options, y, WIDTH - PAD - widgets.options:GetWidth())
@@ -505,13 +469,6 @@ local function build()
 		items = UI.AnnounceTargets, get = ns.Announce.Target, set = function(v) ns.Set("announceTo", v) end,
 		title = L.ANN_TO, help = L.ANN_TO_TIP,
 	}))
-	-- The channel and its test.
-	widgets.chLabel = add(SETTINGS, text("small", GameFontHighlightSmall, "LEFT"))
-	widgets.chHit = add(SETTINGS, CreateFrame("Frame", nil, panel))
-	widgets.chHit:EnableMouse(true)
-	widgets.chHit:SetScript("OnEnter", channelTip)
-	widgets.chHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	widgets.test = add(SETTINGS, W.Button(panel, L.TEST_SHORT, 56, function() ns.TestChannels() end, 20))
 	-- Messages, and Polestar's options page.
 	widgets.messages = add(SETTINGS, W.Button(panel, L.MESSAGES .. "…", 120, function() UI.ShowMessages() end, 22))
 	W.Tip(widgets.messages, L.MESSAGES, L.MESSAGES_TIP)

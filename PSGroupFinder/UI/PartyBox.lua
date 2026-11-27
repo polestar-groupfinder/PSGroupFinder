@@ -7,7 +7,8 @@
 --   * hello, when the group forms: Say hello (or its key binding) says the
 --     hello message (Messages.lua, with the quest links and your progress)
 --     in the party, for HELLO_TIME seconds; then the box goes and the chance
---     is gone. Nothing is ever said without the click or the key.
+--     is gone. The time left drains the button's accent fill; the pointer on
+--     the box holds it. Nothing is ever said without the click or the key.
 --   * goodbye, when the group's quests are all done: Say goodbye (the
 --     goodbye message, then leave the group) for GOODBYE_TIME seconds; then
 --     the box goes and you stay. Stay closes it at once.
@@ -27,7 +28,7 @@ local GOODBYE_TIME = 30
 local HELLO_AGAIN = 60     -- seconds before another hello may be offered
 local MAX_QUESTS, MAX_OBJECTIVES = 3, 3
 
-local box, mode, remaining
+local box, mode, remaining, total
 local lastHello = -math.huge
 local lines = {}
 
@@ -94,9 +95,9 @@ function PartyBox.Refresh()
 	box.preview:ClearAllPoints()
 	box.preview:SetPoint("TOPLEFT", box, "TOPLEFT", PAD, -(y + (compact and 0 or 4)))
 	y = y + (compact and 0 or 4) + (compact and 14 or math.max(14, box.preview:GetStringHeight() or 14)) + 8
-	local secs = math.max(0, math.ceil(remaining or 0))
 	local label = hello and L.BOX_SAY_HELLO or (speaks and L.BOX_SAY_GOODBYE or L.LEAVE_GROUP)
-	box.main:SetText(string.format("%s (%d)", label, secs))
+	box.main:SetText(label)
+	PartyBox.Drain()
 	box.other:SetText(hello and L.BOX_CANCEL or L.BOX_STAY)
 	box.main:ClearAllPoints()
 	box.main:SetPoint("TOPLEFT", box, "TOPLEFT", PAD, -y)
@@ -104,7 +105,7 @@ function PartyBox.Refresh()
 end
 
 local function close()
-	mode, remaining = nil, nil
+	mode, remaining, total = nil, nil, nil
 	if box then box:Hide() end
 end
 
@@ -126,18 +127,30 @@ local function build()
 	box.preview:SetJustifyH("LEFT")
 	box.preview:SetWidth(WIDTH - 2 * PAD)
 	box.main = W.Button(box, L.BOX_SAY_HELLO, 160, function() PartyBox.Main() end, 22)
+	-- The time left: the button's accent fill drains from right to left.
+	box.fill = box.main:CreateTexture(nil, "BACKGROUND", nil, 1)
+	box.fill:SetPoint("TOPLEFT", box.main, "TOPLEFT", 1, -1)
+	box.fill:SetPoint("BOTTOMLEFT", box.main, "BOTTOMLEFT", 1, 1)
+	if box.fill.SetColorTexture then box.fill:SetColorTexture(0.9, 0.73, 0.4, 0.45) end
+	local T = W.Theme()
+	if T and T.Color then pcall(T.Color, box.fill, "accent", 0.45) end
 	box.other = W.Button(box, L.BOX_CANCEL, WIDTH - 2 * PAD - 166, function() PartyBox.Other() end, 22)
 	box.other:SetPoint("LEFT", box.main, "RIGHT", 6, 0)
 	local tick = 0
 	box:SetScript("OnUpdate", function(_, dt)
 		if not remaining then return end
+		-- The pointer on the box holds the time: a last-moment click still lands.
+		if box.IsMouseOver and box:IsMouseOver() then return end
 		remaining = remaining - dt
 		tick = tick + dt
 		if remaining <= 0 then
 			PartyBox.Other()
-		elseif tick >= 0.25 then
-			tick = 0
-			PartyBox.Refresh()
+		else
+			PartyBox.Drain()
+			if tick >= 0.5 then
+				tick = 0
+				PartyBox.Refresh()
+			end
 		end
 	end)
 	box:Hide()
@@ -145,7 +158,7 @@ end
 
 local function show(m, seconds)
 	if not box then build() end
-	mode, remaining = m, seconds
+	mode, remaining, total = m, seconds, seconds
 	box:Show()
 	PartyBox.Refresh()
 end
@@ -182,6 +195,13 @@ end
 
 function PartyBox.Mode() return box and box:IsShown() and mode or nil end
 function PartyBox.Remaining() return remaining end
+
+-- The accent fill of the main button, as wide as the time left.
+function PartyBox.Drain()
+	if not (box and box.fill and remaining and total and total > 0) then return end
+	local w = (box.main:GetWidth() or 160) - 2
+	box.fill:SetWidth(math.max(0.01, w * math.max(0, remaining) / total))
+end
 -- Tests: the frame, to drive its countdown.
 function PartyBox.Frame() return box end
 
