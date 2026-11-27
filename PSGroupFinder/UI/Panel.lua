@@ -37,8 +37,6 @@ local FOLDED = {
 	{ "shareCoords", "SHARE_COORDS", "SHARE_COORDS_TIP" },
 	{ header = "CAT_PARTY" },
 	{ "partyBox", "PARTY_BOX", "PARTY_BOX_TIP" },
-	{ header = "CAT_CHAT" },
-	{ "readChat", "READ_CHAT", "READ_CHAT_TIP" },
 }
 local HEADER_H = 18
 local DEFAULT_ON = { partyBox = true } -- read as on unless set to false
@@ -122,21 +120,18 @@ local function layoutSession(y, active)
 end
 
 -- The second line of a row: the first shared quest, their progress on it
--- (small, dim), how many more, or where a chat player asked.
+-- (small, dim) and how many more.
 local function playerInfo(e)
 	local first = e.quests[1]
 	local left = W.PeerProgress(e, first)
 	local progress = left ~= "" and ("  " .. W.Dim() .. left .. "|r") or ""
 	local more = #e.quests > 1 and ("  " .. W.Dim() .. "+" .. (#e.quests - 1) .. "|r") or ""
-	local where = e.where and ("  " .. W.Dim() .. e.where .. "|r") or ""
-	return W.Soft() .. ns.Quests.Title(first) .. "|r" .. progress .. more .. where
+	return W.Soft() .. ns.Quests.Title(first) .. "|r" .. progress .. more
 end
 
--- The players to list: those found through the finder, then those spotted
--- in public chat.
+-- The players to list.
 local function playersFound()
 	local list = ns.Matcher.List()
-	for _, e in ipairs(ns.ChatWatch.List()) do list[#list + 1] = e end
 	return list
 end
 
@@ -212,6 +207,7 @@ local function layoutMain(on)
 	at(widgets.search, y)
 	widgets.stop:SetShown(active)
 	local acd = ns.Announce.Cooldown()
+	widgets.announce:SetShown(ns.Messages.Enabled("announce"))
 	widgets.announce:SetEnabled(acd == 0)
 	widgets.announce:SetText(acd > 0 and string.format("%s (%d)", L.ANNOUNCE, math.ceil(acd)) or L.ANNOUNCE)
 	at(widgets.announce, y, WIDTH - PAD - widgets.announce:GetWidth())
@@ -365,7 +361,7 @@ end
 local function buildLangPicker()
 	local box = W.Box(panel)
 	box:SetFrameStrata("DIALOG")
-	box:SetSize(WIDTH - 16, langPickerHeight(ns.Lang.AcceptsAll(), #ns.Lang.ALL))
+	box:SetSize(WIDTH - 16, langPickerHeight(ns.Lang.AcceptsAll(), #ns.Lang.Offered()))
 	box:SetPoint("TOPLEFT", widgets.langLabel, "BOTTOMLEFT", 8 - PAD, -6)
 	local title = W.Text(box, "caption", GameFontNormalSmall)
 	title:SetPoint("TOPLEFT", 8, -8)
@@ -374,7 +370,7 @@ local function buildLangPicker()
 	box.all:SetPoint("TOPLEFT", box, "TOPLEFT", 6, -24)
 	box.langs = {}
 	local colW = math.floor((WIDTH - 16) / 2)
-	for i, row in ipairs(ns.Lang.ALL) do
+	for i, row in ipairs(ns.Lang.Offered()) do
 		local code = row.code
 		local name = ns.Lang.Name(code)
 		local c = langCheck(box, name, function() return ns.Lang.HasSearch(code) end,

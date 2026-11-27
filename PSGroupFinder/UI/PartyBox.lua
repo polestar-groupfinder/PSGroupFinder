@@ -63,12 +63,19 @@ local function questLines()
 	return out
 end
 
+-- "polestar" (the group's quests and objectives) or "compact" (the line
+-- that will be said, then the buttons).
+function PartyBox.Style()
+	return ns.Get("partyBoxStyle") == "compact" and "compact" or "polestar"
+end
+
 function PartyBox.Refresh()
 	if not (box and box:IsShown()) then return end
 	local hello = mode == "hello"
+	local compact = PartyBox.Style() == "compact"
 	box.title:SetText(hello and L.BOX_HELLO_TITLE or L.BOX_GOODBYE_TITLE)
 	local y = 32
-	local qs = questLines()
+	local qs = compact and {} or questLines()
 	for i, text in ipairs(qs) do
 		local fs = line(i)
 		fs:SetText(text)
@@ -78,15 +85,18 @@ function PartyBox.Refresh()
 		y = y + 14
 	end
 	for i = #qs + 1, #lines do lines[i]:Hide() end
-	-- What will be said, then the buttons.
+	-- What will be said (one line in compact), then the buttons.
 	local kind = hello and "hello" or "goodbye"
-	local said = ns.Messages.On(kind) and ns.Messages.Expand(kind, ns.Leave.Quests()) or L.MSG_OFF
+	local speaks = ns.Messages.On(kind)
+	local said = speaks and ns.Messages.Expand(kind, ns.Leave.Quests()) or L.MSG_OFF
+	box.preview:SetWordWrap(not compact)
 	box.preview:SetText(W.Dim() .. "\226\128\156" .. said .. "\226\128\157|r")
 	box.preview:ClearAllPoints()
-	box.preview:SetPoint("TOPLEFT", box, "TOPLEFT", PAD, -(y + 4))
-	y = y + 4 + math.max(14, box.preview:GetStringHeight() or 14) + 8
+	box.preview:SetPoint("TOPLEFT", box, "TOPLEFT", PAD, -(y + (compact and 0 or 4)))
+	y = y + (compact and 0 or 4) + (compact and 14 or math.max(14, box.preview:GetStringHeight() or 14)) + 8
 	local secs = math.max(0, math.ceil(remaining or 0))
-	box.main:SetText(string.format("%s (%d)", hello and L.BOX_SAY_HELLO or L.BOX_SAY_GOODBYE, secs))
+	local label = hello and L.BOX_SAY_HELLO or (speaks and L.BOX_SAY_GOODBYE or L.LEAVE_GROUP)
+	box.main:SetText(string.format("%s (%d)", label, secs))
 	box.other:SetText(hello and L.BOX_CANCEL or L.BOX_STAY)
 	box.main:ClearAllPoints()
 	box.main:SetPoint("TOPLEFT", box, "TOPLEFT", PAD, -y)
@@ -193,4 +203,7 @@ ns.RegisterEvent("GROUP_ROSTER_UPDATE", function()
 end)
 ns.RegisterEvent("QUEST_LOG_UPDATE", function() PartyBox.Refresh() end)
 ns.On("ENABLED", function(on) if not on then close() end end)
-ns.On("SETTING", function(key) if key == "partyBox" and not ns.Get("partyBox") then close() end end)
+ns.On("SETTING", function(key)
+	if key == "partyBox" and not ns.Get("partyBox") then close() end
+	if key == "partyBoxStyle" then PartyBox.Refresh() end
+end)

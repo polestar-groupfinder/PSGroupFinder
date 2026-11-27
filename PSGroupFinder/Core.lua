@@ -32,13 +32,14 @@ end
 local DEFAULTS = {
 	enabled = false,     -- the whole feature, off until the player turns it on
 	autoReply = false,   -- answer other players' searches for quests we have, without a click (opt-in)
-	readChat = false,    -- list players who ask for one of our quests in public chat (read only, beta)
 	autoGroup = false,   -- invite / accept without a click after a search (opt-in)
 	shareCoords = true,  -- send x/y with the map; off: the map only
 	searchLangs = false, -- filled in Lang.Init: the client's language
 	acceptAll = false,   -- search every language (opt-in; folds the language list)
 	panelPos = false,    -- { point, x, y } of the standalone panel
 	partyBox = true,     -- with a finder group: say hello (countdown), then offer goodbye when its quests are done
+	partyBoxStyle = "polestar", -- the message box: "polestar" (quests and objectives) or "compact"
+	announceOn = true, inviteOn = true, askOn = true, helloOn = true, goodbyeOn = true, -- each message's switch
 	announceMsg = false, -- the messages (Messages.lua): false = the default text, "" = off
 	inviteMsg = false,
 	askMsg = false,

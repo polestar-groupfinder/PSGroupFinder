@@ -125,10 +125,6 @@ local function onInvite(_, inviter)
 	inviter = ns.Readable(inviter)
 	if type(inviter) ~= "string" or not ns.Get("enabled") then return end
 	local ids = ns.Matcher.QuestsOf(inviter)
-	if #ids == 0 and ns.ChatWatch then
-		local e = ns.ChatWatch.Get(inviter)
-		ids = e and e.quests or ids
-	end
 	if #ids == 0 then return end -- not a player the finder found
 	incoming = { name = inviter, quests = ids, at = ns.Now() }
 end

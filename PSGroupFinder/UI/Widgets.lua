@@ -304,7 +304,6 @@ end
 -- What is happening with this player (invited, waiting for their
 -- invitation, already in a group), else how far.
 local function stateText(e)
-	if e.source == "chat" then return W.Hex("accent", "ffffd100") .. L.VIA_CHAT .. "|r" end
 	if e.state == "invited" then return W.Hex("success", "ff6bd999") .. L.STATE_INVITED .. "|r" end
 	if e.state == "asked" then return W.Hex("warning", "fffabf4d") .. L.STATE_ASKED .. "|r" end
 	if (e.size or 0) > 0 then return W.Dim() .. L.GROUPED .. "|r" end
@@ -406,13 +405,7 @@ function W.PlayerRow(parent)
 			GameTooltip:AddLine(W.KindTag(e.kinds and e.kinds[id]) .. ns.Quests.Title(id)
 				.. (left ~= "" and ("  " .. W.Dim() .. left .. "|r") or ""), nil, nil, nil, true)
 		end
-		if e.said then
-			-- Found in public chat: where, and what they said.
-			GameTooltip:AddLine(string.format(L.SAID_IN, e.where or "?"), 0.6, 0.6, 0.65)
-			GameTooltip:AddLine(e.said, 1, 1, 1, true)
-		else
-			GameTooltip:AddLine(W.Distance(e), 0.6, 0.6, 0.65)
-		end
+		GameTooltip:AddLine(W.Distance(e), 0.6, 0.6, 0.65)
 		GameTooltip:Show()
 	end)
 	r:SetScript("OnLeave", function() GameTooltip:Hide() end)

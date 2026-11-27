@@ -1,5 +1,6 @@
 -- Group Finder for Polestar (PSGroupFinder): the messages the finder can say for you, each
--- an editable text; an empty text is never sent.
+-- with its own switch (on by default) and an editable text; an empty text
+-- is never sent either.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 --   announce said in public chat (General by default) on the Announce click
@@ -31,13 +32,13 @@ ns.Messages = Messages
 local MAX_LEN = 255
 local MAX_QUESTS = 3
 
--- kind -> { setting holding the text, default text }
+-- kind -> { setting holding the text, default text, its switch, its key binding }
 Messages.KINDS = {
-	announce = { text = "announceMsg", default = "LFG {quests}, whisper me!" },
-	invite = { text = "inviteMsg", default = "Hi! I'm on {quests} too, I've sent you an invite." },
-	ask = { text = "askMsg", default = "Hi! I'm on {quests} too, could you invite me to your group?" },
-	hello = { text = "helloMsg", default = "Hi all! I'm on {progress}." },
-	goodbye = { text = "leaveMsg", default = "Thanks for the group, have fun!" },
+	announce = { text = "announceMsg", on = "announceOn", binding = "PSGF_ANNOUNCE", default = "LFG {quests}, whisper me!" },
+	invite = { text = "inviteMsg", on = "inviteOn", default = "Hi! I'm on {quests} too, I've sent you an invite." },
+	ask = { text = "askMsg", on = "askOn", default = "Hi! I'm on {quests} too, could you invite me to your group?" },
+	hello = { text = "helloMsg", on = "helloOn", binding = "PSGF_HELLO", default = "Hi all! I'm on {progress}." },
+	goodbye = { text = "leaveMsg", on = "goodbyeOn", binding = "PSGF_GOODBYE", default = "Thanks for the group, have fun!" },
 }
 Messages.ORDER = { "announce", "invite", "ask", "hello", "goodbye" }
 
@@ -57,8 +58,18 @@ function Messages.Save(kind, text)
 	ns.Set(Messages.KINDS[kind].text, text ~= Messages.Default(kind) and text or false)
 end
 
+-- The message's switch (on unless turned off).
+function Messages.Enabled(kind)
+	return ns.Get(Messages.KINDS[kind].on) ~= false
+end
+
+function Messages.SetEnabled(kind, on)
+	ns.Set(Messages.KINDS[kind].on, on and true or false)
+end
+
+-- Said at all: switched on, with a text.
 function Messages.On(kind)
-	return Messages.Template(kind) ~= ""
+	return Messages.Enabled(kind) and Messages.Template(kind) ~= ""
 end
 
 -- A quest as written in chat: the client's link when it names this quest

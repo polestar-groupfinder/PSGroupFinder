@@ -11,7 +11,7 @@ globals = {
 	"Polestar", -- Hooks.lua wraps two of its functions (under pcall)
 }
 read_globals = {
-	"time", "InCombatLockdown", "IsQuestFlaggedCompleted", "GameFontHighlight", "SendChatMessage", "LeaveParty", "ChatFrame_AddMessageEventFilter", "GetChannelList", "GetQuestLink", "GetPlayerInfoByGUID", "UnitName", "ERR_CHAT_PLAYER_NOT_FOUND_S",
+	"time", "InCombatLockdown", "IsQuestFlaggedCompleted", "GameFontHighlight", "SendChatMessage", "LeaveParty", "ChatFrame_AddMessageEventFilter", "GetChannelList", "GetQuestLink", "GetCurrentRegion", "UnitName", "ERR_CHAT_PLAYER_NOT_FOUND_S",
 	"IsAltKeyDown", "hooksecurefunc", "LE_PARTY_CATEGORY_INSTANCE", "C_AddOns", "GetAddOnMetadata", "GetLocale", "DEFAULT_CHAT_FRAME", "ChatFrame1",
 	"C_Timer", "GetTime", "issecretvalue", "CreateFrame", "C_ChatInfo", "Enum", "C_QuestLog",
 	"GetNumQuestLogEntries", "GetQuestLogTitle", "GetNumQuestLeaderBoards", "GetQuestLogLeaderBoard",

@@ -9,8 +9,9 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 > Work in progress: this version is being ported into Polestar itself. It has not been tested in
 > the game client yet; screenshots will follow. Renders of the windows beside Polestar's guide
 > (drawn, not captured in game): [the panel and its settings view](docs/mockup/panel.png),
-> [the options page](docs/mockup/options-1.png) ([scrolled](docs/mockup/options-2.png)),
-> [the guide menu](docs/mockup/settings.png), [Say hello](docs/mockup/hello.gif).
+> [the message box, both styles](docs/mockup/message-box.png), [Say hello](docs/mockup/hello.gif),
+> the options page's [Essentials](docs/mockup/options-essentials.png) and
+> [Messages](docs/mockup/options-messages-1.png) ([scrolled](docs/mockup/options-messages-2.png)) tabs.
 
 ## Installation
 
@@ -42,23 +43,24 @@ without it (standalone window). Licence: GPL-3.0-or-later.
   **General** channel (or the looking-for-group channel, /say, /yell), for players who do not
   have the addon. Only on your click, key binding or `/psgf announce`, at most once a minute; the
   tooltip previews the line.
-- **Party box**: when a group formed through the finder gets together, a small box (the group's
-  quests and the objectives left, as counts) offers **Say hello** for 5 seconds, only on your
-  click or key; then the chance is gone. When every quest you grouped for is done, it offers
+- **Message box**: when a group formed through the finder gets together, a small box offers
+  **Say hello** for 5 seconds, only on your click or key; then the chance is gone. Two styles:
+  **Polestar** (the group's quests and the objectives left, as counts, then the message) and
+  **Compact** (the message and the buttons). When every quest you grouped for is done, it offers
   **Goodbye & leave** for 30 seconds (the goodbye message, then you leave). The panel's **Leave
   the group** also says goodbye for a finder group; leaving through the game says nothing.
-- **Messages**: announce, invite, ask, hello and goodbye, all in English by default for everyone
-  and editable, with a live preview. `{quests}` is replaced by the quest links, `{progress}` by
+- **Messages**: announce, invite, ask, hello and goodbye, each with its own switch (on by
+  default), all in English by default for everyone and editable, with a live preview. `{quests}` is replaced by the quest links, `{progress}` by
   the quest links with what is left (“[The Defias Brotherhood] 4/12 Defias Pillager slain”). An
   empty text is never sent.
-- **Spot players asking in chat (beta, off by default)**: reads General, the other public
-  channels, /say and /yell, and lists players who look for a group on one of your quests even
-  without the addon, marked “chat”. Nothing is sent to them on its own.
 - **Auto-grouping** (off by default, needed on both sides): after your search, the addon invites
   the player found (or asks them to invite you) and accepts their invitation. Same faction, party
   of 5 at most, never in an instance, only from a player the finder expects.
 - **Search languages** (grouping only): your game language by default; tick others, or **All
-  languages**. A player appears on your list if their game language is in your search.
+  languages**. Only the languages played in the game's region are offered (Europe: EN, FR, DE,
+  ES, IT, PT, RU; the Americas: EN, ES, PT; Korea, Taiwan, China: their own and EN; every
+  language when the region is unknown), plus your own. A player appears on your list if their
+  game language is in your search.
 - **Quiet chat**: the game's notices about the addon's own traffic are hidden; `/psgf debug`
   shows them and traces every message.
 
@@ -66,19 +68,18 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 
 The panel has two views. The main one holds Find a group / Stop, Announce, the search in
 progress and the players found. The **cog** in its title bar opens the settings view: the master
-switch, the settings by category (as on the “Group Finder” page in Polestar's options),
-the search languages, where Announce speaks, the channel's test, **Messages…** and Polestar's
-options page.
+switch, the grouping and party settings, where Announce speaks, the channel's test,
+**Messages…** and Polestar's options page.
 
-| Category | Settings |
+The “Group Finder” page in Polestar's options has two tabs:
+
+| Tab | Sections |
 |---|---|
-| Grouping | Group automatically (off), let others find me when they search (off: answers their searches with a hidden whisper), show others my distance (on: sends your map position), search languages (on Polestar's page) |
-| Party | Show the message box when grouping (on: it offers hello, then goodbye; nothing is said without a click), key bindings for hello and goodbye |
-| Chat (beta) | Spot players asking in chat (off) |
-| Key bindings (Polestar's page) | search, panel, announce |
+| Essentials | Group Finder (enable, test the channel); Grouping (group automatically, off; let others find me when they search, off: answers their searches with a hidden whisper; show others my distance, on: sends your map position); Search languages; Key bindings (search, panel) |
+| Messages | Message box (show it when grouping, on; style: Polestar or Compact); then one section per message (Hello, Goodbye, Announce, Invite, Ask to join): its switch, its text, its key binding where it has one |
 
-Nothing acts on its own by default: answering other players' searches, auto-grouping and reading
-chat are opt-in; hello, goodbye and announce only ever go out on a click or a key.
+Nothing acts on its own by default: answering other players' searches and auto-grouping are
+opt-in; hello, goodbye and announce only ever go out on a click or a key.
 
 The texts are in **Messages…** (panel and options page). Commands: `/psgf` (panel), `/psgf
 search`, `/psgf stop`, `/psgf announce`, `/psgf on|off`, `/psgf test` (tests the channels),
@@ -159,7 +160,6 @@ CI runs the first three on every push (`.github/workflows/ci.yml`).
 | `ChatFilter.lua` | hides the game's notices about our own traffic (off in debug mode) |
 | `Quests.lua`, `Session.lua`, `Matcher.lua` | which quests count; the search in progress; the players found and their order |
 | `Group.lua`, `Leave.lua`, `Messages.lua`, `Announce.lua` | auto-grouping; the finder group from hello to goodbye; the editable messages; the public announce |
-| `ChatWatch.lua` | reads public chat for players asking for one of your quests |
 | `UI/` | shared widgets, the main panel, the quest panel, the Messages window, the party box |
 | `Polestar/` | Polestar detection and live step, guide menu rows and docking, options page, goal-row button |
 

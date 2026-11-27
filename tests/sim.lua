@@ -1,6 +1,6 @@
 -- Two simulated clients exchanging PSGroupFinder messages, with a
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
-local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "ChatWatch", "Group", "Messages", "Leave", "Announce",
+local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "Group", "Messages", "Leave", "Announce",
 	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/MessagesWindow", "UI/PartyBox",
 	"Polestar/Polestar", "Polestar/Menu", "Polestar/Options", "Polestar/GoalRows" }
 local DIR = "PSGroupFinder/"
@@ -213,8 +213,8 @@ local cid = newClient("Cid Vale", { other }, {})
 -- Off by default: nothing is sent, nothing answers on its own.
 check(ana.ns.db.enabled == false, "disabled by default")
 local dft = newClient("Dft Vale", { hogger }, { defaults = true })
-check(dft.ns.Get("autoReply") == false and dft.ns.Get("autoGroup") == false and dft.ns.Get("readChat") == false,
-	"every automatism is off by default (answers, auto-group, chat reading)")
+check(dft.ns.Get("autoReply") == false and dft.ns.Get("autoGroup") == false,
+	"every automatism is off by default (answers, auto-group)")
 check(ana.ns.Lang.DefaultCode() == "e" and ana.ns.Lang.Search()[1] == "e" and not ana.ns.Lang.AcceptsAll(),
 	"default languages: the client's only (enUS -> EN), not all languages")
 check(ana.ns.Lang.Encode() == "e", "language payload is the client letter (e)")
@@ -1138,80 +1138,6 @@ run(61)
 amy.SlashCmdList.PSGROUPFINDER("announce")
 check(amy.chat[#amy.chat][1]:find("Wanted: Hogger, Pie for Billy"), "/psgf announce sends the line")
 
----------------------------------------------------------------------------
--- Reading public chat: players without the addon who ask for one of our quests
----------------------------------------------------------------------------
-local defias = { id = 5501, title = "The Defias Brotherhood", obj = { { "Defias slain: 0/10", "monster" } } }
-local elite = { id = 5502, title = "Élite: Gath'Ilzogg", obj = { { "Gath'Ilzogg slain: 0/1", "monster" } } }
-local ore = { id = 5503, title = "Ores", obj = { { "Copper Ore: 0/5", "item" } } }
-local doneQ = { id = 5504, title = "Bounty on Murlocs", complete = true, obj = { { "Murloc fin: 8/8", "item", true } } }
-local cal = newClient("Cal Reed", { defias, elite, ore, doneQ }, {})
-local W = cal.ns.ChatWatch
-check(W.Normalize("|cffffff00|Hquest:5502:20|h[Élite: Gath'Ilzogg]|h|r !!") == "elite gath ilzogg",
-	"chat text is normalized: link text kept, accents folded, punctuation dropped")
-local function ids(t) table.sort(t) return table.concat(t, ",") end
-check(ids(W.Match("anyone for The Defias Brotherhood?")) == "5501", "a whole quest title in a line is a match")
-check(ids(W.Match("LF1M elite gath ilzogg")) == "5502", "accents and punctuation do not matter")
-check(ids(W.Match("lfg gath'ilzogg")) == "5502", "with an LFG word, a distinctive title word is enough")
-check(ids(W.Match("gath'ilzogg is a pain")) == "", "a distinctive word without an LFG word is not enough")
-check(ids(W.Match("selling ores cheap")) == "", "a short title without an LFG word is not a match")
-check(ids(W.Match("LFG ores")) == "5503", "a short title with an LFG word is a match")
-check(ids(W.Match("lfg Bounty on Murlocs")) == "", "a quest with nothing left to do is never matched")
-check(ids(W.Match("doing |cffffff00|Hquest:5501:18|h[Brotherhood]|h|r, inv")) == "5501", "a quest link is an exact match")
-check(ids(W.Match("LFG Wanted: Hogger")) == "", "a quest not in my log is not matched")
-
-local function say(c, event, text, sender, channel, guid)
-	c.fire(event, text, sender, "Common", channel or "", "", "", 0, 1, channel and channel:gsub("^%d+%.%s*", "") or "", 0, 1, guid)
-end
-say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. General - Westfall", "Player-1-MAGE")
-check(#cal.ns.ChatWatch.List() == 0, "nothing is read while the finder is off")
-cal.ns.SetEnabled(true)
-run(15)
-check(cal.ns.Get("readChat") == false, "reading chat (beta) is off by default")
-say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. General - Westfall", "Player-1-MAGE")
-check(#cal.ns.ChatWatch.List() == 0, "...and while it is off nothing is read")
-cal.ns.Set("readChat", true)
-say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. General - Westfall", "Player-1-MAGE")
-local cl = cal.ns.ChatWatch.List()
-check(#cl == 1 and cl[1].name == "Mia Stone" and cl[1].quests[1] == 5501 and cl[1].class == "MAGE"
-	and cl[1].where == "General" and cl[1].sameZone, "a player asking in General is listed via chat, with their class")
-say(cal, "CHAT_MSG_YELL", "need help gath ilzogg", "Bo Hill")
-check(#cal.ns.ChatWatch.List() == 2 and cal.ns.ChatWatch.List(5502)[1].name == "Bo Hill", "/yell is read too; the list filters by quest")
-say(cal, "CHAT_MSG_SAY", "LFG The Defias Brotherhood", "Cal Reed")
-check(#cal.ns.ChatWatch.List() == 2, "my own lines are ignored")
-say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Hid Den", "5. PSGroupFinder")
-check(#cal.ns.ChatWatch.List() == 2, "the finder's hidden channel is not read")
--- The panel lists them after the finder's own results, marked chat, with their line in the tooltip.
-cal.ns.UI.Show()
-cal.ns.UI.Refresh()
-local chatRow
-for _, r in ipairs(cal.ns.UI.RowFrames()) do
-	if type(r.entry) == "table" and r.entry.name == "Mia Stone" then chatRow = r end
-end
-check(chatRow and chatRow.dist._text:find("chat"), "the panel lists the chat player, marked chat")
-check(chatRow.info._text:find("The Defias Brotherhood") and chatRow.info._text:find("General"), "the row names the quest and the channel")
--- No message goes to a chat player on its own, and they are never auto-invited.
-cal.ns.Set("autoGroup", true)
-local sentBefore = #cal.invited
-say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. General - Westfall")
-check(#cal.invited == sentBefore, "a chat player is never invited without a click")
--- The quest panel shows them for that quest.
-cal.ns.QuestUI.Open(5501)
-local qr = cal.ns.QuestUI.RowFrames()[1]
-check(type(qr.entry) == "table" and qr.entry.name == "Mia Stone" and qr.info._text:find("General"), "the quest panel lists the chat player for that quest")
-cal.ns.QuestUI.Close()
--- The quest done: the entry goes; entries also expire.
-defias.obj[1][3] = true
-cal.QuestLogUpdate()
-run(2)
-check(#cal.ns.ChatWatch.List(5501) == 0, "once my quest is done, players asking for it are no longer listed")
-run(301)
-check(#cal.ns.ChatWatch.List() == 0, "chat entries expire after five minutes")
--- The option turns it off.
-cal.ns.Set("readChat", false)
-say(cal, "CHAT_MSG_YELL", "need help gath ilzogg", "Bo Hill")
-check(#cal.ns.ChatWatch.List() == 0, "with the option off, chat is not read")
-
 -- The panel: a main view, and a settings view behind the cog in the title bar.
 local fy = newClient("Fy Lark", { hogger }, {})
 fy.ns.UI.Show()
@@ -1220,7 +1146,7 @@ local gear = fy.ns.UI.GearButton()
 check(gear.Icon._texture:find("icon%-gear"), "the title bar has a cog")
 gear._OnClick(gear)
 check(fy.ns.UI.SettingsShown() and fy.ns.UI.Switch("enabled"):IsShown() and fy.ns.UI.Switch("autoGroup"):IsShown()
-	and fy.ns.UI.Switch("partyBox"):IsShown() and fy.ns.UI.Switch("readChat"):IsShown(), "the cog shows the settings view, every switch by category")
+	and fy.ns.UI.Switch("partyBox"):IsShown(), "the cog shows the settings view, every switch by category")
 check(fy.ns.UI.LangLine():IsShown(), "without Polestar's options page, the search languages are in the settings view")
 gear._OnClick(gear)
 check(not fy.ns.UI.SettingsShown() and not fy.ns.UI.Switch("autoGroup"):IsShown(), "the cog again goes back to the main view")
@@ -1252,5 +1178,58 @@ check(W.PeerProgress({ counts = { [7301] = { { 12, 12 }, { 2, 5 } } } }, 7301) =
 	"a finished objective is skipped")
 check(W.PeerProgress({ counts = { [7301] = { { 12, 12 }, { 5, 5 } } } }, 7301) == "done" and W.PeerProgress({ pct = 40 }, 7301) == "40%",
 	"done when all are; the percent when only that is known")
+
+-- Search languages: only those played in the game's region, plus the client's own.
+local reg = newClient("Reg Vale", { hogger }, { locale = "frFR" })
+reg.GetCurrentRegion = function() return 3 end
+local codes = {}
+for _, row in ipairs(reg.ns.Lang.Offered()) do codes[row.code] = true end
+check(codes.f and codes.e and codes.d and codes.r and not codes.k and not codes.c and not codes.t,
+	"Europe offers EN, FR, DE, ... but no Korean or Chinese")
+reg.GetCurrentRegion = function() return 1 end
+codes = {}
+for _, row in ipairs(reg.ns.Lang.Offered()) do codes[row.code] = true end
+check(codes.e and codes.s and codes.p and codes.f and not codes.d,
+	"the Americas offer EN, ES, PT, and the client's own language (FR) stays")
+reg.GetCurrentRegion = nil
+check(#reg.ns.Lang.Offered() == #reg.ns.Lang.ALL, "an unknown region offers every language")
+
+-- Each message has its own switch.
+local msw = newClient("Msw Vale", { hogger }, {})
+check(msw.ns.Messages.Enabled("hello") and msw.ns.Messages.Enabled("announce"), "every message is on by default")
+msw.ns.Messages.SetEnabled("announce", false)
+msw.ns.SetEnabled(true) run(15)
+check(msw.ns.Announce.Send() == false and msw.printed[#msw.printed]:find("turned off"), "announce off: nothing is said, with a hint")
+msw.ns.UI.Show() msw.ns.UI.Refresh()
+check(not msw.ns.UI.AnnounceWidgets():IsShown(), "announce off: the Announce button is hidden")
+msw.ns.Messages.SetEnabled("invite", false)
+local before = #msw.chat
+msw.ns.Widgets.Invite({ name = "Ben Stone", quests = { 176 }, size = 0 })
+check(#msw.chat == before and msw.invited[#msw.invited] == "Ben Stone", "invite message off: the invitation goes, no whisper")
+msw.ns.Messages.SetEnabled("hello", false)
+msw.ns.Leave.NoteInvite("Ben Stone", { 176 })
+msw.ns.PartyBox.ShowHello()
+check(msw.ns.PartyBox.Mode() == nil, "hello off: the message box does not offer it")
+
+-- The message box has two styles.
+local sty = newClient("Sty Vale", { lq(11001, 0) }, {})
+sty.ns.SetEnabled(true) run(15)
+check(sty.ns.PartyBox.Style() == "polestar", "the message box style is Polestar by default")
+sty.ns.Messages.SetEnabled("goodbye", false)
+sty.ns.PartyBox.ShowGoodbye()
+local f = sty.ns.PartyBox.Frame()
+check(f.main._text:find("^Leave the group"), "goodbye off: the box offers only to leave")
+sty.ns.Set("partyBoxStyle", "compact")
+sty.ns.PartyBox.Refresh()
+check(sty.ns.PartyBox.Style() == "compact", "the compact style can be chosen")
+
+-- Polestar's page: an Essentials tab and a Messages tab.
+local tabs = {}
+for _, spec in ipairs(capturedOpts) do tabs[spec.tab] = (tabs[spec.tab] or 0) + 1 end
+check(tabs.Essentials and tabs.Messages and tabs.Messages >= 6, "the options page has an Essentials tab and a Messages tab (box + five messages)")
+local helloSpec
+for _, spec in ipairs(capturedOpts) do if spec.section == "Hello" then helloSpec = spec end end
+check(helloSpec and helloSpec.controls[1].kind == "toggle" and helloSpec.controls[2].kind == "button" and helloSpec.controls[3].action == "PSGF_HELLO",
+	"a message's section: its switch, Edit the text, its key binding")
 
 print("all tests passed")

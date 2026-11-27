@@ -8,7 +8,8 @@
 -- is unilateral (a peer is kept if their client language is in our search
 -- set, or we accept all); auto-group is applied independently on each side.
 -- The payload is one letter (`f`, `e`) so the 255-byte message still has
--- room for quests.
+-- room for quests. Only the languages played in the game's region are
+-- offered (Lang.Offered).
 
 local _, ns = ...
 local L = ns.L
@@ -42,6 +43,38 @@ local function valid(code) return byCode[code] ~= nil end
 function Lang.DefaultCode()
 	local loc = GetLocale and GetLocale() or "enUS"
 	return byLocale[loc] or "e"
+end
+
+-- The languages a region's realms are played in (GetCurrentRegion: 1
+-- Americas, 2 Korea, 3 Europe, 4 Taiwan, 5 China). Only these are offered
+-- in the search languages; an unknown region offers them all. The client's
+-- own language is always in.
+local REGION_LANGS = {
+	[1] = { e = true, s = true, p = true },
+	[2] = { k = true, e = true },
+	[3] = { e = true, f = true, d = true, s = true, i = true, p = true, r = true },
+	[4] = { t = true, e = true },
+	[5] = { c = true, e = true },
+}
+
+function Lang.Region()
+	if not GetCurrentRegion then return nil end
+	local ok, r = pcall(GetCurrentRegion)
+	r = ok and ns.Readable(r)
+	return REGION_LANGS[r] and r or nil
+end
+
+-- The rows of Lang.ALL offered for this client: the region's languages and
+-- the client's own, in Lang.ALL's order.
+function Lang.Offered()
+	local region = Lang.Region()
+	local allowed = region and REGION_LANGS[region]
+	local mine = Lang.DefaultCode()
+	local out = {}
+	for _, row in ipairs(Lang.ALL) do
+		if not allowed or allowed[row.code] or row.code == mine then out[#out + 1] = row end
+	end
+	return out
 end
 
 function Lang.Tag(code) return byCode[code] and byCode[code].tag or tostring(code):upper() end

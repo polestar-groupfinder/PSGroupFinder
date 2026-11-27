@@ -21,7 +21,6 @@ Channels.lua
 ChatFilter.lua
 Comm.lua
 Matcher.lua
-ChatWatch.lua
 Group.lua
 Messages.lua
 Leave.lua

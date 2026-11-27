@@ -2,8 +2,8 @@
 -- can say for you are edited and previewed.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
--- One block per message (Messages.lua): its name and when it is said, the
--- text ({quests} and {progress}, explained in the text box's tooltip), and a
+-- One block per message (Messages.lua): its name and when it is said, its
+-- switch (On), the text ({quests} and {progress}, explained in the text box's tooltip), and a
 -- preview with your current quests, live while you type. Empty: never sent.
 -- Default: back to the English default text.
 -- Opened from the panel's Messages button and from Polestar's page.
@@ -37,6 +37,8 @@ function UI.RefreshMessages()
 	for _, b in ipairs(blocks) do
 		if not b.edit:HasFocus() then b.edit:SetText(ns.Messages.Template(b.kind)) end
 		b.preview:SetText(preview(b.kind))
+		b.on:SetChecked(ns.Messages.Enabled(b.kind))
+		b.edit:SetAlpha(ns.Messages.Enabled(b.kind) and 1 or 0.5)
 	end
 end
 
@@ -49,6 +51,11 @@ local function makeBlock(kind, i)
 	b.hint = W.Text(win, "small", GameFontDisableSmall)
 	b.hint:SetPoint("LEFT", b.label, "RIGHT", 6, 0)
 	b.hint:SetText(L["MSG_" .. kind:upper() .. "_WHEN"])
+	b.on = W.Check(win, L.MSG_ON, L["MSG_" .. kind:upper() .. "_ON"], nil, function(on)
+		ns.Messages.SetEnabled(kind, on)
+		UI.RefreshMessages()
+	end)
+	b.on:SetPoint("TOPRIGHT", win, "TOPRIGHT", -PAD - 30, -(top - 2))
 	local useTheme = W.Theme() ~= nil
 	local e = CreateFrame("EditBox", nil, win, (not useTheme) and "InputBoxTemplate" or nil)
 	e:SetSize(WIDTH - 2 * PAD - 76, 20)
@@ -104,11 +111,16 @@ local function build()
 	win:Hide()
 end
 
-function UI.ShowMessages()
+-- Opens the window (a second call closes it); `kind` puts the cursor in
+-- that message's text.
+function UI.ShowMessages(kind)
 	if not win then build() end
-	if win:IsShown() then win:Hide() return end
+	if win:IsShown() and not kind then win:Hide() return end
 	win:Show()
 	UI.RefreshMessages()
+	for _, b in ipairs(blocks) do
+		if b.kind == kind and b.edit.SetFocus then b.edit:SetFocus() end
+	end
 end
 
 -- Tests.

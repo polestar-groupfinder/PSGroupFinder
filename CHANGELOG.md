@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Chat reading removed**: the beta “Spot players asking in chat” is gone.
+- **Search languages by region**: only the languages played in the game's region are offered
+  (`GetCurrentRegion`), plus the client's own; all of them when the region is unknown.
+- **Messages tab**: Polestar's page gets an Essentials tab and a Messages tab: the message box
+  (on/off and its style) and one section per message with its own switch, its text (opens the
+  Messages window on it) and its key binding. Each message is on by default; with Announce off
+  its button goes, with goodbye off the box only offers to leave.
+- **Message box styles**: Polestar (the group's quests and objectives, then the message) and
+  Compact (the message and the buttons).
 - Polestar's options page is named **Group Finder** (it sits in Polestar's own settings, so the
   short name fits its sidebar); the panel and the guide menu row keep “Community Group Finder”.
 - **Clearer labels**: “Let others find me when they search” (was “Answer searches for my

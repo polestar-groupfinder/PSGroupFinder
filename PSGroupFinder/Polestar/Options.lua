@@ -2,9 +2,10 @@
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 -- Polestar.RegisterOptions (ARCHITECTURE.md, "Options registry") takes our
--- page: toggles with get/set and a tooltip (`help`), key binding rows and
--- buttons, then the search languages, whose rows fold away (`needs`) while
--- "All languages" is on. Called under pcall; when it is missing or refuses,
+-- page, two tabs: Essentials (on/off, grouping, the search languages, whose
+-- rows fold away (`needs`) while "All languages" is on, key bindings) and
+-- Messages (the message box and its style, then each message: its switch,
+-- a button to edit its text, its key binding). Called under pcall; when it is missing or refuses,
 -- the panel keeps every option.
 -- INTERNAL, under pcall: UI.ShowOptions (the panel's Options button, shown
 -- only when it exists), Widgets.RefreshAll / Options.Relayout (so the
@@ -101,7 +102,7 @@ local function sections()
 		{ kind = "toggle", label = L.LANG_ALL, help = L.LANGS_TIP, search = "language",
 			get = ns.Lang.AcceptsAll, set = ns.Lang.SetAcceptAll },
 	}
-	for _, row in ipairs(ns.Lang.ALL) do
+	for _, row in ipairs(ns.Lang.Offered()) do
 		local code = row.code
 		langs[#langs + 1] = {
 			kind = "toggle", label = ns.Lang.Name(code), help = string.format(L.LANG_ONE_TIP, ns.Lang.Name(code)),
@@ -113,10 +114,25 @@ local function sections()
 			disabled = function() return ns.Lang.AcceptsAll() end,
 		}
 	end
+	-- One section per message: its switch, its text (Polestar's options have
+	-- no text field: the button opens the Messages window on it), its key.
+	local function message(kind)
+		local K = kind:upper()
+		local controls = {
+			{ kind = "toggle", label = L["MSG_" .. K .. "_ON"], help = L["MSG_" .. K .. "_WHEN"], search = "message",
+				get = function() return ns.Messages.Enabled(kind) end,
+				set = function(v) ns.Messages.SetEnabled(kind, v) end },
+			{ kind = "button", label = L.MSG_EDIT_TEXT, search = "message text",
+				help = L.MSG_VARS,
+				onClick = function() ns.UI.ShowMessages(kind) end },
+		}
+		local b = ns.Messages.KINDS[kind].binding
+		if b then controls[#controls + 1] = { kind = "binding", action = b, label = L["BINDING_" .. K], help = L["BINDING_" .. K .. "_TIP"] } end
+		return { L["MSG_" .. K], controls, L.TAB_MESSAGES }
+	end
 	return {
 		{ L.OPT_SECTION, {
 			toggle("ENABLE", "enabled", ns.SetEnabled),
-			{ kind = "button", label = L.MESSAGES .. "…", help = L.MESSAGES_TIP, onClick = function() ns.UI.ShowMessages() end },
 			{ kind = "button", label = L.TEST, help = L.TEST_TIP, onClick = function() ns.TestChannels() end },
 		} },
 		{ L.CAT_GROUPING, {
@@ -125,24 +141,30 @@ local function sections()
 			toggle("SHARE_COORDS", "shareCoords"),
 		} },
 		{ L.LANGS, langs },
-		{ L.CAT_PARTY, {
-			toggle("PARTY_BOX", "partyBox"),
-			binding("PSGF_HELLO", "BINDING_HELLO"),
-			binding("PSGF_GOODBYE", "BINDING_GOODBYE"),
-		} },
-		{ L.CAT_CHAT, { toggle("READ_CHAT", "readChat") } },
 		{ L.CAT_KEYS, {
 			binding("PSGF_SEARCH", "BINDING_SEARCH"),
 			binding("PSGF_TOGGLE_PANEL", "BINDING_PANEL"),
-			binding("PSGF_ANNOUNCE", "BINDING_ANNOUNCE"),
 		} },
+		-- The Messages tab: the message box, then each message.
+		{ L.BOX_SECTION, {
+			toggle("PARTY_BOX", "partyBox"),
+			{ kind = "dropdown", label = L.BOX_STYLE, help = L.BOX_STYLE_TIP, search = "style compact",
+				choices = { { value = "polestar", label = L.BOX_STYLE_POLESTAR }, { value = "compact", label = L.BOX_STYLE_COMPACT } },
+				get = function() return ns.PartyBox.Style() end,
+				set = function(v) ns.Set("partyBoxStyle", v) end },
+		}, L.TAB_MESSAGES },
+		message("hello"),
+		message("goodbye"),
+		message("announce"),
+		message("invite"),
+		message("ask"),
 	}
 end
 
 local function registerOptions()
 	if registered or type(P.RegisterOptions) ~= "function" then return end
 	for i, sec in ipairs(sections()) do
-		local spec = { page = L.OPT_SECTION, key = KEY, icon = ns.ICON, tab = L.OPT_SECTION, section = sec[1], controls = sec[2] }
+		local spec = { page = L.OPT_SECTION, key = KEY, icon = ns.ICON, tab = sec[3] or L.TAB_ESSENTIALS, section = sec[1], controls = sec[2] }
 		if i == 1 then spec.group, spec.order = "guiding", 45 end
 		if not register(spec) then
 			if i == 1 then return end
