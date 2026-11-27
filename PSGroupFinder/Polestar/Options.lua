@@ -207,6 +207,13 @@ local function toggle(labelKey, key, onSet)
 	}
 end
 
+-- A row alone on its line takes the whole line: no half and no hairline
+-- in the middle of the section.
+local function wide(c)
+	c.wide = true
+	return c
+end
+
 local function register(spec)
 	local ok, res, err = pcall(P.RegisterOptions, spec)
 	if not (ok and res ~= false) then ns.Debug("RegisterOptions: %s", tostring(ok and err or res)) end
@@ -220,7 +227,7 @@ end
 -- One section per category, the same as the panel's Settings.
 local function sections()
 	local langs = {
-		{ kind = "toggle", label = L.LANG_ALL, help = L.LANGS_TIP, search = "language",
+		{ kind = "toggle", wide = true, label = L.LANG_ALL, help = L.LANGS_TIP, search = "language",
 			get = ns.Lang.AcceptsAll, set = ns.Lang.SetAcceptAll },
 	}
 	for _, row in ipairs(ns.Lang.Offered()) do
@@ -247,8 +254,10 @@ local function sections()
 		}
 		local b = ns.Messages.KINDS[kind].binding
 		if b then controls[#controls + 1] = { kind = "binding", action = b, label = L["BINDING_" .. K], help = L["BINDING_" .. K .. "_TIP"] } end
+		-- Without a key binding, the switch is alone on its line.
+		if not b then controls[1].wide = true end
 		if kind == "announce" then
-			controls[#controls + 1] = { kind = "dropdown", label = L.ANN_TO, help = L.ANN_TO_TIP, search = "announce channel general",
+			controls[#controls + 1] = { kind = "dropdown", wide = true, label = L.ANN_TO, help = L.ANN_TO_TIP, search = "announce channel general",
 				choices = ns.UI.AnnounceTargets(), get = ns.Announce.Target, set = function(v) ns.Set("announceTo", v) end }
 		end
 		local text = { kind = "button", wide = true, label = L.MSG_TEXT, button = L.MSG_RESET, search = "message text edit default",
@@ -287,7 +296,7 @@ local function sections()
 		-- the box itself at its real size (it is small), as the guide window's
 		-- presets stand in their own section.
 		{ L.BOX_SECTION, {
-			toggle("PARTY_BOX", "partyBox"),
+			wide(toggle("PARTY_BOX", "partyBox")),
 		}, L.TAB_MESSAGES },
 		{ L.BOX_STYLE_SECTION, {
 			{ kind = "cards", label = L.BOX_STYLE, help = L.BOX_STYLE_TIP, search = "style compact preview", disabled = boxOff,
