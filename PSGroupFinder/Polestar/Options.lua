@@ -232,7 +232,7 @@ local function sections()
 	local function message(kind)
 		local K = kind:upper()
 		local controls = {
-			{ kind = "toggle", label = L["MSG_" .. K .. "_ON"], help = L["MSG_" .. K .. "_WHEN"], search = "message",
+			{ kind = "toggle", label = L["MSG_" .. K .. "_ON"], help = L["MSG_" .. K .. "_ON_TIP"], search = "message",
 				get = function() return ns.Messages.Enabled(kind) end,
 				set = function(v) ns.Messages.SetEnabled(kind, v) end },
 		}
