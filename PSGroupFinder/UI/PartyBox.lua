@@ -128,7 +128,7 @@ local function build()
 	box.preview:SetWidth(WIDTH - 2 * PAD)
 	box.main = W.Button(box, L.BOX_SAY_HELLO, 160, function() PartyBox.Main() end, 22)
 	-- The time left: the button's accent fill drains from right to left.
-	box.fill = box.main:CreateTexture(nil, "BACKGROUND", nil, 1)
+	box.fill = box.main:CreateTexture(nil, "ARTWORK", nil, -8)
 	box.fill:SetPoint("TOPLEFT", box.main, "TOPLEFT", 1, -1)
 	box.fill:SetPoint("BOTTOMLEFT", box.main, "BOTTOMLEFT", 1, 1)
 	if box.fill.SetColorTexture then box.fill:SetColorTexture(0.9, 0.73, 0.4, 0.45) end
@@ -294,7 +294,7 @@ function PartyBox.DrawPreview(art, style)
 	-- The buttons as the box has them, the time left half drained; not clickable.
 	local main = W.Button(top, L.BOX_SAY_HELLO, 160, nil, 22)
 	main:SetPoint("TOPLEFT", top, "TOPLEFT", PAD, -y)
-	local fill = main:CreateTexture(nil, "BACKGROUND", nil, 1)
+	local fill = main:CreateTexture(nil, "ARTWORK", nil, -8)
 	fill:SetPoint("TOPLEFT", main, "TOPLEFT", 1, -1)
 	fill:SetPoint("BOTTOMLEFT", main, "BOTTOMLEFT", 1, 1)
 	fill:SetWidth(90)

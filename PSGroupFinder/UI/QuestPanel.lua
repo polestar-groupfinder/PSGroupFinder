@@ -48,20 +48,23 @@ function QuestUI.Refresh()
 	qw.quest:SetText("|cffffd100" .. ns.Quests.Title(qid) .. "|r")
 	local pct = ns.Quests.Progress(qid)
 	qw.mine:SetText(W.Dim() .. (pct and string.format(L.QUEST_MINE, progressText(pct)) or L.QUEST_NOT_MINE) .. "|r")
+	-- Their waits drain their accent fill (W.Drain), no number to read.
 	local cd = ns.Comm.QuestCooldown()
 	qw.search:SetEnabled(on and cd == 0)
-	qw.search:SetText(cd > 0 and string.format("%s (%d)", L.QUEST_SEARCH, math.ceil(cd)) or L.QUEST_SEARCH)
-	local acd = ns.Announce.Cooldown()
-	qw.announce.questID = qid
-	qw.announce:SetEnabled(on and acd == 0)
-	qw.announce:SetText(acd > 0 and string.format("%s (%d)", L.ANNOUNCE_QUEST, math.ceil(acd)) or L.ANNOUNCE_QUEST)
-
-	local y = 102
+	qw.search:SetText(cd > 0 and L.SEARCHING or L.QUEST_SEARCH)
+	local y = 100
+	local ann = ns.Messages.Enabled("announce")
+	qw.announce:SetShown(ann)
+	if ann then
+		qw.announce.questID = qid
+		qw.announce:SetEnabled(on and ns.Announce.Cooldown() == 0)
+		y = y + 28
+	end
 	local found = on and ns.Matcher.QuestList(qid) or {}
 	qw.empty:SetShown(#found == 0)
 	if #found == 0 then
 		local waiting = searched[qid] and ns.Now() - searched[qid] < SEARCHED_FOR
-		qw.empty:SetText(not on and L.QUEST_OFF or (waiting and L.QUEST_EMPTY_SEARCHING or L.QUEST_EMPTY))
+		qw.empty:SetText(not on and L.QUEST_OFF or (cd > 0 and L.EMPTY_SEARCHING or (waiting and L.QUEST_EMPTY_WAITING or L.QUEST_EMPTY)))
 		qw.empty:ClearAllPoints()
 		qw.empty:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD + 2, -(y + 2))
 		y = y + 38
@@ -87,16 +90,19 @@ local function build()
 	qw.mine = line("small", GameFontHighlightSmall, 52)
 	qw.back = W.Button(qpanel, L.QUEST_BACK, 70, function() qpanel:Hide() ns.UI.Show() end)
 	qw.back:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD, -72)
-	qw.search = W.Button(qpanel, L.QUEST_SEARCH, 150, function()
+	qw.search = W.Button(qpanel, L.QUEST_SEARCH, WIDTH - 2 * PAD - 76, function()
 		if qid then ns.Comm.SearchQuest(qid) end
 		QuestUI.Refresh()
 	end)
 	qw.search:SetPoint("LEFT", qw.back, "RIGHT", 6, 0)
-	qw.announce = W.Button(qpanel, L.ANNOUNCE_QUEST, WIDTH - 2 * PAD - 70 - 150 - 12, function()
+	W.Drain(qw.search, function() return ns.Comm.QuestCooldown() / ns.Comm.QUEST_GAP end)
+	-- Announce under them, the whole width.
+	qw.announce = W.Button(qpanel, L.ANNOUNCE_QUEST, WIDTH - 2 * PAD, function()
 		if qid then ns.Announce.Send(qid) end
 		QuestUI.Refresh()
 	end)
-	qw.announce:SetPoint("LEFT", qw.search, "RIGHT", 6, 0)
+	qw.announce:SetPoint("TOPLEFT", qpanel, "TOPLEFT", PAD, -100)
+	W.Drain(qw.announce, function() return ns.Announce.Cooldown() / ns.Announce.GAP end)
 	qw.announce:SetScript("OnEnter", ns.UI.AnnounceTip)
 	qw.announce:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	qw.empty = W.Text(qpanel, "note", GameFontDisableSmall)

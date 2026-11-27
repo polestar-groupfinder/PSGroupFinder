@@ -63,6 +63,7 @@ function Comm.Search()
 	return true
 end
 
+Comm.QUEST_GAP = QUEST_GAP
 function Comm.QuestCooldown()
 	return math.max(0, QUEST_GAP - (ns.Now() - lastQuestSearch))
 end

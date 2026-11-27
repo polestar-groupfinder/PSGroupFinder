@@ -86,7 +86,7 @@ end
 -- An accent fill over button `b` that drains from right to left, as long as
 -- `left()` says (0-1: 1 full, 0 or nil gone), read every frame.
 function W.Drain(b, left)
-	local fill = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+	local fill = b:CreateTexture(nil, "ARTWORK", nil, -8)
 	fill:SetPoint("TOPLEFT", b, "TOPLEFT", 1, -1)
 	fill:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 1, 1)
 	if fill.SetColorTexture then fill:SetColorTexture(0.9, 0.73, 0.4, 0.45) end

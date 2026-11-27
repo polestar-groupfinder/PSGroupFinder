@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Quest panel like the main one**: Search for this quest drains its accent colour over its
+  15 s wait (no number), Announce sits under it on the whole width and drains over 60 s; the
+  empty list tells apart “Searching…” and “Answers can still come in”.
+
 - **Messages edited on Polestar's page**: each message's section has its switch and its key
   binding on the first line, then its text in a text box on a whole line, saved on Enter or when
   leaving the box; Default puts the default text back. The box's tooltip lists the variables and
