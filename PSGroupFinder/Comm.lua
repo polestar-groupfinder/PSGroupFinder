@@ -60,6 +60,14 @@ function Comm.Search()
 	ns.Session.Start(quests)
 	ns.Print(L.SENT, table.concat(sentOn, ", "), count)
 	ns.Fire("SEARCHED", quests, sentOn)
+	-- Nobody answered by the end of the wait: the search is over (nothing
+	-- is sent; players who search later still show up, from their search).
+	local stamp = lastSearch
+	ns.After(SEARCH_GAP, function()
+		if ns.searchedAt == stamp and ns.Session.Active() and #ns.Matcher.List() == 0 then
+			ns.Session.Stop("nobody")
+		end
+	end)
 	return true
 end
 
@@ -103,6 +111,7 @@ end
 function Comm.StopSearch()
 	if not ns.Session.Active() then return end
 	Comm.Stop()
+	ns.searchedAt = nil
 	ns.Session.Stop("manual")
 	ns.Print(L.SEARCH_STOPPED)
 end

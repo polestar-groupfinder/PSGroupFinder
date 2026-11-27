@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **A search nobody answered ends with its wait**: after 20 s with no one found, the search is
+  over (Stop goes, the button reads Find a group again); nothing is sent, and players who
+  search for your quests later still show up from their own search.
+- **In a group**: Invite / Ask greys with the reason (only the leader invites, the group is
+  full, two groups do not merge); the panel says whether you lead, and folds the players list
+  when you cannot invite. The panel offers Goodbye & leave or Leave when the goodbye applies.
+- **Demo**: `/psgf demo done` (the group's quests count as done: the box offers to leave); the
+  pretend group knows whether you lead it.
+
 - **Quest panel like the main one**: Search for this quest drains its accent colour over its
   15 s wait (no number), Announce sits under it on the whole width and drains over 60 s; the
   empty list tells apart “Searching…” and “Answers can still come in”.

@@ -346,10 +346,9 @@ check(lea.ns.Session.Active() and #lea.ns.Matcher.List() == 0, "Lea is searching
 check(lea.ns.UI.EmptyCaption() == "Searching…",
 	"active search with no one found, while answers come: Searching…")
 run(21) lea.ns.UI.Refresh()
-check(lea.ns.Session.Active() and lea.ns.UI.EmptyCaption():find("later show up here", 1, true),
-	"after the wait, still nobody: later searches will show up here")
-lea.ns.Session.Stop("manual")
-lea.ns.UI.Refresh()
+check(not lea.ns.Session.Active() and lea.ns.UI.EmptyCaption():find("later show up here", 1, true),
+	"after the wait, still nobody: the search ends (no Stop), later searches will show up here")
+run(300) lea.ns.UI.Refresh()
 check(lea.ns.UI.EmptyCaption() == "No one yet. Press Find a group.",
 	"with no search in progress the empty caption invites to search")
 lea.ns.UI.Toggle()

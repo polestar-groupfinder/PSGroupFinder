@@ -208,7 +208,8 @@ local function layoutMain(on)
 	end
 	widgets.empty:SetShown(#found == 0)
 	if #found == 0 then
-		widgets.empty:SetText(not active and L.EMPTY or (cd > 0 and L.EMPTY_SEARCHING or L.EMPTY_WAITING))
+		local recent = ns.searchedAt and ns.Now() - ns.searchedAt < 300
+		widgets.empty:SetText(active and (cd > 0 and L.EMPTY_SEARCHING or L.EMPTY_WAITING) or (recent and L.EMPTY_WAITING or L.EMPTY))
 		at(widgets.empty, y + 4, PAD + 2)
 		y = y + 34
 	end
