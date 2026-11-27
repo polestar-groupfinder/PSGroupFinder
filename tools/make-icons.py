@@ -4,7 +4,8 @@
 Supersampled 8x then reduced, so the strokes stay smooth at 14-24 px.
 Writes PSGroupFinder/Media/icon-group.tga (the finder), icon-invite.tga (two
 people and a plus: Invite / Ask) and icon-whisper.tga (a speech bubble:
-Whisper), 64x64, 32-bit, uncompressed.
+Whisper) and icon-gear.tga (a cog: the panel's settings), 64x64, 32-bit,
+uncompressed.
 Run from the repo root: python3 tools/make-icons.py (needs Pillow).
 """
 import math
@@ -84,6 +85,31 @@ def whisper(w):
     return img
 
 
+def gear(w):
+    """A cog: eight teeth around a ring, a hole in the middle."""
+    import math as m
+    img = Image.new("L", (C, C), 0)
+    d = ImageDraw.Draw(img)
+    cx = cy = px(32)
+    r_out, r_in = px(21), px(16)
+    pts = []
+    teeth = 8
+    for i in range(teeth * 4):
+        a = i * m.pi * 2 / (teeth * 4)
+        r = r_out if (i % 4) in (1, 2) else r_in
+        pts.append((cx + r * m.cos(a), cy + r * m.sin(a)))
+    d.polygon(pts, fill=255)
+    # Hollow the body, then the hole.
+    inner = Image.new("L", (C, C), 0)
+    ImageDraw.Draw(inner).polygon(pts, fill=255)
+    inner = inner.filter(ImageFilter.MinFilter(int(w * 1.6) | 1))
+    img = ImageChops.subtract(img, inner)
+    d = ImageDraw.Draw(img)
+    hr = px(7)
+    d.ellipse([cx - hr, cy - hr, cx + hr, cy + hr], outline=255, width=int(w))
+    return img
+
+
 def save(mask, name):
     alpha = mask.resize((N, N), Image.LANCZOS)
     img = Image.new("RGBA", (N, N), (255, 255, 255, 0))
@@ -97,6 +123,7 @@ def main():
     save(group(px(STROKE)), "icon-group.tga")
     save(invite(px(STROKE)), "icon-invite.tga")
     save(whisper(px(STROKE)), "icon-whisper.tga")
+    save(gear(px(STROKE)), "icon-gear.tga")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Tidier panel**: the settings move behind a cog in the title bar (a settings view in the same
+  panel: on/off, the categories, languages, where Announce speaks, the channel test, Messages,
+  Polestar's options). The main view keeps Find a group / Stop, Announce, the search in progress
+  and the players; while off, it only says so with a Turn on button. The channel line shows only
+  when the channel does not work.
 - **Player rows**: the second line shows the player's progress on the shared quest, small
   (“Kobold Camp Cleanup  7/10 Kobold Vermin slain”), and Whisper / Invite are icon buttons (a
   speech bubble; two people and a plus, which asks to join for a player already in a group).

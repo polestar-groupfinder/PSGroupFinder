@@ -1,13 +1,15 @@
 -- Group Finder for Polestar (PSGroupFinder): the main panel.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
--- From top to bottom: the master switch; Settings (folded by default: the
--- other switches) and Messages; the search languages; Find a group / Stop
--- (/ Options when Polestar's settings have our page); Announce with its
--- channel; Leave the group while in a party; the search in progress
--- (its quests leave it as their objectives are done), the channels with
--- their legend, and the players found, each with Whisper and Invite (only
--- ever on your click). The panel is as tall as what it shows.
+-- Two views in one window. The main view: Find a group / Stop and Announce,
+-- Leave the group while in a party, the search in progress (its quests
+-- leave it as their objectives are done), and the players found, each with
+-- Whisper and Invite (only ever on your click); while the finder is off,
+-- only a line saying so and Turn on. The cog in the title bar switches to
+-- the settings view: the master switch, the settings by category, the
+-- search languages, where Announce speaks, Messages, the channel's test
+-- and, with Polestar, its options page. The panel is as tall as what it
+-- shows.
 -- With Polestar it sits against the guide window's right edge (left edge
 -- when the right one has no room) and hides with it; without Polestar it is
 -- a movable window of its own. The quest panel (QuestPanel.lua) takes the
@@ -23,9 +25,9 @@ ns.UI = UI
 local WIDTH, PAD = W.WIDTH, W.PAD
 local ROWS = 6
 local OPT_H = 20 -- pitch of the switches
--- The master switch, always shown, then the settings that fold under
--- Settings, by category: { key, label, tooltip } or { header = label }.
--- Polestar's page has the same categories (Polestar/Options.lua).
+-- The settings view: the master switch, then the settings by category:
+-- { key, label, tooltip } or { header = label }. Polestar's page has the
+-- same categories (Polestar/Options.lua).
 local MASTER = { "enabled", "ENABLE", "ENABLE_TIP" }
 local FOLDED = {
 	{ header = "CAT_GROUPING" },
@@ -37,21 +39,10 @@ local FOLDED = {
 	{ header = "CAT_CHAT" },
 	{ "readChat", "READ_CHAT", "READ_CHAT_TIP" },
 }
-local HEADER_H = 16
+local HEADER_H = 18
 local DEFAULT_ON = { partyBox = true } -- read as on unless set to false
 local SESSION_LINES = 4
-local settingsOpen = false
-
-local function foldedHeight()
-	local h = 0
-	for _, f in ipairs(FOLDED) do h = h + (f.header and HEADER_H or OPT_H) end
-	return h
-end
-
--- Where the part under the switches starts.
-local function contentTop()
-	return 34 + OPT_H + 22 + (settingsOpen and foldedHeight() or 0)
-end
+local view = "main" -- or "settings"
 
 local panel
 local rows = {}
@@ -108,6 +99,7 @@ end
 -- The search in progress, from `y`; returns the new y.
 local function layoutSession(y, active)
 	widgets.sessionTitle:SetText(W.Dim() .. L.SESSION_TITLE .. "|r")
+	widgets.sessionTitle:Show()
 	at(widgets.sessionTitle, y)
 	y = y + 14
 	local list = ns.Session.List()
@@ -125,27 +117,7 @@ local function layoutSession(y, active)
 			y = y + 14
 		end
 	end
-	if not active then
-		widgets.none:SetText(W.Dim() .. L.SESSION_NONE .. "|r")
-		at(widgets.none, y, PAD + 4)
-		widgets.none:Show()
-		y = y + 14
-	end
 	return y + 6
-end
-
--- The channel line and Test, from `y`; returns the new y.
-local function layoutChannels(y)
-	widgets.chLabel:SetText(W.Dim() .. L.CHANNELS .. "|r")
-	at(widgets.chLabel, y + 4)
-	widgets.channels:SetText(channelLine())
-	widgets.channels:ClearAllPoints()
-	widgets.channels:SetPoint("LEFT", widgets.chLabel, "RIGHT", 8, 0)
-	at(widgets.test, y, WIDTH - PAD - 56)
-	widgets.chHit:ClearAllPoints()
-	widgets.chHit:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -y)
-	widgets.chHit:SetPoint("BOTTOMRIGHT", panel, "TOPLEFT", WIDTH - PAD - 62, -(y + 22))
-	return y + 28
 end
 
 -- The second line of a row: the first shared quest, their progress on it
@@ -167,70 +139,125 @@ local function playersFound()
 	return list
 end
 
-function UI.Refresh()
-	if not (panel and panel:IsShown()) then return end
-	local on = ns.Get("enabled") and true or false
+local MAIN, SETTINGS = {}, {} -- the widgets of each view
 
-	-- Switches: only the master switch works while off.
+local function show(list, on)
+	for _, w in ipairs(list) do w:SetShown(on) end
+end
+
+-- The settings view, from the top; returns its height.
+local function layoutSettings(on)
 	local x = PAD - (W.Theme() and 0 or 4)
-	local fy = 34 + OPT_H + 22
-	for _, c in ipairs(switches) do
+	local y = 34
+	for i, c in ipairs(switches) do
 		if c.key then
 			c:SetChecked(setting(c.key))
 			local usable = on or c.key == "enabled"
 			c:SetEnabled(usable)
 			c:SetAlpha(usable and 1 or 0.5)
 		end
-		if c ~= switches[1] then
-			c:SetShown(settingsOpen)
-			if settingsOpen then
-				at(c, fy + (c.psHeader and 3 or 0), c.psHeader and PAD or x)
-				fy = fy + (c.psHeader and HEADER_H or OPT_H)
-			end
-		end
+		at(c, y + (c.psHeader and 4 or 0), c.psHeader and PAD or x)
+		y = y + (c.psHeader and HEADER_H or OPT_H) + (i == 1 and 4 or 0)
 	end
-	widgets.settings:SetText((settingsOpen and L.SETTINGS_OPEN or L.SETTINGS_CLOSED))
-	local top = contentTop()
-	at(widgets.below, top)
+	y = y + 8
+	at(widgets.langLabel, y + 2)
 	widgets.langValue:SetText(W.Dim() .. ns.Lang.MineSummary() .. "|r")
+	y = y + 24
+	at(widgets.annLabel, y + 5)
 	widgets.annTo:Refresh()
-	if widgets.langPicker and widgets.langPicker:IsShown() then UI.RefreshLangPicker() end
+	at(widgets.annTo, y, WIDTH - PAD - widgets.annTo:GetWidth())
+	y = y + 28
+	widgets.chLabel:SetText(W.Dim() .. L.CHANNELS .. "|r  " .. channelLine())
+	at(widgets.chLabel, y + 5)
+	at(widgets.test, y, WIDTH - PAD - 56)
+	widgets.chHit:ClearAllPoints()
+	widgets.chHit:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -y)
+	widgets.chHit:SetPoint("BOTTOMRIGHT", panel, "TOPLEFT", WIDTH - PAD - 62, -(y + 22))
+	y = y + 30
+	at(widgets.messages, y)
+	widgets.options:SetShown(UI.hasOptions == true)
+	at(widgets.options, y, WIDTH - PAD - widgets.options:GetWidth())
+	return y + 22 + PAD
+end
 
-	-- Buttons.
+-- The main view, from the top; returns its height.
+local function layoutMain(on)
+	local y = 34
+	widgets.offText:SetShown(not on)
+	widgets.turnOn:SetShown(not on)
+	for _, w in ipairs({ widgets.search, widgets.stop, widgets.announce, widgets.leaveGroup, widgets.warn }) do w:SetShown(on) end
+	widgets.sessionTitle:Hide()
+	for i = 1, SESSION_LINES do widgets.quest[i]:Hide() end
+	if not on then
+		widgets.empty:Hide()
+		for _, r in ipairs(rows) do r.entry = nil r:Hide() end
+		at(widgets.offText, y)
+		at(widgets.turnOn, y + 38)
+		return y + 38 + 26 + PAD
+	end
+	-- Find a group / Stop, Announce at the right.
 	local active = ns.Session.Active()
 	local cd = ns.Comm.SearchCooldown()
-	widgets.search:SetEnabled(on and cd == 0)
+	widgets.search:SetEnabled(cd == 0)
 	widgets.search:SetText(cd > 0 and string.format("%s (%d)", L.SEARCH, math.ceil(cd)) or (active and L.SEARCH_AGAIN or L.SEARCH))
+	at(widgets.search, y)
 	widgets.stop:SetShown(active)
 	local acd = ns.Announce.Cooldown()
-	widgets.announce:SetEnabled(on and acd == 0)
+	widgets.announce:SetEnabled(acd == 0)
 	widgets.announce:SetText(acd > 0 and string.format("%s (%d)", L.ANNOUNCE, math.ceil(acd)) or L.ANNOUNCE)
+	at(widgets.announce, y, WIDTH - PAD - widgets.announce:GetWidth())
+	y = y + 28
 	local inParty = (IsInGroup and IsInGroup()) and true or false
 	widgets.leaveGroup:SetShown(inParty)
-
-	-- Off: only the switches and the buttons; the rest has nothing to say.
-	local y = top + 86 + (inParty and 24 or 0)
-	for _, w in ipairs({ widgets.sessionTitle, widgets.chLabel, widgets.channels, widgets.test, widgets.chHit }) do
-		w:SetShown(on)
+	if inParty then
+		at(widgets.leaveGroup, y)
+		y = y + 26
 	end
-	for i = 1, SESSION_LINES do widgets.quest[i]:Hide() end
-	widgets.none:Hide()
-	if on then
-		y = layoutSession(y, active)
-		y = layoutChannels(y)
+	-- The channel, only when it does not work.
+	local broken = ns.Channels.Best() == nil
+	widgets.warn:SetShown(broken)
+	if broken then
+		at(widgets.warn, y + 2)
+		y = y + 20
 	end
-
+	if active then y = layoutSession(y + 4, true) end
 	-- Players found.
-	local found = on and playersFound() or {}
-	widgets.empty:SetShown(on and #found == 0)
-	if on and #found == 0 then
+	local found = playersFound()
+	widgets.empty:SetShown(#found == 0)
+	if #found == 0 then
 		widgets.empty:SetText(active and L.EMPTY_SEARCHING or L.EMPTY)
-		at(widgets.empty, y + 2, PAD + 2)
-		y = y + 38
+		at(widgets.empty, y + 4, PAD + 2)
+		y = y + 34
 	end
-	y = W.LayoutRows(panel, rows, found, y, playerInfo)
-	panel:SetHeight(y + PAD - 2)
+	y = W.LayoutRows(panel, rows, found, y + 2, playerInfo)
+	return y + PAD - 2
 end
+
+function UI.Refresh()
+	if not (panel and panel:IsShown()) then return end
+	local on = ns.Get("enabled") and true or false
+	local settings = view == "settings"
+	widgets.title:SetText(settings and L.SETTINGS or L.TITLE)
+	widgets.gear.psActive = settings
+	widgets.gear.psPaint(false)
+	show(SETTINGS, settings)
+	show(MAIN, not settings)
+	if settings then
+		if widgets.langPicker and widgets.langPicker:IsShown() then UI.RefreshLangPicker() end
+		for _, r in ipairs(rows) do r:Hide() end
+		panel:SetHeight(layoutSettings(on))
+	else
+		if widgets.langPicker then widgets.langPicker:Hide() end
+		panel:SetHeight(layoutMain(on))
+	end
+end
+
+-- The cog: the settings view, or back to the main view.
+function UI.ToggleSettings()
+	view = view == "settings" and "main" or "settings"
+	UI.Refresh()
+end
+function UI.SettingsShown() return view == "settings" and UI.IsShown() end
 
 ---------------------------------------------------------------------------
 -- Placement
@@ -330,7 +357,7 @@ local function buildLangPicker()
 	local box = W.Box(panel)
 	box:SetFrameStrata("DIALOG")
 	box:SetSize(WIDTH - 16, langPickerHeight(ns.Lang.AcceptsAll(), #ns.Lang.ALL))
-	box:SetPoint("TOPLEFT", widgets.below, "TOPLEFT", 8 - PAD, -22)
+	box:SetPoint("TOPLEFT", widgets.langLabel, "BOTTOMLEFT", 8 - PAD, -6)
 	local title = W.Text(box, "caption", GameFontNormalSmall)
 	title:SetPoint("TOPLEFT", 8, -8)
 	title:SetText(L.LANGS)
@@ -396,102 +423,92 @@ local function text(role, fallback, justify)
 	return fs
 end
 
+local function add(list, w) list[#list + 1] = w return w end
+
 local function build()
 	panel = W.Window("PSGroupFinderPanel", { width = WIDTH, height = 300, movable = true, onMoved = UI.SavePosition })
-	W.Title(panel, L.TITLE)
+	widgets.title = W.Title(panel, L.TITLE)
 	W.CloseButton(panel)
+	-- The cog, left of the close button.
+	widgets.gear = W.IconButton(panel, "icon-gear", L.SETTINGS_TIP, UI.ToggleSettings)
+	widgets.gear:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -32, -6)
 
-	-- The switches (placed in UI.Refresh: all but the first fold away).
-	switches[1] = W.Check(panel, L[MASTER[2]], L[MASTER[3]], MASTER[1], ns.SetEnabled)
-	switches[1].psHeader = false
-	for _, s in ipairs(FOLDED) do
-		local c
-		if s.header then
-			c = W.Text(panel, "caption", GameFontNormalSmall)
-			c:SetText(W.Dim() .. L[s.header] .. "|r")
-			c.psHeader, c.key = true, false
-		else
-			c = W.Check(panel, L[s[2]], L[s[3]], s[1])
-			c.psHeader = false
-		end
-		switches[#switches + 1] = c
-	end
-	switches[1]:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - (W.Theme() and 0 or 4), -34)
-	widgets.settings = W.Button(panel, L.SETTINGS_CLOSED, 110, function()
-		settingsOpen = not settingsOpen
-		UI.Refresh()
-	end, 18)
-	widgets.settings:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -(34 + OPT_H + 2))
-	W.Tip(widgets.settings, L.SETTINGS, L.SETTINGS_TIP)
-	widgets.messages = W.Button(panel, L.MESSAGES .. "…", 96, function() UI.ShowMessages() end, 18)
-	widgets.messages:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -(34 + OPT_H + 2))
-	W.Tip(widgets.messages, L.MESSAGES, L.MESSAGES_TIP)
-
-	-- Everything below hangs from this point, moved when Settings unfolds.
-	widgets.below = CreateFrame("Frame", nil, panel)
-	widgets.below:SetSize(1, 1)
-
-	-- Languages: a compact summary; a click opens the picker.
-	widgets.langLabel = text("small", GameFontHighlightSmall)
-	widgets.langLabel:SetPoint("TOPLEFT", widgets.below, "TOPLEFT", 0, -2)
-	widgets.langLabel:SetText(L.LANGS)
-	widgets.langValue = text("small", GameFontHighlightSmall)
-	widgets.langValue:SetPoint("LEFT", widgets.langLabel, "RIGHT", 8, 0)
-	local langHit = CreateFrame("Button", nil, panel)
-	langHit:SetPoint("TOPLEFT", widgets.langLabel, "TOPLEFT", 0, 4)
-	langHit:SetPoint("BOTTOMRIGHT", widgets.langLabel, "BOTTOMLEFT", WIDTH - 2 * PAD, -4)
-	langHit:SetScript("OnClick", UI.ToggleLangPicker)
-	W.Tip(langHit, L.LANGS, L.LANGS_TIP)
-
-	-- Find a group / Stop / Options, then Leave the group on its own row.
-	widgets.search = W.Button(panel, L.SEARCH, 168, function() ns.Search() UI.Refresh() end)
-	widgets.search:SetPoint("TOPLEFT", widgets.below, "TOPLEFT", 0, -30)
-	widgets.stop = W.Button(panel, L.STOP, 70, function() ns.Comm.StopSearch() UI.Refresh() end)
+	-------------------------------------------------------------------------
+	-- Main view
+	-------------------------------------------------------------------------
+	widgets.offText = add(MAIN, text("small", GameFontHighlightSmall, "LEFT"))
+	widgets.offText:SetWidth(WIDTH - 2 * PAD)
+	widgets.offText:SetText(W.Dim() .. L.OFF_TEXT .. "|r")
+	widgets.turnOn = add(MAIN, W.Button(panel, L.TURN_ON, 120, function() ns.SetEnabled(true) end))
+	widgets.search = add(MAIN, W.Button(panel, L.SEARCH, 168, function() ns.Search() UI.Refresh() end))
+	widgets.stop = add(MAIN, W.Button(panel, L.STOP, 70, function() ns.Comm.StopSearch() UI.Refresh() end))
 	widgets.stop:SetPoint("LEFT", widgets.search, "RIGHT", 6, 0)
-	widgets.stop:Hide()
-	widgets.options = W.Button(panel, L.OPTIONS_SHORT, 64, function() if ns.OpenOptions then ns.OpenOptions() end end)
-	widgets.options:SetPoint("TOPLEFT", widgets.search, "TOPLEFT", WIDTH - 2 * PAD - 64, 0)
-	widgets.options:SetShown(UI.hasOptions == true)
-	-- Announce in public chat, with the line's language and channel.
-	widgets.announce = W.Button(panel, L.ANNOUNCE, 110, function() ns.Announce.Send() UI.Refresh() end)
-	widgets.announce:SetPoint("TOPLEFT", widgets.search, "BOTTOMLEFT", 0, -2)
+	widgets.announce = add(MAIN, W.Button(panel, L.ANNOUNCE, 96, function() ns.Announce.Send() UI.Refresh() end))
 	widgets.announce:SetScript("OnEnter", UI.AnnounceTip)
 	widgets.announce:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	widgets.annTo = W.Choice(panel, WIDTH - 2 * PAD - 110 - 6, {
-		items = UI.AnnounceTargets, get = ns.Announce.Target, set = function(v) ns.Set("announceTo", v) end,
-		title = L.ANN_TO, help = L.ANN_TO_TIP,
-	})
-	widgets.annTo:SetPoint("LEFT", widgets.announce, "RIGHT", 6, 0)
-
-	widgets.leaveGroup = W.Button(panel, L.LEAVE_GROUP, 140, function() ns.Leave.Do() end)
+	widgets.leaveGroup = add(MAIN, W.Button(panel, L.LEAVE_GROUP, 140, function() ns.Leave.Do() end))
 	W.Tip(widgets.leaveGroup, L.LEAVE_GROUP, L.LEAVE_GROUP_TIP)
-	widgets.leaveGroup:SetPoint("TOPLEFT", widgets.announce, "BOTTOMLEFT", 0, -2)
-	widgets.leaveGroup:Hide()
-
-	-- The search in progress.
-	widgets.sessionTitle = text("caption", GameFontNormalSmall, "LEFT")
+	widgets.warn = add(MAIN, text("small", GameFontHighlightSmall, "LEFT"))
+	widgets.warn:SetWidth(WIDTH - 2 * PAD)
+	widgets.warn:SetText(W.Hex("warning", "fffabf4d") .. L.CHANNEL_BROKEN .. "|r")
+	widgets.sessionTitle = add(MAIN, text("caption", GameFontNormalSmall, "LEFT"))
 	widgets.quest = {}
 	for i = 1, SESSION_LINES do
-		local fs = text("small", GameFontHighlightSmall, "LEFT")
+		local fs = add(MAIN, text("small", GameFontHighlightSmall, "LEFT"))
 		fs:SetWordWrap(false)
 		fs:SetWidth(WIDTH - 2 * PAD - 4)
 		widgets.quest[i] = fs
 	end
-	widgets.none = text("small", GameFontDisableSmall, "LEFT")
+	widgets.empty = add(MAIN, text("note", GameFontDisableSmall, "LEFT"))
+	widgets.empty:SetWidth(WIDTH - 2 * PAD - 4)
+	for i = 1, ROWS do rows[i] = W.PlayerRow(panel) end
 
-	-- Channels.
-	widgets.chLabel = text("small", GameFontHighlightSmall, "LEFT")
-	widgets.channels = text("small", GameFontHighlightSmall, "LEFT")
-	widgets.chHit = CreateFrame("Frame", nil, panel)
+	-------------------------------------------------------------------------
+	-- Settings view
+	-------------------------------------------------------------------------
+	switches[1] = add(SETTINGS, W.Check(panel, L[MASTER[2]], L[MASTER[3]], MASTER[1], ns.SetEnabled))
+	switches[1].psHeader = false
+	for _, sw in ipairs(FOLDED) do
+		local c
+		if sw.header then
+			c = W.Text(panel, "caption", GameFontNormalSmall)
+			c:SetText(W.Dim() .. L[sw.header] .. "|r")
+			c.psHeader, c.key = true, false
+		else
+			c = W.Check(panel, L[sw[2]], L[sw[3]], sw[1])
+			c.psHeader = false
+		end
+		switches[#switches + 1] = add(SETTINGS, c)
+	end
+	-- Languages: a compact summary; a click opens the picker.
+	widgets.langLabel = add(SETTINGS, text("small", GameFontHighlightSmall))
+	widgets.langLabel:SetText(L.LANGS)
+	widgets.langValue = add(SETTINGS, text("small", GameFontHighlightSmall))
+	widgets.langValue:SetPoint("LEFT", widgets.langLabel, "RIGHT", 8, 0)
+	local langHit = add(SETTINGS, CreateFrame("Button", nil, panel))
+	langHit:SetPoint("TOPLEFT", widgets.langLabel, "TOPLEFT", 0, 4)
+	langHit:SetPoint("BOTTOMRIGHT", widgets.langLabel, "BOTTOMLEFT", WIDTH - 2 * PAD, -4)
+	langHit:SetScript("OnClick", UI.ToggleLangPicker)
+	W.Tip(langHit, L.LANGS, L.LANGS_TIP)
+	-- Where Announce speaks.
+	widgets.annLabel = add(SETTINGS, text("small", GameFontHighlightSmall))
+	widgets.annLabel:SetText(L.ANN_TO)
+	widgets.annTo = add(SETTINGS, W.Choice(panel, 170, {
+		items = UI.AnnounceTargets, get = ns.Announce.Target, set = function(v) ns.Set("announceTo", v) end,
+		title = L.ANN_TO, help = L.ANN_TO_TIP,
+	}))
+	-- The channel and its test.
+	widgets.chLabel = add(SETTINGS, text("small", GameFontHighlightSmall, "LEFT"))
+	widgets.chHit = add(SETTINGS, CreateFrame("Frame", nil, panel))
 	widgets.chHit:EnableMouse(true)
 	widgets.chHit:SetScript("OnEnter", channelTip)
 	widgets.chHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	widgets.test = W.Button(panel, L.TEST_SHORT, 56, function() ns.TestChannels() end, 20)
-
-	-- Players found.
-	widgets.empty = text("note", GameFontDisableSmall, "LEFT")
-	widgets.empty:SetWidth(WIDTH - 2 * PAD - 4)
-	for i = 1, ROWS do rows[i] = W.PlayerRow(panel) end
+	widgets.test = add(SETTINGS, W.Button(panel, L.TEST_SHORT, 56, function() ns.TestChannels() end, 20))
+	-- Messages, and Polestar's options page.
+	widgets.messages = add(SETTINGS, W.Button(panel, L.MESSAGES .. "…", 120, function() UI.ShowMessages() end, 22))
+	W.Tip(widgets.messages, L.MESSAGES, L.MESSAGES_TIP)
+	widgets.options = add(SETTINGS, W.Button(panel, L.OPTIONS_SHORT, 150, function() if ns.OpenOptions then ns.OpenOptions() end end, 22))
+	W.Tip(widgets.options, L.OPTIONS_SHORT, L.OPTIONS_TIP)
 
 	W.EverySecond(panel, UI.Refresh)
 	panel:SetScript("OnShow", function() UI.Place() UI.Refresh() end)
@@ -504,7 +521,7 @@ end
 -- Polestar.lua: whether Polestar's settings have our page (shows Options).
 function UI.SetHasOptions(has)
 	UI.hasOptions = has and true or false
-	if widgets.options then widgets.options:SetShown(UI.hasOptions) end
+	if widgets.options and view == "settings" then widgets.options:SetShown(UI.hasOptions) end
 end
 
 function UI.Show()
@@ -532,7 +549,7 @@ function UI.EmptyCaption() return widgets.empty and widgets.empty:GetText() or n
 function UI.RowFrames() return rows end
 function UI.LeaveGroupButton() return widgets.leaveGroup end
 function UI.AnnounceWidgets() return widgets.announce, widgets.annTo end
-function UI.SettingsButton() return widgets.settings end
+function UI.GearButton() return widgets.gear end
 function UI.Switch(key)
 	for _, c in ipairs(switches) do if c.key == key then return c end end
 end

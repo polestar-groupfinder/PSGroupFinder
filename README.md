@@ -8,8 +8,8 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 
 > Work in progress: this version is being ported into Polestar itself. It has not been tested in
 > the game client yet; screenshots will follow. Renders of the windows beside Polestar's guide
-> (drawn, not captured in game): [the panel and the guide menu](docs/mockup/settings.png),
-> [Say hello](docs/mockup/hello.gif).
+> (drawn, not captured in game): [the panel and its settings view](docs/mockup/panel.png),
+> [the guide menu](docs/mockup/settings.png), [Say hello](docs/mockup/hello.gif).
 
 ## Installation
 
@@ -63,8 +63,11 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 
 ## Options
 
-The panel shows only **Enable**; the rest folds under **Settings**, by category, as on the
-“Community Group Finder” page in Polestar's options:
+The panel has two views. The main one holds Find a group / Stop, Announce, the search in
+progress and the players found. The **cog** in its title bar opens the settings view: the master
+switch, the settings by category (as on the “Community Group Finder” page in Polestar's options),
+the search languages, where Announce speaks, the channel's test, **Messages…** and Polestar's
+options page.
 
 | Category | Settings |
 |---|---|

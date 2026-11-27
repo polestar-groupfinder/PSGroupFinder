@@ -347,12 +347,14 @@ function W.IconButton(parent, icon, tip, onClick)
 	b.Icon:SetPoint("CENTER")
 	pcall(b.Icon.SetTexture, b.Icon, ICON_PATH .. icon)
 	local function paint(hover)
+		hover = hover or b.psActive
 		local T = W.Theme()
 		local token = hover and "accent" or "icon"
 		if T and T.Color and pcall(T.Color, b.Icon, token) then return end
 		if hover then b.Icon:SetVertexColor(1, 0.82, 0, 1) else b.Icon:SetVertexColor(0.85, 0.88, 0.95, 1) end
 	end
 	paint(false)
+	b.psPaint = paint
 	b.psTip = tip
 	b:SetScript("OnClick", onClick)
 	b:SetScript("OnEnter", function(self)

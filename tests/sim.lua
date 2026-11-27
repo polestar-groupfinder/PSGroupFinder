@@ -1212,17 +1212,21 @@ cal.ns.Set("readChat", false)
 say(cal, "CHAT_MSG_YELL", "need help gath ilzogg", "Bo Hill")
 check(#cal.ns.ChatWatch.List() == 0, "with the option off, chat is not read")
 
--- The panel's settings fold away: only the master switch shows by default.
+-- The panel: a main view, and a settings view behind the cog in the title bar.
 local fy = newClient("Fy Lark", { hogger }, {})
 fy.ns.UI.Show()
-check(not fy.ns.UI.Switch("autoGroup"):IsShown(),
-	"settings folded by default: only Enable shows")
-local sb = fy.ns.UI.SettingsButton()
-sb._OnClick(sb)
-check(fy.ns.UI.Switch("autoGroup"):IsShown() and fy.ns.UI.Switch("partyBox"):IsShown() and sb._text:find("▾"),
-	"Settings unfolds the other switches")
-sb._OnClick(sb)
-check(not fy.ns.UI.Switch("autoGroup"):IsShown(), "and folds them again")
+check(not fy.ns.UI.Switch("autoGroup"):IsShown() and not fy.ns.UI.SettingsShown(), "the panel opens on its main view, no settings in sight")
+local gear = fy.ns.UI.GearButton()
+check(gear.Icon._texture:find("icon%-gear"), "the title bar has a cog")
+gear._OnClick(gear)
+check(fy.ns.UI.SettingsShown() and fy.ns.UI.Switch("enabled"):IsShown() and fy.ns.UI.Switch("autoGroup"):IsShown()
+	and fy.ns.UI.Switch("partyBox"):IsShown() and fy.ns.UI.Switch("readChat"):IsShown(), "the cog shows the settings view, every switch by category")
+gear._OnClick(gear)
+check(not fy.ns.UI.SettingsShown() and not fy.ns.UI.Switch("autoGroup"):IsShown(), "the cog again goes back to the main view")
+fy.ns.SetEnabled(true) run(15)
+fy.ns.UI.Refresh()
+local annBtn = fy.ns.UI.AnnounceWidgets()
+check(annBtn:IsShown(), "on: the main view has Find a group and Announce")
 
 -- Progress counts travel with searches and answers; the reader names them.
 local prg = newClient("Prg Lee", { { id = 7301, title = "The Defias Brotherhood",
