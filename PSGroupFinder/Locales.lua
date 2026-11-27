@@ -7,6 +7,7 @@ local L = {}
 ns.L = L
 
 local enUS = {
+	ASK_TIP = "Ask to join (they are in a group: you cannot invite them, so this whispers a request)",
 	MENU_PANEL_TIP = "Opens the panel: find a group, the players found, settings and messages.",
 	MSG_VARS_TITLE = "Variables",
 	MSG_VARS = "{quests}: the quest links. {progress}: the quest links with what is left, e.g. [The Defias Brotherhood] 4/12 Defias Pillager slain. Empty: never sent. Enter saves.",

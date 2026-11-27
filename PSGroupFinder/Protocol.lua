@@ -7,13 +7,18 @@
 --   <kind>|<sid>|<map>|<x>|<y>|<level>|<class>|<group size>|<flags>|<lang>|<list>
 -- and differ by kind and list:
 --   S  a search, broadcast from a click or a key press, sent again with the
---      quests left whenever an objective is done. <list>: <quest>:<kind>,...
+--      quests left whenever an objective is done. <list>: <quest>:<kind><counts>,...
 --   R  the answer to S, whispered to the searcher, naming only the quests
---      both have. <list>: <quest>,...
+--      both have. <list>: <quest><counts>,...
 --   Q  "who has quest <quest>?", broadcast from a click on a quest's button,
 --      any zone. <list>: <quest>
 --   A  the answer to Q, whispered to the asker by whoever has the quest in
---      the log. <list>: <quest>:<percent> (0-100, 100: done or ready to hand in)
+--      the log. <list>: <quest>:<percent><counts> (0-100, 100: done or ready
+--      to hand in)
+-- <counts> is the sender's progress on the quest's objectives, numbers only:
+-- "@4/12;0/1" (have/need per objective, in the log's order, at most four),
+-- empty when unknown. The reader names them from its own log (same quest,
+-- same objectives).
 -- and three short ones:
 --   X|<sid>             the search is over: the players who listed us drop us
 --   G|<sid>|<quest>,... auto-group: "you should invite me" (Group.lua)
@@ -78,15 +83,32 @@ local function ids(list)
 	return out
 end
 
+local MAX_COUNTS = 4
+
+-- "@4/12;0/1": our progress on quest `id`'s objectives; "" when unknown.
+function Protocol.Counts(id)
+	local q = ns.Quests.Log()[id]
+	local parts = {}
+	for i, o in ipairs(q and q.objectives or {}) do
+		if i > MAX_COUNTS then break end
+		local have, need = tonumber(o.have), tonumber(o.need)
+		if not (have and need and need > 0) then have, need = o.done and 1 or 0, 1 end
+		parts[#parts + 1] = math.min(have, need) .. "/" .. need
+	end
+	return #parts > 0 and ("@" .. table.concat(parts, ";")) or ""
+end
+
 -- `quests`: { { id, kind } }.
 function Protocol.Search(quests)
 	local entries = {}
-	for i, q in ipairs(quests) do entries[i] = q.id .. ":" .. q.kind end
+	for i, q in ipairs(quests) do entries[i] = q.id .. ":" .. q.kind .. Protocol.Counts(q.id) end
 	return fit(header("S"), entries)
 end
 
 function Protocol.Reply(questIDs)
-	return (fit(header("R"), ids(questIDs)))
+	local entries = {}
+	for i, id in ipairs(questIDs) do entries[i] = id .. Protocol.Counts(id) end
+	return (fit(header("R"), entries))
 end
 
 function Protocol.QuestSearch(id)
@@ -95,7 +117,7 @@ end
 
 function Protocol.QuestReply(id, pct)
 	pct = math.max(0, math.min(100, math.floor(tonumber(pct) or 0)))
-	return header("A") .. id .. ":" .. pct
+	return header("A") .. id .. ":" .. pct .. Protocol.Counts(id)
 end
 
 function Protocol.GroupRequest(questIDs)
@@ -108,6 +130,17 @@ end
 
 function Protocol.Probe(nonce)
 	return "T|" .. sid .. "|" .. nonce
+end
+
+-- { { have, need }, ... } from "4/12;0/1", nil for none.
+function Protocol.DecodeCounts(text)
+	if type(text) ~= "string" or text == "" then return nil end
+	local out = {}
+	for h, n in text:gmatch("(%d+)/(%d+)") do
+		if #out >= MAX_COUNTS then break end
+		out[#out + 1] = { tonumber(h), tonumber(n) }
+	end
+	return #out > 0 and out or nil
 end
 
 -- A table for a well-formed message, nil for anything else.
@@ -133,9 +166,11 @@ function Protocol.Decode(text)
 	if m.map == 0 then m.map = nil end
 	if x ~= "" and y ~= "" then m.x, m.y = tonumber(x) / 1000, tonumber(y) / 1000 end
 	for entry in list:gmatch("[^,]+") do
-		local id, k, pct = entry:match("^(%d+):?([gnkl]?)(%d*)$")
+		local id, k, pct, counts = entry:match("^(%d+):?([gnkl]?)(%d*)@?([%d/;]*)$")
 		id = tonumber(id)
-		if id then m.quests[#m.quests + 1] = { id = id, kind = k ~= "" and k or nil, pct = tonumber(pct) } end
+		if id then
+			m.quests[#m.quests + 1] = { id = id, kind = k ~= "" and k or nil, pct = tonumber(pct), counts = Protocol.DecodeCounts(counts) }
+		end
 	end
 	return m
 end

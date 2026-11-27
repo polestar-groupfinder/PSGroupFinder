@@ -11,8 +11,9 @@ local W = {}
 ns.Widgets = W
 
 W.WIDTH, W.PAD = 340, 12 -- the panels' width and inner margin
-W.ROW_H = 42             -- a player row
-W.BTN_COL = 84           -- width of the Whisper / Invite column
+W.ROW_H = 38             -- a player row
+W.ICON_BTN = 22          -- the Whisper / Invite icon buttons
+W.BTN_COL = 2 * 22 + 4   -- width of their column
 
 local BACKDROP = {
 	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -310,9 +311,65 @@ local function stateText(e)
 	return W.Dim() .. W.Distance(e) .. "|r"
 end
 
+-- Another player's progress on quest `id`, small: their first open
+-- objective as "7/10 Kobold Vermin slain" (their counts, the words from our
+-- own log: same quest, same objectives), "done" once all are; for a quest
+-- search answer without counts, the percent they sent; "" when unknown.
+function W.PeerProgress(e, id)
+	local counts = e.counts and e.counts[id]
+	if counts then
+		local q = ns.Quests.Log()[id]
+		local objectives = q and q.objectives or {}
+		for i, c in ipairs(counts) do
+			if c[1] < c[2] then
+				local label = ns.Messages.ObjectiveLabel(objectives[i])
+				return c[1] .. "/" .. c[2] .. (label ~= "" and (" " .. label) or "")
+			end
+		end
+		return L.PROGRESS_DONE_SHORT
+	end
+	if e.pct then return e.pct >= 100 and L.PROGRESS_DONE_SHORT or (e.pct .. "%") end
+	return ""
+end
+
+local ICON_PATH = "Interface\\AddOns\\PSGroupFinder\\Media\\"
+
+-- A small square button showing one of our icons, tinted like Polestar's
+-- own (icon, accent on hover), with a tooltip; `tip` may be a function.
+function W.IconButton(parent, icon, tip, onClick)
+	local size = W.ICON_BTN
+	local b = CreateFrame("Button", nil, parent)
+	b:SetSize(size, size)
+	b:RegisterForClicks("LeftButtonUp")
+	W.Skin(b, "button")
+	b.Icon = b:CreateTexture(nil, "OVERLAY")
+	b.Icon:SetSize(size - 6, size - 6)
+	b.Icon:SetPoint("CENTER")
+	pcall(b.Icon.SetTexture, b.Icon, ICON_PATH .. icon)
+	local function paint(hover)
+		local T = W.Theme()
+		local token = hover and "accent" or "icon"
+		if T and T.Color and pcall(T.Color, b.Icon, token) then return end
+		if hover then b.Icon:SetVertexColor(1, 0.82, 0, 1) else b.Icon:SetVertexColor(0.85, 0.88, 0.95, 1) end
+	end
+	paint(false)
+	b.psTip = tip
+	b:SetScript("OnClick", onClick)
+	b:SetScript("OnEnter", function(self)
+		paint(true)
+		local text = type(self.psTip) == "function" and self.psTip() or self.psTip
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText(text, 1, 1, 1)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", function() paint(false) GameTooltip:Hide() end)
+	return b
+end
+
 -- A player row: name, level and language on the first line, the state or
--- distance at its right, `info` on the second, Whisper / Invite stacked in
--- the right column. The tooltip lists every shared quest.
+-- distance at its right, `info` (the quest, and their progress small) on
+-- the second, the Whisper and Invite icons at the right. The tooltip lists
+-- every shared quest with their progress.
 function W.PlayerRow(parent)
 	local PAD, BTN_COL = W.PAD, W.BTN_COL
 	local r = CreateFrame("Frame", nil, parent)
@@ -331,17 +388,21 @@ function W.PlayerRow(parent)
 	r.info:SetPoint("RIGHT", r, "RIGHT", -(BTN_COL + 8), 0)
 	r.info:SetJustifyH("LEFT")
 	r.info:SetWordWrap(false)
-	r.whisper = W.Button(r, L.WHISPER, BTN_COL, function() if r.entry then W.Whisper(r.entry.name) end end, 19)
-	r.whisper:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -1)
-	r.invite = W.Button(r, L.INVITE, BTN_COL, function() if r.entry then W.Invite(r.entry) end end, 19)
-	r.invite:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 0, 1)
+	r.invite = W.IconButton(r, "icon-invite", function()
+		return r.entry and W.CanOnlyAsk(r.entry) and L.ASK_TIP or L.INVITE
+	end, function() if r.entry then W.Invite(r.entry) end end)
+	r.invite:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+	r.whisper = W.IconButton(r, "icon-whisper", L.WHISPER, function() if r.entry then W.Whisper(r.entry.name) end end)
+	r.whisper:SetPoint("RIGHT", r.invite, "LEFT", -4, 0)
 	r:SetScript("OnEnter", function(self)
 		local e = self.entry
 		if not e then return end
 		GameTooltip:SetOwner(self, "ANCHOR_TOP")
 		GameTooltip:SetText(ns.ShortName(e.name), 1, 1, 1)
 		for _, id in ipairs(e.quests) do
-			GameTooltip:AddLine(W.KindTag(e.kinds and e.kinds[id]) .. ns.Quests.Title(id), nil, nil, nil, true)
+			local left = W.PeerProgress(e, id)
+			GameTooltip:AddLine(W.KindTag(e.kinds and e.kinds[id]) .. ns.Quests.Title(id)
+				.. (left ~= "" and ("  " .. W.Dim() .. left .. "|r") or ""), nil, nil, nil, true)
 		end
 		if e.said then
 			-- Found in public chat: where, and what they said.
@@ -364,7 +425,6 @@ function W.FillRow(r, e, info)
 	r.name:SetText(string.format("|c%s%s|r  %s%s", classColor(e.class), ns.ShortName(e.name), level, lang))
 	r.dist:SetText(stateText(e))
 	r.info:SetText(info)
-	r.invite:SetText(W.CanOnlyAsk(e) and L.ASK or L.INVITE)
 end
 
 -- Lays out up to #rows entries of `list` from `y` down; returns the new y.

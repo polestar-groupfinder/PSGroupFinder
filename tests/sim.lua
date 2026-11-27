@@ -688,7 +688,13 @@ rae.ns.UI.Show()
 rae.ns.UI.Refresh()
 local inviteBtn
 for _, r in ipairs(rae.ns.UI.RowFrames()) do if type(r.entry) == "table" and r.entry.name == "Sam Lee" then inviteBtn = r.invite end end
-check(inviteBtn ~= nil and inviteBtn._text == "Invite", "Sam's row exists with its Invite button")
+check(inviteBtn ~= nil and inviteBtn.psTip() == "Invite" and inviteBtn.Icon._texture:find("icon%-invite"),
+	"Sam's row exists with its Invite icon button")
+local samRow
+for _, r in ipairs(rae.ns.UI.RowFrames()) do if type(r.entry) == "table" and r.entry.name == "Sam Lee" then samRow = r end end
+check(samRow.whisper.Icon._texture:find("icon%-whisper") and samRow.whisper.psTip == "Whisper", "...and a Whisper icon (speech bubble)")
+check(samRow.info._text:find("Quest 11001") and samRow.info._text:find("0/6 Thing slain"),
+	"the row shows the quest and the player's progress on it, small (x/y from their counts)")
 inviteBtn._OnClick(inviteBtn)
 local w = lastOf(rae, "WHISPER")
 check(w and w[3] == "Sam Lee" and w[1] == "Hi! I'm on Quest 11001, Quest 11002 too, I've sent you an invite.",
@@ -843,7 +849,7 @@ ola.PSGroupFinder_Search() run(8)
 ola.ns.UI.Show() ola.ns.UI.Refresh()
 local askBtn
 for _, r in ipairs(ola.ns.UI.RowFrames()) do if type(r.entry) == "table" and r.entry.name == "Pam Dunn" then askBtn = r.invite end end
-check(askBtn and askBtn._text == "Ask", "a player already in a group shows Ask instead of Invite")
+check(askBtn and askBtn.psTip():find("^Ask to join"), "a player already in a group: the invite icon asks to join (tooltip)")
 local invitedBefore = #ola.invited
 askBtn._OnClick(askBtn)
 local aw = lastOf(ola, "WHISPER")
@@ -1217,5 +1223,25 @@ check(fy.ns.UI.Switch("autoGroup"):IsShown() and fy.ns.UI.Switch("partyBox"):IsS
 	"Settings unfolds the other switches")
 sb._OnClick(sb)
 check(not fy.ns.UI.Switch("autoGroup"):IsShown(), "and folds them again")
+
+-- Progress counts travel with searches and answers; the reader names them.
+local prg = newClient("Prg Lee", { { id = 7301, title = "The Defias Brotherhood",
+	obj = { { "Defias Pillager slain: 4/12", "monster" }, { "Defias Looter slain: 0/5", "monster" } } } }, {})
+check(prg.ns.Protocol.Counts(7301) == "@4/12;0/5", "a quest's counts are encoded as numbers only (@4/12;0/5)")
+local enc = prg.ns.Protocol.Search({ { id = 7301, kind = "k" } })
+local dec = prg.ns.Protocol.Decode(enc)
+check(dec.quests[1].id == 7301 and dec.quests[1].kind == "k" and dec.quests[1].counts[1][1] == 4 and dec.quests[1].counts[2][2] == 5,
+	"search entries decode with their counts")
+local rdec = prg.ns.Protocol.Decode(prg.ns.Protocol.Reply({ 7301 }))
+check(rdec.quests[1].counts and rdec.quests[1].counts[1][2] == 12, "replies carry the counts too")
+local adec = prg.ns.Protocol.Decode(prg.ns.Protocol.QuestReply(7301, 33))
+check(adec.quests[1].pct == 33 and adec.quests[1].counts[1][1] == 4, "quest answers carry the percent and the counts")
+local W = prg.ns.Widgets
+check(W.PeerProgress({ counts = { [7301] = { { 4, 12 }, { 0, 5 } } } }, 7301) == "4/12 Defias Pillager slain",
+	"their first open objective, named from our own log")
+check(W.PeerProgress({ counts = { [7301] = { { 12, 12 }, { 2, 5 } } } }, 7301) == "2/5 Defias Looter slain",
+	"a finished objective is skipped")
+check(W.PeerProgress({ counts = { [7301] = { { 12, 12 }, { 5, 5 } } } }, 7301) == "done" and W.PeerProgress({ pct = 40 }, 7301) == "40%",
+	"done when all are; the percent when only that is known")
 
 print("all tests passed")

@@ -39,7 +39,8 @@ end
 local function playerInfo(e)
 	if e.source == "chat" then return W.Soft() .. string.format(L.SAID_IN, e.where or "?") .. "|r" end
 	local zone = zoneName(e.map)
-	return W.Soft() .. (zone and (zone .. "  ") or "") .. "|r" .. W.Dim() .. progressText(e.pct) .. "|r"
+	local left = W.PeerProgress(e, qid)
+	return W.Soft() .. (zone and (zone .. "  ") or "") .. "|r" .. W.Dim() .. (left ~= "" and left or progressText(e.pct)) .. "|r"
 end
 
 function QuestUI.Refresh()

@@ -148,11 +148,15 @@ local function layoutChannels(y)
 	return y + 28
 end
 
+-- The second line of a row: the first shared quest, their progress on it
+-- (small, dim), how many more, or where a chat player asked.
 local function playerInfo(e)
 	local first = e.quests[1]
+	local left = W.PeerProgress(e, first)
+	local progress = left ~= "" and ("  " .. W.Dim() .. left .. "|r") or ""
 	local more = #e.quests > 1 and ("  " .. W.Dim() .. "+" .. (#e.quests - 1) .. "|r") or ""
 	local where = e.where and ("  " .. W.Dim() .. e.where .. "|r") or ""
-	return W.Soft() .. W.KindTag(e.kinds and e.kinds[first]) .. "|r" .. ns.Quests.Title(first) .. more .. where
+	return W.Soft() .. ns.Quests.Title(first) .. "|r" .. progress .. more .. where
 end
 
 -- The players to list: those found through the finder, then those spotted

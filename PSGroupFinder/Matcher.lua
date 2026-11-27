@@ -51,9 +51,12 @@ end
 function Matcher.Add(sender, m, common, source)
 	local e = fill(peers[sender] or { name = sender }, m, source)
 	e.quests = common
-	local kinds = {}
-	for _, q in ipairs(m.quests or {}) do if q.kind then kinds[q.id] = q.kind end end
-	e.kinds = kinds
+	local kinds, counts = {}, {}
+	for _, q in ipairs(m.quests or {}) do
+		if q.kind then kinds[q.id] = q.kind end
+		if q.counts then counts[q.id] = q.counts end
+	end
+	e.kinds, e.counts = kinds, counts
 	local isNew = not peers[sender]
 	peers[sender] = e
 	if isNew then
@@ -147,6 +150,8 @@ function Matcher.AddQuest(sender, m, id, pct)
 	e.quests = { id }
 	e.kinds = {}
 	e.pct = pct
+	local q = m.quests and m.quests[1]
+	e.counts = { [id] = q and q.counts or nil }
 	local isNew = set[sender] == nil
 	set[sender] = e
 	ns.Fire("PEERS")

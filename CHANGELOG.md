@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Player rows**: the second line shows the player's progress on the shared quest, small
+  (“Kobold Camp Cleanup  7/10 Kobold Vermin slain”), and Whisper / Invite are icon buttons (a
+  speech bubble; two people and a plus, which asks to join for a player already in a group).
+  Searches and answers carry each quest's objective counts, numbers only (“@4/12;0/5”); the
+  reader names them from its own quest log. Clients older than this one drop those entries.
 - **Community Group Finder**: the new name, so that it is not taken for the game's own Group
   Finder (key I), which Polestar already points to.
 - **One channel**: searches go over the finder's hidden channel only (no guild), answers and

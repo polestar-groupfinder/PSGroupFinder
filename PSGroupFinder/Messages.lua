@@ -75,9 +75,15 @@ end
 -- "4/12 Defias Pillager slain" from an objective, whichever way the client
 -- writes it ("Defias Pillager slain: 4/12" or "4/12 Defias Pillager slain");
 -- the text as it is when it has no count.
+-- An objective's words without its count: "Defias Pillager slain".
+function Messages.ObjectiveLabel(o)
+	local text = tostring(o and o.text or "")
+	return (text:gsub("^%s*%d+%s*/%s*%d+%s*", ""):gsub("%s*:?%s*%d+%s*/%s*%d+%s*$", ""))
+end
+
 function Messages.ObjectiveText(o)
 	local text = tostring(o.text or "")
-	local label = text:gsub("^%s*%d+%s*/%s*%d+%s*", ""):gsub("%s*:?%s*%d+%s*/%s*%d+%s*$", "")
+	local label = Messages.ObjectiveLabel(o)
 	local have, need = tonumber(o.have), tonumber(o.need)
 	if not (have and need) then
 		local h, n = text:match("(%d+)%s*/%s*(%d+)")

@@ -29,7 +29,8 @@ without it (standalone window). Licence: GPL-3.0-or-later.
   session on your relevant quests: a quest leaves it once its objectives are done, the others
   stay, and it stops when none remain, on **Stop**, in an instance or when your group is full.
 - **Results**: players found, best first (shared quests, Polestar's current step, distance), with
-  their language, **Whisper** and **Invite**. Searches go over the addon's hidden channel, which
+  their language, their progress on the shared quest (“7/10 Kobold Vermin slain”), and two icon
+  buttons: **Whisper** (speech bubble) and **Invite** (two people and a plus). Searches go over the addon's hidden channel, which
   every player running it joins (no /say, /yell or guild). A player already in a group shows **Ask** instead:
   you cannot invite them, so it whispers a request to be invited. Invite and Ask also whisper a
   short message. Only on your click.
@@ -87,8 +88,8 @@ refuses addon messages there) and no guild: the finder talks to the players who 
 
 | Message | When | Contents |
 |---|---|---|
-| Search `S` | your click / key bind, at most every 20 s; when a quest leaves your search (also while grouped), sent again on the channel and to the players found | up to ~12 quest IDs with their kind (kill, named, loot, group), map, x/y (if shared), level, class, party size, flags (auto-group, faction), client language |
-| Reply `R` | only with “Answer searches for my quests” on (off by default): whisper to the searcher, at most once per 20 s per player | only the IDs of **shared** quests, your map/position, level, class, flags, language |
+| Search `S` | your click / key bind, at most every 20 s; when a quest leaves your search (also while grouped), sent again on the channel and to the players found | up to ~10 quest IDs with their kind (kill, named, loot, group) and objective counts (“@4/12;0/5”, numbers only), map, x/y (if shared), level, class, party size, flags (auto-group, faction), client language |
+| Reply `R` | only with “Answer searches for my quests” on (off by default): whisper to the searcher, at most once per 20 s per player | only the IDs of **shared** quests with their objective counts, your map/position, level, class, flags, language |
 | End `X` | your search ends (last quest done, stop, group full) | your session id: the others drop you from their list |
 | Request `G` | auto-group (off by default), whispered to the player who should invite you | the IDs of the shared quests |
 | Quest search `Q` | your click on a quest button, at most every 15 s | the id of **one** quest, map, x/y, level, class, party size, flags, language |
