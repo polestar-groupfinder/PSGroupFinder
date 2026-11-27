@@ -104,10 +104,22 @@ end
 local function textBox(row, kind)
 	if rawget(row, "psgfEdit") or not rawget(row, "Button") then return end
 	local W = ns.Widgets
+	-- Polestar's own button stands in its control column (compact layout):
+	-- ours goes to the row's right end, the box takes the whole width between.
+	row.Button:SetAlpha(0)
+	if row.Button.EnableMouse then row.Button:EnableMouse(false) end
+	local reset = W.Button(row, L.MSG_RESET, 90, function()
+		ns.Messages.Save(kind, ns.Messages.Default(kind))
+		if boxes[kind] then boxes[kind]:SetText(ns.Messages.Template(kind)) end
+	end, 22)
+	reset:SetPoint("RIGHT", row, "RIGHT", -12, 0)
+	reset:SetFrameLevel((tonumber(row:GetFrameLevel()) or 1) + 3)
+	W.Tip(reset, L.MSG_RESET, L.MSG_RESET_TIP)
+	row.psgfReset = reset
 	local e = CreateFrame("EditBox", nil, row, (not W.Theme()) and "InputBoxTemplate" or nil)
 	e:SetHeight(24)
 	e:SetPoint("LEFT", row, "LEFT", 120, 0)
-	e:SetPoint("RIGHT", row.Button, "LEFT", -10, 0)
+	e:SetPoint("RIGHT", reset, "LEFT", -10, 0)
 	e:SetAutoFocus(false)
 	e:SetMaxLetters(200)
 	e:SetFontObject(GameFontHighlightSmall)
