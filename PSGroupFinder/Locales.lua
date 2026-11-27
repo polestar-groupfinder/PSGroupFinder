@@ -129,7 +129,6 @@ local enUS = {
 	OPT_SECTION = "Group Finder",
 	OPTIONS_SHORT = "Options",
 	CHANNELS = "Channel",
-	TEST_SHORT = "Test",
 	LEGEND_TITLE = "The finder's channel",
 	LEGEND_BODY = "The hidden channel the players who run the finder share. Green: works (message came back). Yellow: accepted, no echo. Red: refused. Grey: not joined yet.",
 	LEGEND_BEST = "In use: %s",
