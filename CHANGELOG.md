@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Community Group Finder**: the new name, so that it is not taken for the game's own Group
+  Finder (key I), which Polestar already points to.
+- **One channel**: searches go over the finder's hidden channel only (no guild), answers and
+  updates by whisper. Auto-group stays an option the player turns on.
+- **One row in the guide menu**: “Community Group Finder” opens the panel, where Find a group
+  is; the separate Find a group row is gone.
 - **No /say or /yell for searches**: Forever's client refuses addon messages there; searches go
   over the hidden channel and the guild, answers by whisper.
 - **Nothing acts on its own by default**: “Answer searches for my quests” is now off by default,

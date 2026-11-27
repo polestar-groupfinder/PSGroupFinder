@@ -2,12 +2,13 @@
 -- on them.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
--- Searches go on CHANNEL (the hidden PSGroupFinder channel) and GUILD;
--- WHISPER carries the answers. No SAY or YELL: Forever's client refuses
--- addon messages there. Channels.status says what each one did: "ok" (our
--- message came back), "sent" (the client took it, no echo yet), "fail"
--- (refused, with the code) or "skip" (cannot be tried now: no guild, not
--- joined). Nothing is sent to test them unless the player asks
+-- Searches go on CHANNEL only: the hidden PSGroupFinder channel that every
+-- player running the finder joins. WHISPER carries the answers and the
+-- updates to the players found. No SAY or YELL (Forever's client refuses
+-- addon messages there) and no GUILD (the finder talks to the players who
+-- run it, wherever their guild). Channels.status says what the channel did:
+-- "ok" (our message came back), "sent" (the client took it, no echo yet),
+-- "fail" (refused, with the code) or "skip" (not joined yet). Nothing is sent to test them unless the player asks
 -- (Channels.Test: the Test button, /psgf test); the first search tells too.
 
 local _, ns = ...
@@ -19,7 +20,7 @@ local Channels = {}
 ns.Channels = Channels
 
 Channels.NAME = "PSGroupFinder"
-Channels.ORDER = { "CHANNEL", "GUILD" }
+Channels.ORDER = { "CHANNEL" }
 Channels.status = {} -- chatType -> { state, code, at }
 
 local PROBE_WAIT = 4   -- seconds to wait for a probe's echo
@@ -79,8 +80,6 @@ local function targetFor(chatType)
 		local id = Channels.ChannelId()
 		if not id then return nil, L.NOT_JOINED end
 		return id
-	elseif chatType == "GUILD" then
-		if not (IsInGuild and IsInGuild()) then return nil, L.NOT_IN_GUILD end
 	end
 	return false
 end
@@ -97,62 +96,25 @@ local function trySend(chatType, text)
 	return ok
 end
 
--- The channels a search goes out on: the best that worked (an echo first,
--- then one the client took), else every one not known to fail; plus the
--- guild beside a public one.
-local function candidates()
-	local best
-	for _, state in ipairs({ "ok", "sent" }) do
-		for _, ct in ipairs(Channels.ORDER) do
-			local s = Channels.status[ct]
-			if not best and s and s.state == state then best = ct end
-		end
-	end
-	if best then
-		local list = { best }
-		if best ~= "GUILD" and IsInGuild and IsInGuild() then
-			local g = Channels.status.GUILD
-			if not (g and g.state == "fail") then list[2] = "GUILD" end
-		end
-		return list
-	end
-	local list = {}
-	for _, ct in ipairs(Channels.ORDER) do
-		local s = Channels.status[ct]
-		if not (s and s.state == "fail") then list[#list + 1] = ct end
-	end
-	return list
-end
-
+-- The channel searches go out on, unless the client refused it.
 function Channels.Best()
-	return candidates()[1]
+	local s = Channels.status.CHANNEL
+	if s and s.state == "fail" then return nil end
+	return "CHANNEL"
 end
 
--- A search or a quest search: the hidden channel (when it takes it) plus the
--- guild. Returns the chat types it went out on.
+-- A search or a quest search, on the finder's channel. Returns the chat
+-- types it went out on (empty when it could not).
 function Channels.SendPublic(text)
 	Channels.RegisterPrefix()
-	local sentOn, public = {}, false
-	for _, ct in ipairs(candidates()) do
-		if (ct == "GUILD" or not public) and trySend(ct, text) then
-			sentOn[#sentOn + 1] = ct
-			if ct ~= "GUILD" then public = true end
-		end
-	end
-	return sentOn
+	return trySend("CHANNEL", text) and { "CHANNEL" } or {}
 end
 
--- An update of your own search (a quest left it, or it ended): CHANNEL and
--- GUILD, plus a whisper to each player found.
+-- An update of your own search (a quest left it, or it ended): on the
+-- channel, and by whisper to each player found.
 function Channels.SendQuiet(text)
 	Channels.RegisterPrefix()
-	local sent = false
-	for _, ct in ipairs(candidates()) do
-		if ct == "CHANNEL" or ct == "GUILD" then
-			if trySend(ct, text) then sent = true end
-			if ct == "CHANNEL" then break end
-		end
-	end
+	local sent = trySend("CHANNEL", text)
 	local names = ns.Matcher.Names()
 	for i = 1, math.min(#names, MAX_WHISPERS) do
 		Channels.Whisper(text, names[i])

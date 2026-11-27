@@ -1,11 +1,11 @@
--- Group Finder for Polestar (PSGroupFinder): our rows in the guide window's menu, and the panel
+-- Group Finder for Polestar (PSGroupFinder): our row in the guide window's menu, and the panel
 -- docked beside the guide window.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 -- Polestar's guide window has no slot for another addon's header icon, so
--- the finder lives in the window's menu (the "..." button): "Find a group"
--- starts a search (or says the finder is off), "Group finder" opens the
--- panel, where the settings are. The goal-row button (GoalRows.lua) stays on
+-- the finder lives in the window's menu (the "..." button): one row,
+-- "Community Group Finder", opens the panel, where Find a group, the
+-- players found and the settings are. The goal-row button (GoalRows.lua) stays on
 -- the current step's objectives.
 -- The menu is built anew at each opening from a fixed list; its Free mode
 -- rows come from Polestar.Free.MenuItems() (INTERNAL, Lookup/Free.lua), which
@@ -25,12 +25,10 @@ local P -- Polestar, set on "POLESTAR"
 local hostWindow
 local wrapped -- our wrapper of Polestar.Free.MenuItems, while in place
 
--- Our rows, in Polestar's menu item format.
+-- Our row, in Polestar's menu item format: one entry for the whole finder,
+-- which opens the panel (Find a group, the players found, the settings).
 function Menu.Items()
-	local on = ns.Get("enabled") and true or false
 	return {
-		{ text = L.SEARCH, icon = "search", tip = on and L.MENU_SEARCH_TIP or L.DISABLED,
-			onClick = function() if ns.Get("enabled") then ns.Search() else ns.Print(L.DISABLED) ns.UI.Show() end end },
 		{ text = L.TITLE, icon = "icon-group", tip = L.MENU_PANEL_TIP, onClick = function() ns.UI.Show() end },
 	}
 end

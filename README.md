@@ -1,4 +1,4 @@
-# Group Finder for Polestar (PSGroupFinder)
+# Community Group Finder for Polestar (PSGroupFinder)
 
 An **optional** module for [Polestar](https://github.com/fitzforge/polestar) (WoW: Forever 1.60.1):
 it finds players who are on **the same quest as you, near you** (kills, named elites, loot from
@@ -19,18 +19,18 @@ without it (standalone window). Licence: GPL-3.0-or-later.
    **Assets**, not “Source code”), or build it with `./build.sh`.
 3. Unzip it into `World of Warcraft/_forever_/Interface/AddOns/`. The final path must be exactly
    `AddOns/PSGroupFinder/PSGroupFinder.toc`.
-4. Fully restart the game (a `/reload` does not load a new addon), tick **Group Finder for
-   Polestar** in the AddOns list, then `/psgf on`.
+4. Fully restart the game (a `/reload` does not load a new addon), tick **Community Group
+   Finder for Polestar** in the AddOns list, then `/psgf on`.
 
 ## Features
 
-- **Find a group**: **Find a group** in the Polestar guide's “⋯” menu (next to it, **Group
-  Finder** opens the panel), the panel's **Find a group**, a key binding or `/psgf search`. A search is a
+- **Find a group**: **Community Group Finder** in the Polestar guide's “⋯” menu opens the panel,
+  whose **Find a group** starts the search; also a key binding or `/psgf search`. A search is a
   session on your relevant quests: a quest leaves it once its objectives are done, the others
   stay, and it stops when none remain, on **Stop**, in an instance or when your group is full.
 - **Results**: players found, best first (shared quests, Polestar's current step, distance), with
-  their language, **Whisper** and **Invite**. Searches go over the addon's hidden channel and
-  your guild (no /say or /yell). A player already in a group shows **Ask** instead:
+  their language, **Whisper** and **Invite**. Searches go over the addon's hidden channel, which
+  every player running it joins (no /say, /yell or guild). A player already in a group shows **Ask** instead:
   you cannot invite them, so it whispers a request to be invited. Invite and Ask also whisper a
   short message. Only on your click.
 - **Players on this quest**: the small button under a Polestar objective icon (or Alt-click on
@@ -63,7 +63,7 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 ## Options
 
 The panel shows only **Enable**; the rest folds under **Settings**, by category, as on the
-“Group Finder” page in Polestar's options:
+“Community Group Finder” page in Polestar's options:
 
 | Category | Settings |
 |---|---|
@@ -82,12 +82,12 @@ search`, `/psgf stop`, `/psgf announce`, `/psgf on|off`, `/psgf test` (tests the
 ## What is sent
 
 Only while the addon is on, as hidden addon messages (prefix `PSGF`, ≤ 255 bytes), on the hidden
-`PSGroupFinder` channel and the guild, answers by whisper. No /say or /yell: Forever's client
-refuses addon messages there. The formats are in [`Protocol.lua`](PSGroupFinder/Protocol.lua).
+`PSGroupFinder` channel, answers and updates by whisper. No /say or /yell (Forever's client
+refuses addon messages there) and no guild: the finder talks to the players who run it. The formats are in [`Protocol.lua`](PSGroupFinder/Protocol.lua).
 
 | Message | When | Contents |
 |---|---|---|
-| Search `S` | your click / key bind, at most every 20 s; when a quest leaves your search, sent again to the same places and the players found | up to ~12 quest IDs with their kind (kill, named, loot, group), map, x/y (if shared), level, class, party size, flags (auto-group, faction), client language |
+| Search `S` | your click / key bind, at most every 20 s; when a quest leaves your search (also while grouped), sent again on the channel and to the players found | up to ~12 quest IDs with their kind (kill, named, loot, group), map, x/y (if shared), level, class, party size, flags (auto-group, faction), client language |
 | Reply `R` | only with “Answer searches for my quests” on (off by default): whisper to the searcher, at most once per 20 s per player | only the IDs of **shared** quests, your map/position, level, class, flags, language |
 | End `X` | your search ends (last quest done, stop, group full) | your session id: the others drop you from their list |
 | Request `G` | auto-group (off by default), whispered to the player who should invite you | the IDs of the shared quests |
@@ -102,9 +102,9 @@ only on your click or key.
 ## Channels and detection
 
 The hidden `PSGroupFinder` channel is joined 6 s after login (so it does not take /1 or /2) and
-removed from the chat tabs; a search goes out on it and on the guild. The panel colours each
-channel from what happened: green = our own message came back, yellow = accepted with no echo,
-red = refused, grey = unavailable; `/psgf test` checks both on request and details the result.
+removed from the chat tabs; searches go out on it. The panel colours it from what happened:
+green = our own message came back, yellow = accepted with no echo, red = refused, grey = not
+joined yet; `/psgf test` checks it on request and details the result.
 Rate: a small queue (burst of 4, then ~0.8 msg/s), retried on `AddonMessageThrottle`.
 
 ## Integration with Polestar
@@ -113,8 +113,8 @@ Rate: a small queue (burst of 4, then ~0.8 msg/s), retried on `AddonMessageThrot
 |---|---|---|
 | `Polestar.API.version == 1`, `Polestar.On("STEP_CHANGED" / "GUIDE_CHANGED" / "TABS_CHANGED")`, `Polestar.Compat.IsOnQuest` / `IsQuestReadyForTurnIn` | **public API** (docs/API.md) | know when the step changes, filter quests |
 | `Polestar.Theme.Skin`, `Font`, `Color`, `Hex`, `OnChanged`, `GuideParts().window` | **public Skin API** | paint our frames, dock beside the guide window |
-| `Polestar.RegisterOptions` (with the public `icon` and `help` fields) | **semi-internal** (ARCHITECTURE.md “Options registry”), under `pcall` | “Group Finder” page in Polestar's options, one section per category |
-| `Polestar.Free.MenuItems()` | **internal**, wrapped under `pcall` (the original runs first) | our two rows in the guide's “⋯” menu |
+| `Polestar.RegisterOptions` (with the public `icon` and `help` fields) | **semi-internal** (ARCHITECTURE.md “Options registry”), under `pcall` | “Community Group Finder” page in Polestar's options, one section per category |
+| `Polestar.Free.MenuItems()` | **internal**, wrapped under `pcall` (the original runs first) | our row in the guide's “⋯” menu |
 | `UI.ShowOptions(key)`, `UI.Options.Relayout`, `Widgets.RefreshAll`, `Options.Kit.pages` / `Grouped.NavItems` / `Widgets.NavRowAfter` | **internal**, under `pcall` | panel “Options” button, language rows folding at once, sidebar icon |
 | `Polestar.Engine.GetGuide()` / `GetLiveStep()` and `step.goals[].quest`, `Compat.GetPlayerMapPosition()` | **internal**, under `pcall` | current step's quests first, position (otherwise `C_Map`) |
 | `GuideParts().rows` and on each row `psGoal`, `Icon`, `Check`, `Alt`; `Polestar.QuestClickTips` / `QuestRowClick` | rows documented in the skin reference, the rest **internal**; wrapped under `pcall`, the original always runs first | goal-row button, tooltip help line and Alt-click |
@@ -125,7 +125,7 @@ Polestar, or with another API version, the addon is a standalone window.
 ## Known limits / to test in game
 
 - **CHANNEL**: searching players worked over the hidden channel in a two-player test on
-  Forever; if a client refuses it, `/psgf test` says so and only the guild remains.
+  Forever; if a client refuses it, `/psgf test` says so and searching cannot work there.
 - **Accepting an invitation** with `AcceptGroup()` is documented for Classic but **unconfirmed on
   Forever**; if the client refuses, the invitation window stays and a chat line says so.
 - Trial / veteran accounts cannot send addon messages.

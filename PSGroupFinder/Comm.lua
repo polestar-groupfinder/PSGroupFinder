@@ -109,7 +109,7 @@ end
 -- Receiving
 ---------------------------------------------------------------------------
 
-local ACCEPTED = { CHANNEL = true, GUILD = true, WHISPER = true }
+local ACCEPTED = { CHANNEL = true, WHISPER = true }
 
 local function ignored(sender)
 	if C_FriendList and C_FriendList.IsIgnored then

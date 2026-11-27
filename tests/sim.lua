@@ -225,8 +225,8 @@ check(next(ana.ns.Channels.status) == nil, "a search while disabled sends nothin
 for _, c in ipairs({ ana, ben, cid, dft }) do c.ns.SetEnabled(true) end
 run(15) -- join delay
 check(next(ana.ns.Channels.status) == nil, "enabling joins the channel but sends no probe")
-check(ana.ns.Channels.ORDER[1] == "CHANNEL" and ana.ns.Channels.ORDER[2] == "GUILD" and #ana.ns.Channels.ORDER == 2,
-	"searches use the hidden channel and the guild only (no SAY / YELL)")
+check(ana.ns.Channels.ORDER[1] == "CHANNEL" and #ana.ns.Channels.ORDER == 1,
+	"searches use the finder's hidden channel only (no SAY / YELL / GUILD)")
 
 local rel = ana.ns.Quests.Relevant()
 check(#rel == 2 and rel[1].id == 176 and rel[1].kind == "n" and rel[2].kind == "l", "Ana's relevant quests: Hogger (named) then boar meat (loot)")
@@ -234,7 +234,7 @@ check(#rel == 2 and rel[1].id == 176 and rel[1].kind == "n" and rel[2].kind == "
 ana.ns.Channels.Test()
 run(6)
 check(ana.ns.Channels.status.CHANNEL.state == "ok", "Test (on request): CHANNEL echo detected")
-check(ana.ns.Channels.status.YELL == nil and ana.ns.Channels.status.SAY == nil, "the test tries no SAY / YELL")
+check(ana.ns.Channels.status.YELL == nil and ana.ns.Channels.status.GUILD == nil, "the test tries nothing but the channel")
 
 ana.PSGroupFinder_Search()
 run(5)
@@ -249,16 +249,13 @@ check(dft.ns.Matcher.Get("Ana Smith") ~= nil and ana.ns.Matcher.Get("Dft Vale") 
 ana.PSGroupFinder_Search()
 check(ana.printed[#ana.printed]:find("Wait"), "search cooldown enforced")
 
--- A client that refuses the hidden channel: the guild still carries it, else nothing.
-local blk = newClient("Blk Hart", { hogger }, { blocked = { CHANNEL = true } })
-blk.ns.SetEnabled(true) run(15)
-blk.ns.Comm.Search()
-check(blk.printed[#blk.printed]:find("No channel"), "no hidden channel and no guild: the search says no channel can send")
-local gld = newClient("Gld Hart", { hogger }, { blocked = { CHANNEL = true }, guild = "Wardens" })
+-- A client that refuses the hidden channel cannot search, even in a guild.
+local blk = newClient("Blk Hart", { hogger }, { blocked = { CHANNEL = true }, guild = "Wardens" })
 local gmate = newClient("Gm Hart", { hogger }, { guild = "Wardens" })
-gld.ns.SetEnabled(true) gmate.ns.SetEnabled(true) run(15)
-gld.ns.Comm.Search() run(5)
-check(gld.ns.Matcher.Get("Gm Hart") ~= nil, "no hidden channel: the guild carries the search and its answer")
+blk.ns.SetEnabled(true) gmate.ns.SetEnabled(true) run(15)
+blk.ns.Comm.Search() run(5)
+check(blk.printed[#blk.printed]:find("cannot send") and gmate.ns.Matcher.Get("Blk Hart") == nil,
+	"a client that refuses the channel says so; nothing goes to the guild")
 
 
 -- The panel builds and refreshes with a session and a player found (stub frames).
@@ -307,27 +304,17 @@ check(rel2[1].id == 86 and rel2[1].step == true, "Polestar live step quest first
 check(handlers.STEP_CHANGED ~= nil and handlers.GUIDE_CHANGED ~= nil, "subscribed to Polestar STEP_CHANGED / GUIDE_CHANGED")
 check(dee.ns.headerButtonFrame == nil, "no icon is added to the guide window's header")
 local items = fakePolestar.Free.MenuItems()
-check(#items == 3 and items[1].text == "Free mode" and items[2].text == "Find a group" and items[3].text == "Group Finder",
-	"the guide menu gets Find a group and Group Finder after Polestar's own rows")
+check(#items == 2 and items[1].text == "Free mode" and items[2].text == "Community Group Finder",
+	"the guide menu gets one row, Community Group Finder, after Polestar's own rows")
 dee.ns.SetEnabled(true)
 run(15)
-dee.ns.Channels.Test()
-run(6)
 check(not dee.ns.UI.IsShown(), "panel is closed before using the menu")
 items[2].onClick()
-check(dee.ns.Session.Active(), "Find a group in the guide menu starts a search")
-check(not dee.ns.UI.IsShown(), "...without opening the panel")
-local sawSent = false
-for _, p in ipairs(dee.printed) do
-	if p:find("Search sent") then sawSent = true end
-end
-check(sawSent, "the search prints a short confirmation in chat")
-items[3].onClick()
-check(dee.ns.UI.IsShown(), "Group Finder in the guide menu opens the panel")
+check(dee.ns.UI.IsShown(), "the menu row opens the panel, where Find a group is")
 dee.ns.UI.Toggle()
 fakePolestar.Free.MenuItems = function() return { { text = "Free mode" } } end
 dee.fire("ADDON_LOADED", "Polestar_FreeMode") run(1)
-check(#fakePolestar.Free.MenuItems() == 3, "when Polestar_FreeMode replaces the menu function, our rows are added again")
+check(#fakePolestar.Free.MenuItems() == 2, "when Polestar_FreeMode replaces the menu function, our row is added again")
 -- Active search, no one found yet: a lone player with a unique quest.
 local loneQ = { id = 4242, title = "Supplies to Auberdine", obj = { { "Bundle of Furs: 0/1", "item" } } }
 local lea = newClient("Lea Grove", { loneQ }, { x = 0.5, y = 0.5 })
