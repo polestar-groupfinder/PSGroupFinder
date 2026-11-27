@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-- **The search asks again on its own**: after your click, while nobody is found, the search
-  goes out again every 10 s (the button's colour drains to the next try), for 5 minutes at
-  most; then it is over (Stop goes, Find a group comes back). It stops asking as soon as
-  someone is found, at Stop, in an instance. A click waits 10 s (was 20 s).
+- **Keep searching until someone is found** (option, off by default): after your click, while
+  nobody is found, the search goes out again every 10 s (the button's colour drains to the next
+  try), for 5 minutes at most. Off, it is asked once. Asked out with nobody found, the search
+  looks over (Stop goes, Find a group comes back) but still tells the players who listed you
+  what is left of your quests. A click waits 10 s (was 20 s).
 - **Auto-group answers**: two players with auto-group on group without a click; a player with
   auto-group on answers a searcher who has it on too, even with “Let others find me” off.
 - **In a group**: Invite / Ask greys with the reason (only the leader invites, the group is

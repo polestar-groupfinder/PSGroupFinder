@@ -36,6 +36,7 @@ local FOLDED = {
 	{ "autoReply", "AUTO_REPLY", "AUTO_REPLY_TIP" },
 	{ "shareCoords", "SHARE_COORDS", "SHARE_COORDS_TIP" },
 	{ "openNear", "OPEN_NEAR", "OPEN_NEAR_TIP" },
+	{ "autoRetry", "AUTO_RETRY", "AUTO_RETRY_TIP" },
 	{ header = "CAT_PARTY" },
 	{ "partyBox", "PARTY_BOX", "PARTY_BOX_TIP" },
 }
@@ -147,9 +148,14 @@ local function layoutMain(on)
 	end
 	-- Find a group (Stop at its right during a search), Announce under it.
 	-- Their wait drains their accent fill (W.Drain), no number to read.
-	local active = ns.Session.Active()
+	-- A search shows as running (Stop) while it asks, or once it found
+	-- someone. Asked out with nobody found, it looks over (Find a group
+	-- again), though it keeps telling the players who listed you what is
+	-- left of your quests until they are done.
+	local found = playersFound()
 	local cd = ns.Comm.SearchCooldown()
 	local asking = ns.Comm.Searching()
+	local active = asking or (ns.Session.Active() and #found > 0)
 	widgets.search:SetEnabled(cd == 0 and not asking)
 	widgets.search:SetText((asking or cd > 0) and L.SEARCHING or (active and L.SEARCH_AGAIN or L.SEARCH))
 	widgets.search:SetWidth(WIDTH - 2 * PAD - (active and 76 or 0))
@@ -184,7 +190,6 @@ local function layoutMain(on)
 	end
 	-- In a group: a line says what you can do. Leader with room: the list
 	-- stays (invite more). Otherwise it folds to one button that opens it.
-	local found = playersFound()
 	local grouped = ns.InGroup()
 	local canAdd = not grouped or ns.Group.CanAdd()
 	widgets.groupNote:SetShown(grouped)
@@ -209,8 +214,9 @@ local function layoutMain(on)
 	end
 	widgets.empty:SetShown(#found == 0)
 	if #found == 0 then
-		local recent = ns.searchedAt and ns.Now() - ns.searchedAt < 300
-		widgets.empty:SetText(active and ((asking or cd > 0) and L.EMPTY_SEARCHING or L.EMPTY_WAITING) or (recent and L.EMPTY_WAITING or L.EMPTY))
+		local recent = ns.Session.Active() or (ns.searchedAt and ns.Now() - ns.searchedAt < 300)
+		local searching = ns.Get("autoRetry") and L.EMPTY_RETRYING or L.EMPTY_SEARCHING
+		widgets.empty:SetText(active and ((asking or cd > 0) and searching or L.EMPTY_WAITING) or (recent and L.EMPTY_WAITING or L.EMPTY))
 		at(widgets.empty, y + 4, PAD + 2)
 		y = y + 34
 	end
@@ -535,6 +541,7 @@ function UI.RowFrames() return rows end
 function UI.LeaveGroupButton() return widgets.leaveGroup end
 function UI.LeaveQuietButton() return widgets.leaveQuiet end
 function UI.FoldButton() return widgets.fold end
+function UI.StopShown() return widgets.stop and widgets.stop:IsShown() or false end
 function UI.GroupNote() return widgets.groupNote end
 function UI.AnnounceWidgets() return widgets.announce, widgets.annTo end
 function UI.GearButton() return widgets.gear end

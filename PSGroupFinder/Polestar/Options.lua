@@ -285,6 +285,7 @@ local function sections()
 			toggle("AUTO_REPLY", "autoReply"),
 			toggle("SHARE_COORDS", "shareCoords"),
 			toggle("OPEN_NEAR", "openNear"),
+			toggle("AUTO_RETRY", "autoRetry"),
 		} },
 		{ L.LANGS, langs },
 		{ L.CAT_KEYS, {

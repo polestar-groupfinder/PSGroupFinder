@@ -345,19 +345,25 @@ lea.ns.UI.Refresh()
 check(lea.ns.Session.Active() and #lea.ns.Matcher.List() == 0, "Lea is searching and has no one yet")
 check(lea.ns.UI.EmptyCaption():find("^Searching…") and lea.ns.Comm.Searching(),
 	"active search with no one found: Searching…, asked again on its own")
+run(11) lea.ns.UI.Refresh()
+check(not lea.ns.UI.StopShown() and lea.ns.UI.EmptyCaption():find("later show up here", 1, true),
+	"keep searching off (default): asked once, over after 10 s with nobody, no Stop")
+check(lea.ns.Get("autoRetry") == false, "keep searching is off by default")
+lea.ns.Set("autoRetry", true)
+run(10) lea.PSGroupFinder_Search() lea.ns.UI.Refresh()
 local leaSent = 0
 local leaOrig = lea.C_ChatInfo.SendAddonMessage
 lea.C_ChatInfo.SendAddonMessage = function(p, t, ...) if t:sub(1, 1) == "S" then leaSent = leaSent + 1 end return leaOrig(p, t, ...) end
 run(31) lea.ns.UI.Refresh()
-check(leaSent == 3 and lea.ns.Session.Active(), "nobody yet: the search is asked again every 10 s")
+check(leaSent == 3 and lea.ns.UI.StopShown(), "nobody yet: the search is asked again every 10 s")
 run(280) lea.ns.UI.Refresh()
-check(not lea.ns.Session.Active() and lea.ns.UI.EmptyCaption():find("later show up here", 1, true),
-	"after 5 minutes with nobody: the search is over (no Stop), later searches still show up")
+check(not lea.ns.UI.StopShown() and lea.ns.UI.EmptyCaption():find("later show up here", 1, true),
+	"after 5 minutes with nobody: the search looks over (no Stop), later searches still show up")
 local before = leaSent
 run(30)
 check(leaSent == before, "once over, nothing more is sent")
 lea.C_ChatInfo.SendAddonMessage = leaOrig
-run(300) lea.ns.UI.Refresh()
+lea.ns.Session.Stop("x") lea.ns.searchedAt = nil lea.ns.UI.Refresh()
 check(lea.ns.UI.EmptyCaption() == "No one yet. Press Find a group.",
 	"with no search in progress the empty caption invites to search")
 lea.ns.UI.Toggle()

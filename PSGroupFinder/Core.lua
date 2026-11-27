@@ -32,6 +32,7 @@ end
 local DEFAULTS = {
 	enabled = false,     -- the whole feature, off until the player turns it on
 	openNear = false,    -- open the panel near a quest's objective (Polestar's arrow), once per step
+	autoRetry = false,   -- ask the search again every 10 s while nobody is found, 5 minutes at most
 	autoReply = false,   -- answer other players' searches for quests we have, without a click (opt-in)
 	autoGroup = false,   -- invite / accept without a click after a search (opt-in)
 	shareCoords = true,  -- send x/y with the map; off: the map only

@@ -70,10 +70,16 @@ function Comm.Search()
 	return true
 end
 
--- Is the search still asking (nobody found yet, within SEARCH_FOR)?
+-- How long a search asks: SEARCH_FOR with the option autoRetry, else one
+-- wait (RETRY_EVERY) and it is over.
+local function askFor()
+	return ns.Get("autoRetry") and SEARCH_FOR or RETRY_EVERY
+end
+
+-- Is the search still asking (nobody found yet, within its time)?
 function Comm.Searching()
 	return ns.Session.Active() and searchStart ~= nil and #ns.Matcher.List() == 0
-		and ns.Now() - searchStart < SEARCH_FOR
+		and ns.Now() - searchStart < askFor()
 end
 
 -- Seconds before the search is asked again.
@@ -82,17 +88,20 @@ function Comm.RetryLeft()
 end
 Comm.RETRY_EVERY, Comm.SEARCH_FOR = RETRY_EVERY, SEARCH_FOR
 
--- The search you started asks again every RETRY_EVERY seconds while nobody
--- is found, for SEARCH_FOR at most: then it is over. It stops asking once
--- someone is found (the search stays, for its updates), at Stop, at a new
--- search, in an instance or with the finder off.
+-- With the option autoRetry (off by default), the search you started asks
+-- again every RETRY_EVERY seconds while nobody is found, for SEARCH_FOR at
+-- most; without it, it asks once. Then, with nobody found, it looks over. It
+-- stops asking once someone is found (the search stays, for its updates),
+-- at Stop, at a new search, in an instance or with the finder off.
 function Comm.Retry(id)
 	ns.After(RETRY_EVERY, function()
 		if id ~= run or not ns.Session.Active() or not ns.Get("enabled") then return end
 		if #ns.Matcher.List() > 0 then return end
-		if ns.Now() - (searchStart or 0) >= SEARCH_FOR then
-			ns.Session.Stop("nobody")
-			ns.Print(L.SEARCH_TIMEOUT)
+		-- Asked out: no more asking. The search itself stays (its updates
+		-- reach whoever listed you) until its quests are done or Stop.
+		if ns.Now() - (searchStart or 0) >= askFor() then
+			if ns.Get("autoRetry") then ns.Print(L.SEARCH_TIMEOUT) end
+			ns.Fire("SEARCH_RETRY")
 			return
 		end
 		if IsInInstance and IsInInstance() then return end
