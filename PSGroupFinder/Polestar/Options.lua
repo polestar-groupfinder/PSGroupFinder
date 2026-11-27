@@ -114,8 +114,16 @@ local function textBox(row, kind)
 	local W = ns.Widgets
 	-- Polestar's own button stands in its control column (compact layout):
 	-- ours goes to the row's right end, the box takes the whole width between.
-	row.Button:SetAlpha(0)
-	if row.Button.EnableMouse then row.Button:EnableMouse(false) end
+	-- Polestar repaints its button (alpha, shown) on each refresh: keep it
+	-- hidden for good, whatever brings it back.
+	local theirs = row.Button
+	theirs:Hide()
+	if theirs.EnableMouse then theirs:EnableMouse(false) end
+	if theirs.HookScript then theirs:HookScript("OnShow", function(b) b:Hide() end) end
+	if hooksecurefunc then
+		pcall(hooksecurefunc, theirs, "SetAlpha", function(b, a) if a ~= 0 then b:SetAlpha(0) end end)
+	end
+	theirs:SetAlpha(0)
 	local reset = W.Button(row, L.MSG_RESET, 90, function()
 		ns.Messages.Save(kind, ns.Messages.Default(kind))
 		if boxes[kind] then boxes[kind]:SetText(ns.Messages.Template(kind)) end
@@ -144,6 +152,7 @@ local function textBox(row, kind)
 	end
 	local function sync()
 		widen()
+		if theirs:IsShown() then theirs:Hide() end
 		if not e:HasFocus() then e:SetText(ns.Messages.Template(kind)) end
 		local off = offFor(kind)
 		e:SetAlpha(off and 0.5 or 1)
