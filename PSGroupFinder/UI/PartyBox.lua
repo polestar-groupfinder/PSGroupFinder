@@ -236,6 +236,13 @@ end
 -- The box is small: the card shows it at its real size, filling the card's
 -- picture (PREVIEW_W x PREVIEW_H), no miniature.
 PartyBox.PREVIEW_W, PartyBox.PREVIEW_H = WIDTH, 134
+local previews = {} -- the drawn cards' boxes, greyed while the box is off
+
+-- Polestar greys a disabled cards row's label, not its pictures: we dim ours.
+function PartyBox.DimPreviews()
+	local off = ns.Get("partyBox") == false
+	for _, m in ipairs(previews) do m:SetAlpha(off and 0.35 or 1) end
+end
 
 function PartyBox.DrawPreview(art, style)
 	local compact = style == "compact"
@@ -243,6 +250,7 @@ function PartyBox.DrawPreview(art, style)
 	-- The box: its ground, then its content over it.
 	local m = CreateFrame("Frame", nil, art)
 	m:SetAllPoints(art)
+	previews[#previews + 1] = m
 	m.Ground = CreateFrame("Frame", nil, m)
 	m.Ground:SetAllPoints(m)
 	m.Ground.psGuide = true
@@ -293,6 +301,8 @@ function PartyBox.DrawPreview(art, style)
 	local other = W.Button(top, L.BOX_CANCEL, WIDTH - 2 * PAD - 166, nil, 22)
 	other:SetPoint("LEFT", main, "RIGHT", 6, 0)
 	for _, b in ipairs({ main, other }) do if b.EnableMouse then b:EnableMouse(false) end end
+	PartyBox.DimPreviews()
+	return m
 end
 
 -- Tests: the frame, to drive its countdown.
@@ -319,4 +329,5 @@ ns.On("ENABLED", function(on) if not on then close() end end)
 ns.On("SETTING", function(key)
 	if key == "partyBox" and not ns.Get("partyBox") then close() end
 	if key == "partyBoxStyle" then PartyBox.Refresh() end
+	if key == "partyBox" then PartyBox.DimPreviews() end
 end)

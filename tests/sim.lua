@@ -31,6 +31,7 @@ local function newClient(name, quests, opts)
 			if k == "Show" then return function() t._shown = true end end
 			if k == "Hide" then return function() t._shown = false end end
 			if k == "SetShown" then return function(_, v) t._shown = v and true or false end end
+			if k == "SetAlpha" then return function(_, a) t._alpha = a end end
 			if k == "GetChecked" then return function() return false end end
 			if k == "GetStringWidth" then return function() return 100 end end
 			if k == "GetWidth" then return function() return rawget(t, "_w") or 100 end end
@@ -1256,7 +1257,10 @@ for _, spec in ipairs(capturedOpts) do if spec.section == "Message box style" th
 for _, c in ipairs(boxSpec and boxSpec.controls or {}) do if c.kind == "cards" then styleCtl = c end end
 check(styleCtl and #styleCtl.choices == 2, "the box style is two picture cards")
 check(styleCtl.disabled() == false and helloSpec.controls[1].disabled() == false, "box on: the style cards and Hello are usable")
+local card = ico.CreateFrame("Frame")
+local mini = styleCtl.choices[1].draw(card) or ico.ns.PartyBox.DrawPreview(card, "polestar")
 ico.ns.Set("partyBox", false)
+check(mini and mini._alpha == 0.35, "box off: the style cards' pictures are dimmed")
 check(styleCtl.disabled() == true and helloSpec.controls[1].disabled() == true and helloSpec.controls[3].disabled() == true,
 	"box off: the style cards and the Hello rows are greyed")
 ico.ns.Set("partyBox", true)
