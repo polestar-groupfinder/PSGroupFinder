@@ -7,11 +7,13 @@
 -- "Community Group Finder", opens the panel, where Find a group, the
 -- players found and the settings are. The goal-row button (GoalRows.lua) stays on
 -- the current step's objectives.
--- The menu is built anew at each opening from a fixed list; its Free mode
--- rows come from Polestar.Free.MenuItems() (INTERNAL, Lookup/Free.lua), which
--- we wrap under pcall to add ours after them. Polestar_FreeMode replaces
--- that function when it loads, so the wrap is checked again on each scan.
--- Without it, the panel's own button, the key bindings and /psgf remain.
+-- The menu is built anew at each opening and shown by
+-- Polestar.Widgets.ShowMenu(anchor, items, opts) (INTERNAL, Theme/Widgets.lua,
+-- the same in every release since 0.4.2). We wrap it under pcall: when the
+-- anchor is the guide window's menu button (UI.GuideFrame.menuButton, else a
+-- short menu holding Settings and a danger row), our row goes in at the end
+-- of the quest log group, just before Quick settings / Settings. Without it,
+-- the panel's own button, the key bindings and /psgf remain.
 -- The panel docks against Theme.GuideParts().window (public Skin API) and
 -- hides and comes back with it.
 
@@ -23,32 +25,61 @@ ns.PolestarMenu = Menu
 
 local P -- Polestar, set on "POLESTAR"
 local hostWindow
-local wrapped -- our wrapper of Polestar.Free.MenuItems, while in place
+local wrapped -- our wrapper of Polestar.Widgets.ShowMenu, while in place
 
 -- Our row, in Polestar's menu item format: one entry for the whole finder,
 -- which opens the panel (Find a group, the players found, the settings).
 function Menu.Items()
 	return {
-		{ text = L.TITLE, icon = "icon-group", tip = L.MENU_PANEL_TIP, onClick = function() ns.UI.Show() end },
+		{ text = L.TITLE, icon = "icon-group", tip = L.MENU_PANEL_TIP, psgf = true, onClick = function() ns.UI.Show() end },
 	}
 end
 
-local function wrapMenu()
-	local Free = P and P.Free
-	if type(Free) ~= "table" or type(Free.MenuItems) ~= "function" or Free.MenuItems == wrapped then return end
-	local orig = Free.MenuItems
-	wrapped = function(...)
-		local items = orig(...)
-		pcall(function()
-			items = type(items) == "table" and items or {}
-			for _, it in ipairs(Menu.Items()) do items[#items + 1] = it end
-		end)
-		return items
+-- Is this the guide window's menu?
+local function isGuideMenu(anchor, items, opts)
+	local GF = P and P.UI and P.UI.GuideFrame
+	local button = type(GF) == "table" and rawget(GF, "menuButton")
+	if button then return anchor == button end
+	if not (type(opts) == "table" and opts.short) then return false end
+	local gear, danger = false, false
+	for _, it in ipairs(items) do
+		if type(it) == "table" then
+			if it.icon == "gear" then gear = true end
+			if it.color == "danger" then danger = true end
+		end
 	end
-	Free.MenuItems = wrapped
+	return gear and danger
+end
+
+-- Our row before the settings group (or last), once.
+function Menu.AddTo(items)
+	for _, it in ipairs(items) do
+		if type(it) == "table" and it.psgf then return end
+	end
+	local at
+	for i, it in ipairs(items) do
+		if type(it) == "table" and (it.icon == "sliders" or it.icon == "gear") then at = i break end
+	end
+	if at and type(items[at - 1]) == "table" and items[at - 1].separator then at = at - 1 end
+	table.insert(items, at or (#items + 1), Menu.Items()[1])
+end
+
+local function wrapMenu()
+	local W = P and P.Widgets
+	if type(W) ~= "table" or type(W.ShowMenu) ~= "function" or W.ShowMenu == wrapped then return end
+	local orig = W.ShowMenu
+	wrapped = function(anchor, items, opts, ...)
+		if type(items) == "table" then
+			pcall(function()
+				if isGuideMenu(anchor, items, opts) then Menu.AddTo(items) end
+			end)
+		end
+		return orig(anchor, items, opts, ...)
+	end
+	W.ShowMenu = wrapped
 end
 Menu.Wrap = wrapMenu
-function Menu.Wrapped() return wrapped ~= nil and P and P.Free and P.Free.MenuItems == wrapped end
+function Menu.Wrapped() return wrapped ~= nil and P and P.Widgets and P.Widgets.ShowMenu == wrapped end
 
 local function guideWindow()
 	local T = P and P.Theme
@@ -82,5 +113,7 @@ ns.On("POLESTAR", function(polestar)
 	end
 	retry()
 end)
--- Polestar_FreeMode may load later and replace Free.MenuItems: wrap again.
-ns.RegisterEvent("ADDON_LOADED", function(_, name) if name == "Polestar_FreeMode" then ns.After(0, wrapMenu) end end)
+-- Polestar's settings addon loads on demand: check the wrap again after it.
+ns.RegisterEvent("ADDON_LOADED", function(_, name)
+	if P and type(name) == "string" and name:find("^Polestar") then ns.After(0, wrapMenu) end
+end)

@@ -204,6 +204,76 @@ function PartyBox.Drain()
 	local w = (box.main:GetWidth() or 160) - 2
 	box.fill:SetWidth(math.max(0.01, w * math.max(0, remaining) / total))
 end
+-- A miniature of the box in `style`, drawn on `art` (a settings card's
+-- picture, PREVIEW_W x PREVIEW_H): with your quests when there are some.
+PartyBox.PREVIEW_W, PartyBox.PREVIEW_H = 240, 112
+
+local function plain(text)
+	return (tostring(text or ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+end
+
+local function sample()
+	local ids = {}
+	for i, q in ipairs(ns.Quests.Relevant()) do
+		if i > 1 then break end
+		ids[#ids + 1] = q.id
+	end
+	if #ids > 0 then
+		local log = ns.Quests.Log()[ids[1]]
+		local obj
+		for _, o in ipairs(log and log.objectives or {}) do
+			if not o.done then obj = ns.Messages.ObjectiveText(o) break end
+		end
+		return ns.Quests.Title(ids[1]), obj or "", plain(ns.Messages.Expand("hello", ids))
+	end
+	local quest, obj = "Kobold Camp Cleanup", "7/10 Kobold Vermin slain"
+	local said = ns.Messages.Template("hello"):gsub("{progress}", "[" .. quest .. "] " .. obj):gsub("{quests}", "[" .. quest .. "]")
+	return quest, obj, said
+end
+
+function PartyBox.DrawPreview(art, style)
+	local compact = style == "compact"
+	local w, h = PartyBox.PREVIEW_W, PartyBox.PREVIEW_H
+	local T = W.Theme()
+	local function rect(layer, x, y, rw, rh, r, g, b, a, role)
+		local t = art:CreateTexture(nil, layer)
+		t:SetPoint("TOPLEFT", art, "TOPLEFT", x, -y)
+		t:SetSize(rw, rh)
+		if t.SetColorTexture then t:SetColorTexture(r, g, b, a) end
+		if role and T and T.Color then pcall(T.Color, t, role, a) end
+		return t
+	end
+	local function text(s, x, y, width, fallback, color)
+		local fs = W.Text(art, "small", fallback or GameFontHighlightSmall)
+		fs:SetPoint("TOPLEFT", art, "TOPLEFT", x, -y)
+		fs:SetWidth(width)
+		fs:SetJustifyH("LEFT")
+		fs:SetWordWrap(false)
+		fs:SetText((color or "") .. s .. (color and "|r" or ""))
+		return fs
+	end
+	rect("BACKGROUND", 0, 0, w, h, 0.07, 0.09, 0.14, 1)
+	local quest, obj, said = sample()
+	local y = 7
+	text(L.BOX_HELLO_TITLE, 8, y, w - 16, GameFontNormalSmall)
+	y = y + 18
+	if not compact then
+		text(quest, 8, y, w - 16, nil, "|cffffd100")
+		y = y + 14
+		if obj ~= "" then text(obj, 18, y, w - 26, nil, W.Soft()) y = y + 14 end
+	end
+	text("\226\128\156" .. said .. "\226\128\157", 8, y + 2, w - 16, nil, W.Dim())
+	local by = h - 26
+	local mw = math.floor((w - 22) * 0.6)
+	rect("BORDER", 8, by, mw, 18, 0.14, 0.17, 0.25, 1)
+	rect("ARTWORK", 8, by, math.floor(mw * 0.55), 18, 0.9, 0.73, 0.4, 0.45, "accent")
+	rect("BORDER", 14 + mw, by, w - 22 - mw, 18, 0.14, 0.17, 0.25, 1)
+	local hello = text(L.BOX_SAY_HELLO, 8, by + 3, mw)
+	hello:SetJustifyH("CENTER")
+	local other = text(L.BOX_CANCEL, 14 + mw, by + 3, w - 22 - mw)
+	other:SetJustifyH("CENTER")
+end
+
 -- Tests: the frame, to drive its countdown.
 function PartyBox.Frame() return box end
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Guide menu row on Polestar 0.4.3**: the released guide menu no longer lists Free mode's
+  rows, so the row was missing. It is now added where the menu is shown
+  (`Polestar.Widgets.ShowMenu`, internal, under pcall) for the guide window's menu button only,
+  at the end of the quest log group, before Quick settings.
+- **Previews on Polestar's page**: the box style is two picture cards, each a miniature of the
+  message box (Polestar, Compact) with your quests; each message's row shows what will be said
+  now, with an **Edit** button (was “Edit the text…” and a Run button).
+
 - **Demo mode (temporary)**: `/psgf demo` plays the flow alone in game with three made-up
   players fed through the real receiving code; nothing is sent while it is on, every outgoing
   message, invite and leave is printed instead. The calls that act on the world (invite, leave,

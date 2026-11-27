@@ -116,14 +116,32 @@ local function sections()
 	end
 	-- One section per message: its switch, its text (Polestar's options have
 	-- no text field: the button opens the Messages window on it), its key.
+	-- The row's label: what will be said now (quest links as plain text, cut short).
+	local function preview(kind)
+		return function()
+			if not ns.Messages.On(kind) then return L.MSG_OFF end
+			local ids = {}
+			for i, q in ipairs(ns.Quests.Relevant()) do
+				if i > 2 then break end
+				ids[#ids + 1] = q.id
+			end
+			local text = ns.Messages.Expand(kind, ids):gsub("|H.-|h(.-)|h", "%1"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+			if #text > 70 then
+				local cut = 67
+				while cut > 1 and text:byte(cut + 1) and text:byte(cut + 1) >= 128 and text:byte(cut + 1) < 192 do cut = cut - 1 end
+				text = text:sub(1, cut) .. "..."
+			end
+			return "\226\128\156" .. text .. "\226\128\157"
+		end
+	end
 	local function message(kind)
 		local K = kind:upper()
 		local controls = {
 			{ kind = "toggle", label = L["MSG_" .. K .. "_ON"], help = L["MSG_" .. K .. "_WHEN"], search = "message",
 				get = function() return ns.Messages.Enabled(kind) end,
 				set = function(v) ns.Messages.SetEnabled(kind, v) end },
-			{ kind = "button", label = L.MSG_EDIT_TEXT, search = "message text",
-				help = L.MSG_VARS,
+			{ kind = "button", label = preview(kind), button = L.MSG_EDIT, search = "message text edit",
+				help = L.MSG_PREVIEW_TIP .. "\n" .. L.MSG_VARS,
 				onClick = function() ns.UI.ShowMessages(kind) end },
 		}
 		local b = ns.Messages.KINDS[kind].binding
@@ -149,8 +167,13 @@ local function sections()
 		-- The Messages tab: the message box, then each message.
 		{ L.BOX_SECTION, {
 			toggle("PARTY_BOX", "partyBox"),
-			{ kind = "dropdown", label = L.BOX_STYLE, help = L.BOX_STYLE_TIP, search = "style compact",
-				choices = { { value = "polestar", label = L.BOX_STYLE_POLESTAR }, { value = "compact", label = L.BOX_STYLE_COMPACT } },
+			-- Picture cards: a miniature of the box in each style.
+			{ kind = "cards", label = L.BOX_STYLE, help = L.BOX_STYLE_TIP, search = "style compact preview",
+				art = { ns.PartyBox.PREVIEW_W, ns.PartyBox.PREVIEW_H },
+				choices = {
+					{ value = "polestar", label = L.BOX_STYLE_POLESTAR, draw = function(art) ns.PartyBox.DrawPreview(art, "polestar") end },
+					{ value = "compact", label = L.BOX_STYLE_COMPACT, draw = function(art) ns.PartyBox.DrawPreview(art, "compact") end },
+				},
 				get = function() return ns.PartyBox.Style() end,
 				set = function(v) ns.Set("partyBoxStyle", v) end },
 		}, L.TAB_MESSAGES },
@@ -194,6 +217,9 @@ ns.On("POLESTAR", function(polestar)
 		if name == "Polestar_Options" then hookSidebarIcon() end
 	end)
 	ns.On("LANG", refreshLangs)
+	ns.On("SETTING", function(key)
+		if type(key) == "string" and (key:find("Msg$") or key:find("On$")) then refreshLangs() end
+	end)
 	local U = P.UI
 	if registered and U and type(U.ShowOptions) == "function" then ns.UI.SetHasOptions(true) end
 end)

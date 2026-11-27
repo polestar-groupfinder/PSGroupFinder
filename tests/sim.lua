@@ -286,6 +286,12 @@ nav.Lookup = { GetFrameLevel = function() return 5 end, SetFrameLevel = function
 	GetPoint = function() return "RIGHT", nav, "RIGHT", -32, 0 end,
 	SetPoint = function() end, Show = function() end, Hide = function() end }
 nav.Menu = { GetPoint = function() return "RIGHT", nav, "RIGHT", -8, 0 end, SetPoint = function() end }
+local shownMenu
+local function guideMenuItems()
+	return { { bar = {} }, { separator = true }, { text = "Choose guide", icon = "search" }, { separator = true },
+		{ text = "Clean up quest log", icon = "cross" }, { separator = true }, { text = "Quick settings", icon = "sliders" },
+		{ text = "Settings", icon = "gear" }, { separator = true }, { text = "Reset guide progress", icon = "reset", color = "danger" } }
+end
 local fakePolestar = {
 	API = { version = 1 },
 	On = function(msg, fn) handlers[msg] = fn end,
@@ -297,24 +303,34 @@ local fakePolestar = {
 		Media = function(name) return name == "white" and "Interface\\Buttons\\WHITE8X8" or name end,
 		GuideParts = function() return { window = window, nav = nav } end },
 	Free = { MenuItems = function() return { { text = "Free mode" } } end },
+	Widgets = { ShowMenu = function(_, items) shownMenu = items end },
+	UI = { GuideFrame = { menuButton = nav.Menu } },
 }
 local dee = newClient("Dee Moss", { hogger, boars }, { polestar = fakePolestar })
 local rel2 = dee.ns.Quests.Relevant()
 check(rel2[1].id == 86 and rel2[1].step == true, "Polestar live step quest first (" .. rel2[1].id .. ")")
 check(handlers.STEP_CHANGED ~= nil and handlers.GUIDE_CHANGED ~= nil, "subscribed to Polestar STEP_CHANGED / GUIDE_CHANGED")
 check(dee.ns.headerButtonFrame == nil, "no icon is added to the guide window's header")
-local items = fakePolestar.Free.MenuItems()
-check(#items == 2 and items[1].text == "Free mode" and items[2].text == "Community Group Finder",
-	"the guide menu gets one row, Community Group Finder, after Polestar's own rows")
+fakePolestar.Widgets.ShowMenu(nav.Menu, guideMenuItems(), { short = true })
+local items = shownMenu
+check(#items == 11 and items[6].text == "Community Group Finder" and items[7].separator and items[8].text == "Quick settings",
+	"the guide menu gets one row, Community Group Finder, at the end of the quest log group, before the settings")
 dee.ns.SetEnabled(true)
 run(15)
 check(not dee.ns.UI.IsShown(), "panel is closed before using the menu")
-items[2].onClick()
+items[6].onClick()
 check(dee.ns.UI.IsShown(), "the menu row opens the panel, where Find a group is")
 dee.ns.UI.Toggle()
-fakePolestar.Free.MenuItems = function() return { { text = "Free mode" } } end
-dee.fire("ADDON_LOADED", "Polestar_FreeMode") run(1)
-check(#fakePolestar.Free.MenuItems() == 2, "when Polestar_FreeMode replaces the menu function, our row is added again")
+fakePolestar.Widgets.ShowMenu({}, guideMenuItems(), { short = true })
+check(#shownMenu == 10, "another anchor's menu is left alone")
+local twice = guideMenuItems()
+dee.ns.PolestarMenu.AddTo(twice)
+fakePolestar.Widgets.ShowMenu(nav.Menu, twice, { short = true })
+check(#shownMenu == 11, "our row is added once")
+local orig = fakePolestar.Widgets.ShowMenu
+fakePolestar.Widgets.ShowMenu = function(_, it) shownMenu = it end
+dee.fire("ADDON_LOADED", "Polestar_Options") run(1)
+check(fakePolestar.Widgets.ShowMenu ~= orig and dee.ns.PolestarMenu.Wrapped(), "when Polestar replaces ShowMenu, the wrap comes back")
 -- Active search, no one found yet: a lone player with a unique quest.
 local loneQ = { id = 4242, title = "Supplies to Auberdine", obj = { { "Bundle of Furs: 0/1", "item" } } }
 local lea = newClient("Lea Grove", { loneQ }, { x = 0.5, y = 0.5 })
@@ -1231,6 +1247,15 @@ local helloSpec
 for _, spec in ipairs(capturedOpts) do if spec.section == "Hello" then helloSpec = spec end end
 check(helloSpec and helloSpec.controls[1].kind == "toggle" and helloSpec.controls[2].kind == "button" and helloSpec.controls[3].action == "PSGF_HELLO",
 	"a message's section: its switch, Edit the text, its key binding")
+local boxSpec, styleCtl
+for _, spec in ipairs(capturedOpts) do if spec.section == "Message box" then boxSpec = spec end end
+for _, c in ipairs(boxSpec and boxSpec.controls or {}) do if c.kind == "cards" then styleCtl = c end end
+check(styleCtl and #styleCtl.choices == 2 and styleCtl.art[1] == 240, "the box style is two picture cards")
+local drew = pcall(styleCtl.choices[1].draw, ico.CreateFrame("Frame")) and pcall(styleCtl.choices[2].draw, ico.CreateFrame("Frame"))
+check(drew, "each card draws a miniature of the box")
+local lbl = helloSpec.controls[2].label
+check(type(lbl) == "function" and lbl():find("Hi all!", 1, true) and helloSpec.controls[2].button == "Edit",
+	"a message's text row shows what will be said, with an Edit button")
 
 -- Opening the panel near the live step's objective (option, off by default).
 local fpN = {}
