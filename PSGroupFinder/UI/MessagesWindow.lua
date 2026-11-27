@@ -21,15 +21,9 @@ local blocks = {}
 
 -- The quests a preview is written for: those of the finder group, else of
 -- the search, else the relevant ones.
-local function sampleQuests()
-	local ids = ns.Leave.Quests()
-	if #ids > 0 then return ids end
-	return ns.Announce.Quests()
-end
-
 local function preview(kind)
 	if not ns.Messages.On(kind) then return W.Dim() .. L.MSG_OFF .. "|r" end
-	return W.Soft() .. ns.Messages.Expand(kind, sampleQuests()) .. "|r"
+	return W.Soft() .. ns.Messages.Preview(ns.Messages.Template(kind)) .. "|r"
 end
 
 function UI.RefreshMessages()
@@ -80,7 +74,7 @@ local function makeBlock(kind, i)
 	e:SetScript("OnEscapePressed", function() e:ClearFocus() UI.RefreshMessages() end)
 	e:SetScript("OnTextChanged", function(_, user)
 		if not user then return end
-		local text = ns.Messages.Fill(e:GetText(), sampleQuests())
+		local text = ns.Messages.Preview(e:GetText())
 		b.preview:SetText(text == "" and (W.Dim() .. L.MSG_OFF .. "|r") or (W.Soft() .. text .. "|r"))
 	end)
 	W.Tip(e, L.MSG_VARS_TITLE, L.MSG_VARS)

@@ -229,9 +229,8 @@ local function sample()
 		end
 		return ns.Quests.Title(ids[1]), obj or "", plain(ns.Messages.Expand("hello", ids))
 	end
-	local quest, obj = "Kobold Camp Cleanup", "7/10 Kobold Vermin slain"
-	local said = ns.Messages.Template("hello"):gsub("{progress}", "[" .. quest .. "] " .. obj):gsub("{quests}", "[" .. quest .. "]")
-	return quest, obj, said
+	local ex = ns.Messages.EXAMPLE
+	return ex.quest, ex.left, ns.Messages.Preview(ns.Messages.Template("hello"))
 end
 
 function PartyBox.DrawPreview(art, style)

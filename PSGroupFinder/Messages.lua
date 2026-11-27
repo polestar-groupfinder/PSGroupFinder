@@ -154,6 +154,31 @@ function Messages.Fill(tpl, ids)
 	return tpl:sub(1, MAX_LEN)
 end
 
+-- The quest a preview names when the log has none worth a group.
+Messages.EXAMPLE = { quest = "Red Linen Goods", left = "0/6 Red Linen Bandana" }
+
+-- The quests a preview uses: the group's, else your relevant ones.
+function Messages.SampleIds()
+	local ids = ns.Leave and ns.Leave.Quests() or {}
+	if #ids > 0 then return ids end
+	ids = {}
+	for i, q in ipairs(ns.Quests.Relevant()) do
+		if i > MAX_QUESTS then break end
+		ids[#ids + 1] = q.id
+	end
+	return ids
+end
+
+-- Text `tpl` as it would be said now: with your quests, else with the
+-- example quest. "" when the text is empty.
+function Messages.Preview(tpl)
+	local ids = Messages.SampleIds()
+	if #ids > 0 then return Messages.Fill(tpl, ids) end
+	tpl = tostring(tpl or ""):gsub("|", "")
+	local q = "[" .. Messages.EXAMPLE.quest .. "]"
+	return (tpl:gsub("{progress}", function() return q .. " " .. Messages.EXAMPLE.left end):gsub("{quests}", function() return q end))
+end
+
 -- PARTY, or INSTANCE_CHAT in an instance group.
 function Messages.PartyChat()
 	local instance = IsInGroup and LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)

@@ -1248,8 +1248,9 @@ for _, spec in ipairs(capturedOpts) do tabs[spec.tab] = (tabs[spec.tab] or 0) + 
 check(tabs.Essentials and tabs.Messages and tabs.Messages >= 6, "the options page has an Essentials tab and a Messages tab (box + five messages)")
 local helloSpec
 for _, spec in ipairs(capturedOpts) do if spec.section == "Hello" then helloSpec = spec end end
-check(helloSpec and helloSpec.controls[1].kind == "toggle" and helloSpec.controls[2].kind == "button" and helloSpec.controls[3].action == "PSGF_HELLO",
-	"a message's section: its switch, Edit the text, its key binding")
+check(helloSpec and helloSpec.controls[1].kind == "toggle" and helloSpec.controls[2].action == "PSGF_HELLO"
+	and helloSpec.controls[3].kind == "button" and helloSpec.controls[3].wide,
+	"a message's section: its switch and its key binding on one line, its text on a whole line")
 local boxSpec, styleCtl
 for _, spec in ipairs(capturedOpts) do if spec.section == "Message box" then boxSpec = spec end end
 for _, c in ipairs(boxSpec and boxSpec.controls or {}) do if c.kind == "cards" then styleCtl = c end end
@@ -1258,9 +1259,30 @@ local drew, why = pcall(styleCtl.choices[1].draw, ico.CreateFrame("Frame"))
 if drew then drew, why = pcall(styleCtl.choices[2].draw, ico.CreateFrame("Frame")) end
 if not drew then print(why) end
 check(drew, "each card draws a miniature of the box")
-local lbl = helloSpec.controls[2].label
-check(type(lbl) == "function" and lbl():find("Hi all!", 1, true) and helloSpec.controls[2].button == "Edit",
-	"a message's text row shows what will be said, with an Edit button")
+-- The text box laid over the wide row (Polestar's ActionRow, internal).
+fp3.Widgets.ActionRow = function()
+	local row = ico.CreateFrame("Button")
+	row.Button = ico.CreateFrame("Button")
+	return row
+end
+ico.fire("ADDON_LOADED", "Polestar_Options")
+local trow = fp3.Widgets.ActionRow()
+trow.psControl = helloSpec.controls[3]
+local other = fp3.Widgets.ActionRow()
+run(0.1)
+local tb = ico.ns.OptionsTextBox("hello")
+check(tb and rawget(trow, "psgfEdit") == tb and rawget(other, "psgfEdit") == nil, "our wide text row gets an edit box, other rows do not")
+check(tb:GetText() == "Hi all! I'm on {progress}.", "the edit box holds the message's text")
+tb:SetText("Yo {quests}!")
+tb._OnEnterPressed()
+check(ico.ns.Messages.Template("hello") == "Yo {quests}!", "Enter saves the text at once")
+helloSpec.controls[3].onClick()
+check(ico.ns.Messages.Template("hello") == "Hi all! I'm on {progress}." and tb:GetText() == "Hi all! I'm on {progress}.",
+	"the row's button puts the default text back")
+check(ico.ns.Messages.Preview("On {progress}") == "On [Red Linen Goods] 0/6 Red Linen Bandana" or #ico.ns.Messages.SampleIds() > 0,
+	"with no quest worth a group, the preview uses the example quest")
+local noq = newClient("Noq Fen", {}, {})
+check(noq.ns.Messages.Preview("On {progress}") == "On [Red Linen Goods] 0/6 Red Linen Bandana", "the example quest: Red Linen Goods, 0/6 Red Linen Bandana")
 
 -- Opening the panel near the live step's objective (option, off by default).
 local fpN = {}

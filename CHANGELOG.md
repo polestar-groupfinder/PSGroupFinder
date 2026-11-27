@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Messages edited on Polestar's page**: each message's section has its switch and its key
+  binding on the first line, then its text in a text box on a whole line, saved on Enter or when
+  leaving the box; Default puts the default text back. The box's tooltip lists the variables and
+  shows what will be said with your quests, or with an example (“[Red Linen Goods] 0/6 Red Linen
+  Bandana”) when you have none. Polestar's registry has no text field: the box is laid over a
+  wide button row (`Polestar.Widgets.ActionRow`, internal, under pcall); without it the button
+  opens the Messages window.
+
 - **Group Finder everywhere**: the panel, the guide menu row, the addon list and the key
   bindings say “Group Finder”.
 - **Lighter panel**: Find a group spans the panel (Stop at its right during a search) and

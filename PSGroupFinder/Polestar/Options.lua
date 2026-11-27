@@ -78,6 +78,88 @@ local function hookSidebarIcon()
 	end)
 end
 
+---------------------------------------------------------------------------
+-- The messages' text boxes. Polestar's registry has no text field, so each
+-- message's text row is a wide button row (its button: Default) and we lay
+-- an edit box over its free middle. INTERNAL, under pcall:
+-- Polestar.Widgets.ActionRow (Polestar_Options) builds the row, and
+-- Options.lua's makeControl stamps it with `psControl` (our control table)
+-- right after; a frame later we know which rows are ours.
+---------------------------------------------------------------------------
+
+local textRows = {} -- our text row control -> message kind
+local boxes = {}    -- message kind -> its edit box (the last one built)
+
+local function tip(e, kind)
+	GameTooltip:SetOwner(e, "ANCHOR_TOP")
+	GameTooltip:SetText(L.MSG_VARS_TITLE, 1, 1, 1)
+	GameTooltip:AddLine(L.MSG_VARS, nil, nil, nil, true)
+	local said = ns.Messages.Preview(e:GetText())
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine(#ns.Messages.SampleIds() > 0 and L.MSG_WILL_SAY or L.MSG_WILL_SAY_EXAMPLE)
+	GameTooltip:AddLine(said ~= "" and said or L.MSG_OFF, 1, 1, 1, true)
+	GameTooltip:Show()
+end
+
+local function textBox(row, kind)
+	if rawget(row, "psgfEdit") or not rawget(row, "Button") then return end
+	local W = ns.Widgets
+	local e = CreateFrame("EditBox", nil, row, (not W.Theme()) and "InputBoxTemplate" or nil)
+	e:SetHeight(24)
+	e:SetPoint("LEFT", row, "LEFT", 120, 0)
+	e:SetPoint("RIGHT", row.Button, "LEFT", -10, 0)
+	e:SetAutoFocus(false)
+	e:SetMaxLetters(200)
+	e:SetFontObject(GameFontHighlightSmall)
+	if W.Theme() then
+		e:SetTextInsets(8, 8, 0, 0)
+		W.Skin(e, "editbox")
+	end
+	e:SetFrameLevel((tonumber(row:GetFrameLevel()) or 1) + 3)
+	local function sync()
+		if not e:HasFocus() then e:SetText(ns.Messages.Template(kind)) end
+		e:SetAlpha(ns.Messages.Enabled(kind) and 1 or 0.5)
+	end
+	e:SetScript("OnEnterPressed", function() ns.Messages.Save(kind, e:GetText()) e:ClearFocus() end)
+	e:SetScript("OnEditFocusLost", function() ns.Messages.Save(kind, e:GetText()) sync() end)
+	e:SetScript("OnEscapePressed", function() e:ClearFocus() e:SetText(ns.Messages.Template(kind)) end)
+	e:SetScript("OnEnter", function() tip(e, kind) end)
+	e:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	e:SetScript("OnTextChanged", function(_, user)
+		if user and GameTooltip:IsOwned(e) then tip(e, kind) end
+	end)
+	local refresh = row.Refresh
+	row.Refresh = function(self, ...)
+		if refresh then refresh(self, ...) end
+		sync()
+	end
+	row.psgfEdit = e
+	boxes[kind] = e
+	sync()
+end
+
+local wrappedRow
+local function hookTextRows()
+	local W = P and P.Widgets
+	if type(W) ~= "table" or type(rawget(W, "ActionRow")) ~= "function" or W.ActionRow == wrappedRow then return end
+	local orig = W.ActionRow
+	wrappedRow = function(...)
+		local row = orig(...)
+		ns.After(0, function()
+			pcall(function()
+				local kind = row and textRows[row.psControl]
+				if kind then textBox(row, kind) end
+			end)
+		end)
+		return row
+	end
+	W.ActionRow = wrappedRow
+end
+-- Tests.
+function ns.OptionsTextBox(kind) return boxes[kind] end
+ns.HookTextRows = function() hookTextRows() end
+ns.TextRows = textRows
+
 local function toggle(labelKey, key, onSet)
 	return {
 		kind = "toggle", label = L[labelKey], help = L[labelKey .. "_TIP"], search = "group finder party quest lfg",
@@ -114,42 +196,32 @@ local function sections()
 			disabled = function() return ns.Lang.AcceptsAll() end,
 		}
 	end
-	-- One section per message: its switch, its text (Polestar's options have
-	-- no text field: the button opens the Messages window on it), its key.
-	-- The row's label: what will be said now (quest links as plain text, cut short).
-	local function preview(kind)
-		return function()
-			if not ns.Messages.On(kind) then return L.MSG_OFF end
-			local ids = {}
-			for i, q in ipairs(ns.Quests.Relevant()) do
-				if i > 2 then break end
-				ids[#ids + 1] = q.id
-			end
-			local text = ns.Messages.Expand(kind, ids):gsub("|H.-|h(.-)|h", "%1"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-			if #text > 70 then
-				local cut = 67
-				while cut > 1 and text:byte(cut + 1) and text:byte(cut + 1) >= 128 and text:byte(cut + 1) < 192 do cut = cut - 1 end
-				text = text:sub(1, cut) .. "..."
-			end
-			return "\226\128\156" .. text .. "\226\128\157"
-		end
-	end
+	-- One section per message: its switch and its key binding on one line,
+	-- then its text on a whole line (a wide button row that gets our text box,
+	-- see textBox below; its button puts the default back).
 	local function message(kind)
 		local K = kind:upper()
 		local controls = {
 			{ kind = "toggle", label = L["MSG_" .. K .. "_ON"], help = L["MSG_" .. K .. "_WHEN"], search = "message",
 				get = function() return ns.Messages.Enabled(kind) end,
 				set = function(v) ns.Messages.SetEnabled(kind, v) end },
-			{ kind = "button", label = preview(kind), button = L.MSG_EDIT, search = "message text edit",
-				help = L.MSG_PREVIEW_TIP .. "\n" .. L.MSG_VARS,
-				onClick = function() ns.UI.ShowMessages(kind) end },
 		}
-		if kind == "announce" then
-			table.insert(controls, 2, { kind = "dropdown", label = L.ANN_TO, help = L.ANN_TO_TIP, search = "announce channel general",
-				choices = ns.UI.AnnounceTargets(), get = ns.Announce.Target, set = function(v) ns.Set("announceTo", v) end })
-		end
 		local b = ns.Messages.KINDS[kind].binding
 		if b then controls[#controls + 1] = { kind = "binding", action = b, label = L["BINDING_" .. K], help = L["BINDING_" .. K .. "_TIP"] } end
+		if kind == "announce" then
+			controls[#controls + 1] = { kind = "dropdown", label = L.ANN_TO, help = L.ANN_TO_TIP, search = "announce channel general",
+				choices = ns.UI.AnnounceTargets(), get = ns.Announce.Target, set = function(v) ns.Set("announceTo", v) end }
+		end
+		local text = { kind = "button", wide = true, label = L.MSG_TEXT, button = L.MSG_RESET, search = "message text edit default",
+			help = L.MSG_VARS,
+			onClick = function()
+				-- Without our text box (Polestar changed its rows), the Messages window.
+				if not boxes[kind] then return ns.UI.ShowMessages(kind) end
+				ns.Messages.Save(kind, ns.Messages.Default(kind))
+				boxes[kind]:SetText(ns.Messages.Template(kind))
+			end }
+		textRows[text] = kind
+		controls[#controls + 1] = text
 		return { L["MSG_" .. K], controls, L.TAB_MESSAGES }
 	end
 	return {
@@ -204,6 +276,7 @@ end
 -- The panel's Options button: Polestar's settings window on our page.
 function ns.OpenOptions()
 	hookSidebarIcon()
+	pcall(hookTextRows)
 	local U = P and P.UI
 	if U and type(U.ShowOptions) == "function" and pcall(U.ShowOptions, KEY) then
 		hookSidebarIcon()
@@ -216,12 +289,17 @@ ns.On("POLESTAR", function(polestar)
 	P = polestar
 	registerOptions()
 	hookSidebarIcon()
+	pcall(hookTextRows)
 	ns.RegisterEvent("ADDON_LOADED", function(_, name)
-		if name == "Polestar_Options" then hookSidebarIcon() end
+		if name == "Polestar_Options" then hookSidebarIcon() pcall(hookTextRows) end
 	end)
 	ns.On("LANG", refreshLangs)
 	ns.On("SETTING", function(key)
-		if type(key) == "string" and (key:find("Msg$") or key:find("On$")) then refreshLangs() end
+		if type(key) ~= "string" or not (key:find("Msg$") or key:find("On$")) then return end
+		for kind, e in pairs(boxes) do
+			if not e:HasFocus() then e:SetText(ns.Messages.Template(kind)) end
+			e:SetAlpha(ns.Messages.Enabled(kind) and 1 or 0.5)
+		end
 	end)
 	local U = P.UI
 	if registered and U and type(U.ShowOptions) == "function" then ns.UI.SetHasOptions(true) end
