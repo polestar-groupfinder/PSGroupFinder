@@ -190,16 +190,21 @@ ns.RegisterEvent("PLAYER_REGEN_ENABLED", function()
 end)
 ns.On("LOGIN", function() ns.After(READY_AFTER, function() ready = true schedule() end) end)
 
+-- Would leaving say goodbye? A finder group, with the message on.
+function Leave.Speaks()
+	return memory() ~= nil and ns.Messages.On("goodbye")
+end
+
 -- The goodbye message in the party, for a group formed through the finder.
 function Leave.Announce()
 	if not memory() then return false end
 	return ns.Messages.SayParty("goodbye", Leave.Quests())
 end
 
--- Leave the group: the goodbye message first, then the party.
-function Leave.Do()
+-- Leave the group: the goodbye message first (unless `quiet`), then the party.
+function Leave.Do(quiet)
 	if not inGroup() then return end
-	Leave.Announce()
+	if not quiet then Leave.Announce() end
 	ns.LeaveParty()
 	Leave.Forget()
 	ns.Print(L.LEAVE_LEFT)

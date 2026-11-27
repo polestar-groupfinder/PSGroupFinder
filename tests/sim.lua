@@ -926,6 +926,12 @@ cy.ns.UI.Show()
 cy.ns.UI.Refresh()
 local lg = cy.ns.UI.LeaveGroupButton()
 check(lg and lg:IsShown(), "the Leave the group button appears while in a party")
+check(cy.ns.UI.LeaveQuietButton():IsShown() and lg:GetText() == "Goodbye & leave",
+	"with the goodbye message on: two choices, Goodbye & leave and Leave")
+cy.ns.Messages.SetEnabled("goodbye", false) cy.ns.UI.Refresh()
+check(not cy.ns.UI.LeaveQuietButton():IsShown() and lg:GetText() == "Leave the group",
+	"with the goodbye message off: one Leave the group")
+cy.ns.Messages.SetEnabled("goodbye", true) cy.ns.UI.Refresh()
 lg._OnClick(lg)
 check(lastOf(cy, "PARTY")[1] == "Goodbye" and cy.leaves == 1, "the panel Leave button says goodbye then leaves")
 cy.ns.UI.Refresh()

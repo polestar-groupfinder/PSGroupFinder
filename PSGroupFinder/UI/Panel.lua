@@ -135,7 +135,7 @@ local function layoutMain(on)
 	local y = 34
 	widgets.offText:SetShown(not on)
 	widgets.turnOn:SetShown(not on)
-	for _, w in ipairs({ widgets.search, widgets.stop, widgets.announce, widgets.leaveGroup, widgets.warn }) do w:SetShown(on) end
+	for _, w in ipairs({ widgets.search, widgets.stop, widgets.announce, widgets.leaveGroup, widgets.leaveQuiet, widgets.warn }) do w:SetShown(on) end
 	if not on then
 		widgets.empty:Hide()
 		for _, r in ipairs(rows) do r.entry = nil r:Hide() end
@@ -161,10 +161,16 @@ local function layoutMain(on)
 		y = y + 28
 	end
 	local inParty = ns.InGroup()
+	-- Leaving: with the goodbye message on (a finder group), two choices,
+	-- Say goodbye & leave or just Leave; else one Leave the group.
+	local speaks = inParty and ns.Leave.Speaks()
 	widgets.leaveGroup:SetShown(inParty)
+	widgets.leaveQuiet:SetShown(speaks and true or false)
 	if inParty then
+		widgets.leaveGroup:SetText(speaks and L.BOX_SAY_GOODBYE or L.LEAVE_GROUP)
+		widgets.leaveGroup:SetWidth(WIDTH - 2 * PAD - (speaks and 106 or 0))
 		at(widgets.leaveGroup, y)
-		y = y + 26
+		y = y + 28
 	end
 	-- The channel, only when it does not work.
 	local broken = ns.Channels.Best() == nil
@@ -402,8 +408,11 @@ local function build()
 	W.Drain(widgets.announce, function() return ns.Announce.Cooldown() / ns.Announce.GAP end)
 	widgets.announce:SetScript("OnEnter", UI.AnnounceTip)
 	widgets.announce:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	widgets.leaveGroup = add(MAIN, W.Button(panel, L.LEAVE_GROUP, 140, function() ns.Leave.Do() end))
+	widgets.leaveGroup = add(MAIN, W.Button(panel, L.LEAVE_GROUP, WIDTH - 2 * PAD, function() ns.Leave.Do() end))
 	W.Tip(widgets.leaveGroup, L.LEAVE_GROUP, L.LEAVE_GROUP_TIP)
+	widgets.leaveQuiet = add(MAIN, W.Button(panel, L.LEAVE_QUIET, 100, function() ns.Leave.Do(true) end))
+	widgets.leaveQuiet:SetPoint("LEFT", widgets.leaveGroup, "RIGHT", 6, 0)
+	W.Tip(widgets.leaveQuiet, L.LEAVE_QUIET, L.LEAVE_QUIET_TIP)
 	widgets.warn = add(MAIN, text("small", GameFontHighlightSmall, "LEFT"))
 	widgets.warn:SetWidth(WIDTH - 2 * PAD)
 	widgets.warn:SetText(W.Hex("warning", "fffabf4d") .. L.CHANNEL_BROKEN .. "|r")
@@ -490,6 +499,7 @@ function UI.IsShown() return panel and panel:IsShown() or false end
 function UI.EmptyCaption() return widgets.empty and widgets.empty:GetText() or nil end
 function UI.RowFrames() return rows end
 function UI.LeaveGroupButton() return widgets.leaveGroup end
+function UI.LeaveQuietButton() return widgets.leaveQuiet end
 function UI.AnnounceWidgets() return widgets.announce, widgets.annTo end
 function UI.GearButton() return widgets.gear end
 function UI.Switch(key)
