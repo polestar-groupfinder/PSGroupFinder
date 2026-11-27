@@ -277,8 +277,8 @@ local function sections()
 	end
 	return {
 		{ L.OPT_SECTION, {
-			toggle("ENABLE", "enabled", ns.SetEnabled),
-			{ kind = "button", label = L.TEST, help = L.TEST_TIP, onClick = function() ns.TestChannels() end },
+			-- The channel test is a command (/psgf test), listed in the tooltip.
+			wide(toggle("ENABLE", "enabled", ns.SetEnabled)),
 		} },
 		{ L.CAT_GROUPING, {
 			toggle("AUTO_GROUP", "autoGroup"),
