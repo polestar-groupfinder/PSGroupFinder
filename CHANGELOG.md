@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Group Finder everywhere**: the panel, the guide menu row, the addon list and the key
+  bindings say “Group Finder”.
+- **Lighter panel**: Find a group spans the panel (Stop at its right during a search) and
+  Announce sits under it; their waits (20 s, 60 s) drain the button's accent colour instead of
+  a number. The quests searched are no longer listed (Polestar's guide window shows the step).
+  After the first answers, an empty list says that later searches will show up there.
+- **Settings view**: with Polestar's page, where Announce speaks and the messages move there
+  (Announce in is a dropdown in the Announce section); the button reads **Options**.
+- **Style cards like Polestar's**: the miniature of the message box is drawn as Polestar draws
+  its preset cards (the starry band, the window's paint, scaled into the card).
+- The Messages window's “when” line no longer runs under the On box.
+
 - **Guide menu row on Polestar 0.4.3**: the released guide menu no longer lists Free mode's
   rows, so the row was missing. It is now added where the menu is shown
   (`Polestar.Widgets.ShowMenu`, internal, under pcall) for the guide window's menu button only,

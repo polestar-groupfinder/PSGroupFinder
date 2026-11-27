@@ -204,9 +204,12 @@ function PartyBox.Drain()
 	local w = (box.main:GetWidth() or 160) - 2
 	box.fill:SetWidth(math.max(0.01, w * math.max(0, remaining) / total))
 end
--- A miniature of the box in `style`, drawn on `art` (a settings card's
--- picture, PREVIEW_W x PREVIEW_H): with your quests when there are some.
-PartyBox.PREVIEW_W, PartyBox.PREVIEW_H = 240, 112
+-- A settings card's picture: the box itself in miniature, drawn as
+-- Polestar draws its own preset cards (Polestar_Options' guide window
+-- cards): the starry band behind (Theme.Band), a small frame painted as the
+-- guide window (Theme.Skin "window", psGuide), the content at the box's real
+-- size, then the whole scaled into the card and centred. With your quests
+-- when there are some.
 
 local function plain(text)
 	return (tostring(text or ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
@@ -233,45 +236,77 @@ end
 
 function PartyBox.DrawPreview(art, style)
 	local compact = style == "compact"
-	local w, h = PartyBox.PREVIEW_W, PartyBox.PREVIEW_H
 	local T = W.Theme()
-	local function rect(layer, x, y, rw, rh, r, g, b, a, role)
-		local t = art:CreateTexture(nil, layer)
-		t:SetPoint("TOPLEFT", art, "TOPLEFT", x, -y)
-		t:SetSize(rw, rh)
-		if t.SetColorTexture then t:SetColorTexture(r, g, b, a) end
-		if role and T and T.Color then pcall(T.Color, t, role, a) end
-		return t
+	local cw, ch = art:GetWidth(), art:GetHeight()
+	if not (cw and cw > 0) then cw = 154 end
+	if not (ch and ch > 0) then ch = 88 end
+	-- The sky behind, as on Polestar's own cards.
+	local sky = T and T.Band and select(2, pcall(T.Band, art, "BACKGROUND", -6))
+	if type(sky) == "table" and sky.SetAllPoints then
+		sky:SetAllPoints(art)
+	else
+		local bg = art:CreateTexture(nil, "BACKGROUND")
+		bg:SetAllPoints(art)
+		if bg.SetColorTexture then bg:SetColorTexture(0.1, 0.12, 0.2, 1) end
 	end
-	local function text(s, x, y, width, fallback, color)
-		local fs = W.Text(art, "small", fallback or GameFontHighlightSmall)
-		fs:SetPoint("TOPLEFT", art, "TOPLEFT", x, -y)
-		fs:SetWidth(width)
+	-- The box: its ground, then its content over it.
+	local m = CreateFrame("Frame", nil, art)
+	m.Ground = CreateFrame("Frame", nil, m)
+	m.Ground:SetAllPoints(m)
+	m.Ground.psGuide = true
+	if not (T and T.Skin and pcall(T.Skin, m.Ground, "window")) then
+		local g = m.Ground:CreateTexture(nil, "BACKGROUND")
+		g:SetAllPoints(m.Ground)
+		if g.SetColorTexture then g:SetColorTexture(0.07, 0.09, 0.14, 0.95) end
+	end
+	local top = CreateFrame("Frame", nil, m)
+	top:SetAllPoints(m)
+	top:SetFrameLevel((tonumber(m.Ground:GetFrameLevel()) or 1) + 2)
+	local function put(role, fallback, s, y, x)
+		local fs = W.Text(top, role, fallback)
+		fs:SetPoint("TOPLEFT", top, "TOPLEFT", x or PAD, -y)
+		fs:SetWidth(WIDTH - (x or PAD) - PAD)
 		fs:SetJustifyH("LEFT")
-		fs:SetWordWrap(false)
-		fs:SetText((color or "") .. s .. (color and "|r" or ""))
+		fs:SetText(s)
 		return fs
 	end
-	rect("BACKGROUND", 0, 0, w, h, 0.07, 0.09, 0.14, 1)
+	local icon = top:CreateTexture(nil, "ARTWORK")
+	ns.ApplyIcon(icon, 16)
+	icon:SetPoint("TOPLEFT", top, "TOPLEFT", PAD, -10)
+	if T and T.Color then pcall(T.Color, icon, "icon") end
+	local title = put("title", GameFontNormalLarge, L.BOX_HELLO_TITLE, 9, PAD + 22)
+	title:SetWordWrap(false)
 	local quest, obj, said = sample()
-	local y = 7
-	text(L.BOX_HELLO_TITLE, 8, y, w - 16, GameFontNormalSmall)
-	y = y + 18
+	local y = 34
 	if not compact then
-		text(quest, 8, y, w - 16, nil, "|cffffd100")
+		put("small", GameFontHighlightSmall, "|cffffd100" .. quest .. "|r", y):SetWordWrap(false)
 		y = y + 14
-		if obj ~= "" then text(obj, 18, y, w - 26, nil, W.Soft()) y = y + 14 end
+		if obj ~= "" then
+			put("small", GameFontHighlightSmall, "   " .. W.Soft() .. obj .. "|r", y):SetWordWrap(false)
+			y = y + 14
+		end
+		y = y + 4
 	end
-	text("\226\128\156" .. said .. "\226\128\157", 8, y + 2, w - 16, nil, W.Dim())
-	local by = h - 26
-	local mw = math.floor((w - 22) * 0.6)
-	rect("BORDER", 8, by, mw, 18, 0.14, 0.17, 0.25, 1)
-	rect("ARTWORK", 8, by, math.floor(mw * 0.55), 18, 0.9, 0.73, 0.4, 0.45, "accent")
-	rect("BORDER", 14 + mw, by, w - 22 - mw, 18, 0.14, 0.17, 0.25, 1)
-	local hello = text(L.BOX_SAY_HELLO, 8, by + 3, mw)
-	hello:SetJustifyH("CENTER")
-	local other = text(L.BOX_CANCEL, 14 + mw, by + 3, w - 22 - mw)
-	other:SetJustifyH("CENTER")
+	local quote = put("small", GameFontHighlightSmall, W.Dim() .. "\226\128\156" .. said .. "\226\128\157|r", y)
+	quote:SetWordWrap(not compact)
+	y = y + (compact and 14 or math.max(14, math.min(28, tonumber(quote:GetStringHeight()) or 14))) + 8
+	-- The buttons as the box has them, the time left half drained; not clickable.
+	local main = W.Button(top, L.BOX_SAY_HELLO, 160, nil, 22)
+	main:SetPoint("TOPLEFT", top, "TOPLEFT", PAD, -y)
+	local fill = main:CreateTexture(nil, "BACKGROUND", nil, 1)
+	fill:SetPoint("TOPLEFT", main, "TOPLEFT", 1, -1)
+	fill:SetPoint("BOTTOMLEFT", main, "BOTTOMLEFT", 1, 1)
+	fill:SetWidth(90)
+	if fill.SetColorTexture then fill:SetColorTexture(0.9, 0.73, 0.4, 0.45) end
+	if T and T.Color then pcall(T.Color, fill, "accent", 0.45) end
+	local other = W.Button(top, L.BOX_CANCEL, WIDTH - 2 * PAD - 166, nil, 22)
+	other:SetPoint("LEFT", main, "RIGHT", 6, 0)
+	for _, b in ipairs({ main, other }) do if b.EnableMouse then b:EnableMouse(false) end end
+	local height = y + 22 + PAD
+	m:SetSize(WIDTH, height)
+	m:SetScale(math.max(0.05, math.min((cw - 16) / WIDTH, (ch - 12) / height)))
+	m:ClearAllPoints()
+	m:SetPoint("CENTER", art, "CENTER", 0, 0)
 end
 
 -- Tests: the frame, to drive its countdown.

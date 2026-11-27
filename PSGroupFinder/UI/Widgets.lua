@@ -83,6 +83,28 @@ function W.Button(parent, text, width, onClick, height)
 	return b
 end
 
+-- An accent fill over button `b` that drains from right to left, as long as
+-- `left()` says (0-1: 1 full, 0 or nil gone), read every frame.
+function W.Drain(b, left)
+	local fill = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+	fill:SetPoint("TOPLEFT", b, "TOPLEFT", 1, -1)
+	fill:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 1, 1)
+	if fill.SetColorTexture then fill:SetColorTexture(0.9, 0.73, 0.4, 0.45) end
+	local T = W.Theme()
+	if T and T.Color then pcall(T.Color, fill, "accent", 0.45) end
+	fill:Hide()
+	b.psFill = fill
+	local function paint(self)
+		local f = left()
+		if not f or f <= 0 then fill:Hide() return end
+		fill:SetWidth(math.max(0.01, ((self:GetWidth() or 100) - 2) * math.min(1, f)))
+		fill:Show()
+	end
+	b.psDrain = paint
+	if b.HookScript then b:HookScript("OnUpdate", paint) else b:SetScript("OnUpdate", paint) end
+	return fill
+end
+
 function W.Tip(frame, title, body, anchor)
 	frame:HookScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, anchor or "ANCHOR_TOP")

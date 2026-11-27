@@ -37,6 +37,7 @@ function Announce.Target()
 	return "GENERAL"
 end
 
+Announce.GAP = GAP
 function Announce.Cooldown()
 	return math.max(0, GAP - (ns.Now() - last))
 end

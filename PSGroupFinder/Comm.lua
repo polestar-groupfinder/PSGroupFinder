@@ -39,6 +39,7 @@ end
 -- Searches
 ---------------------------------------------------------------------------
 
+Comm.SEARCH_GAP = SEARCH_GAP
 function Comm.SearchCooldown()
 	return math.max(0, SEARCH_GAP - (ns.Now() - lastSearch))
 end

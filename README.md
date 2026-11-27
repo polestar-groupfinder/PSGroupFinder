@@ -1,4 +1,4 @@
-# Community Group Finder for Polestar (PSGroupFinder)
+# Group Finder for Polestar (PSGroupFinder)
 
 An **optional** module for [Polestar](https://github.com/fitzforge/polestar) (WoW: Forever 1.60.1):
 it finds players who are on **the same quest as you, near you** (kills, named elites, loot from
@@ -26,7 +26,7 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 
 ## Features
 
-- **Find a group**: **Community Group Finder** in the Polestar guide's “⋯” menu opens the panel,
+- **Find a group**: **Group Finder** in the Polestar guide's “⋯” menu opens the panel,
   whose **Find a group** starts the search; also a key binding or `/psgf search`. A search is a
   session on your relevant quests: a quest leaves it once its objectives are done, the others
   stay, and it stops when none remain, on **Stop**, in an instance or when your group is full.

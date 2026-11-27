@@ -313,8 +313,8 @@ check(handlers.STEP_CHANGED ~= nil and handlers.GUIDE_CHANGED ~= nil, "subscribe
 check(dee.ns.headerButtonFrame == nil, "no icon is added to the guide window's header")
 fakePolestar.Widgets.ShowMenu(nav.Menu, guideMenuItems(), { short = true })
 local items = shownMenu
-check(#items == 11 and items[6].text == "Community Group Finder" and items[7].separator and items[8].text == "Quick settings",
-	"the guide menu gets one row, Community Group Finder, at the end of the quest log group, before the settings")
+check(#items == 11 and items[6].text == "Group Finder" and items[7].separator and items[8].text == "Quick settings",
+	"the guide menu gets one row, Group Finder, at the end of the quest log group, before the settings")
 dee.ns.SetEnabled(true)
 run(15)
 check(not dee.ns.UI.IsShown(), "panel is closed before using the menu")
@@ -342,8 +342,11 @@ lea.PSGroupFinder_Search()
 lea.ns.UI.Show()
 lea.ns.UI.Refresh()
 check(lea.ns.Session.Active() and #lea.ns.Matcher.List() == 0, "Lea is searching and has no one yet")
-check(lea.ns.UI.EmptyCaption() == "Searching… no player found yet.",
-	"active search with no one found uses the searching-empty caption")
+check(lea.ns.UI.EmptyCaption() == "Searching…",
+	"active search with no one found, while answers come: Searching…")
+run(21) lea.ns.UI.Refresh()
+check(lea.ns.Session.Active() and lea.ns.UI.EmptyCaption():find("later show up here", 1, true),
+	"after the wait, still nobody: later searches will show up here")
 lea.ns.Session.Stop("manual")
 lea.ns.UI.Refresh()
 check(lea.ns.UI.EmptyCaption() == "No one yet. Press Find a group.",
@@ -1250,8 +1253,10 @@ check(helloSpec and helloSpec.controls[1].kind == "toggle" and helloSpec.control
 local boxSpec, styleCtl
 for _, spec in ipairs(capturedOpts) do if spec.section == "Message box" then boxSpec = spec end end
 for _, c in ipairs(boxSpec and boxSpec.controls or {}) do if c.kind == "cards" then styleCtl = c end end
-check(styleCtl and #styleCtl.choices == 2 and styleCtl.art[1] == 240, "the box style is two picture cards")
-local drew = pcall(styleCtl.choices[1].draw, ico.CreateFrame("Frame")) and pcall(styleCtl.choices[2].draw, ico.CreateFrame("Frame"))
+check(styleCtl and #styleCtl.choices == 2, "the box style is two picture cards")
+local drew, why = pcall(styleCtl.choices[1].draw, ico.CreateFrame("Frame"))
+if drew then drew, why = pcall(styleCtl.choices[2].draw, ico.CreateFrame("Frame")) end
+if not drew then print(why) end
 check(drew, "each card draws a miniature of the box")
 local lbl = helloSpec.controls[2].label
 check(type(lbl) == "function" and lbl():find("Hi all!", 1, true) and helloSpec.controls[2].button == "Edit",

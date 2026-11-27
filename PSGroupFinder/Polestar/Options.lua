@@ -144,6 +144,10 @@ local function sections()
 				help = L.MSG_PREVIEW_TIP .. "\n" .. L.MSG_VARS,
 				onClick = function() ns.UI.ShowMessages(kind) end },
 		}
+		if kind == "announce" then
+			table.insert(controls, 2, { kind = "dropdown", label = L.ANN_TO, help = L.ANN_TO_TIP, search = "announce channel general",
+				choices = ns.UI.AnnounceTargets(), get = ns.Announce.Target, set = function(v) ns.Set("announceTo", v) end })
+		end
 		local b = ns.Messages.KINDS[kind].binding
 		if b then controls[#controls + 1] = { kind = "binding", action = b, label = L["BINDING_" .. K], help = L["BINDING_" .. K .. "_TIP"] } end
 		return { L["MSG_" .. K], controls, L.TAB_MESSAGES }
@@ -169,7 +173,6 @@ local function sections()
 			toggle("PARTY_BOX", "partyBox"),
 			-- Picture cards: a miniature of the box in each style.
 			{ kind = "cards", label = L.BOX_STYLE, help = L.BOX_STYLE_TIP, search = "style compact preview",
-				art = { ns.PartyBox.PREVIEW_W, ns.PartyBox.PREVIEW_H },
 				choices = {
 					{ value = "polestar", label = L.BOX_STYLE_POLESTAR, draw = function(art) ns.PartyBox.DrawPreview(art, "polestar") end },
 					{ value = "compact", label = L.BOX_STYLE_COMPACT, draw = function(art) ns.PartyBox.DrawPreview(art, "compact") end },

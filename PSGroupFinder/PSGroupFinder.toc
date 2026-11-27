@@ -1,5 +1,5 @@
 ## Interface: 16001
-## Title: Community Group Finder |cffaaaaaafor Polestar|r
+## Title: Group Finder |cffaaaaaafor Polestar|r
 ## Notes: Optional Polestar module: find players on the same kill, named, loot or group quest near you.
 ## Author: PSGroupFinder contributors
 ## Version: 1.0.0

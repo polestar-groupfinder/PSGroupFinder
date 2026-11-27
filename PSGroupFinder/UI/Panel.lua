@@ -1,16 +1,16 @@
 -- Group Finder for Polestar (PSGroupFinder): the main panel.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
--- Two views in one window. The main view: Find a group / Stop and Announce,
--- Leave the group while in a party, the search in progress (its quests
--- leave it as their objectives are done), and the players found, each with
--- Whisper and Invite (only ever on your click); while the finder is off,
--- only a line saying so and Turn on. The cog in the title bar switches to
--- the settings view: the master switch, the settings by category, where
--- Announce speaks, Messages
--- and, with Polestar, its options page (which also holds the search
--- languages; without Polestar they are in the settings view). The panel is
--- as tall as what it shows.
+-- Two views in one window. The main view: Find a group (and Stop during a
+-- search), Announce under it, their waits draining their accent fill; Leave
+-- the group while in a party; the players found, each with Whisper and
+-- Invite (only ever on your click). The quests searched are not listed:
+-- Polestar's guide window shows the step. While the finder is off, only a
+-- line saying so and Turn on. The cog in the title bar switches to the
+-- settings view: the master switch, the settings by category and Options
+-- (Polestar's page, which holds the search languages, where Announce speaks
+-- and the messages; without Polestar those are in the settings view). The
+-- panel is as tall as what it shows.
 -- With Polestar it sits against the guide window's right edge (left edge
 -- when the right one has no room) and hides with it; without Polestar it is
 -- a movable window of its own. The quest panel (QuestPanel.lua) takes the
@@ -41,7 +41,6 @@ local FOLDED = {
 }
 local HEADER_H = 18
 local DEFAULT_ON = { partyBox = true } -- read as on unless set to false
-local SESSION_LINES = 4
 local view = "main" -- or "settings"
 
 local panel
@@ -64,30 +63,6 @@ end
 local function setting(key)
 	if DEFAULT_ON[key] then return ns.Get(key) ~= false end
 	return ns.Get(key) and true or false
-end
-
--- The search in progress, from `y`; returns the new y.
-local function layoutSession(y, active)
-	widgets.sessionTitle:SetText(W.Dim() .. L.SESSION_TITLE .. "|r")
-	widgets.sessionTitle:Show()
-	at(widgets.sessionTitle, y)
-	y = y + 14
-	local list = ns.Session.List()
-	for i = 1, SESSION_LINES do
-		local fs = widgets.quest[i]
-		local q = active and list[i]
-		if q then
-			if i == SESSION_LINES and #list > SESSION_LINES then
-				fs:SetText(W.Dim() .. string.format(L.SESSION_MORE, #list - SESSION_LINES + 1) .. "|r")
-			else
-				fs:SetText(W.Soft() .. W.KindTag(q.kind) .. "|r" .. ns.Quests.Title(q.id))
-			end
-			at(fs, y, PAD + 4)
-			fs:Show()
-			y = y + 14
-		end
-	end
-	return y + 6
 end
 
 -- The second line of a row: the first shared quest, their progress on it
@@ -138,13 +113,20 @@ local function layoutSettings(on)
 	elseif widgets.langPicker then
 		widgets.langPicker:Hide()
 	end
-	at(widgets.annLabel, y + 5)
-	widgets.annTo:Refresh()
-	at(widgets.annTo, y, WIDTH - PAD - widgets.annTo:GetWidth())
-	y = y + 32
-	at(widgets.messages, y)
-	widgets.options:SetShown(UI.hasOptions == true)
-	at(widgets.options, y, WIDTH - PAD - widgets.options:GetWidth())
+	-- Where Announce speaks and the Messages window: on Polestar's options
+	-- page (its Messages tab); here only without it.
+	local own = not UI.hasOptions
+	for _, w in ipairs({ widgets.annLabel, widgets.annTo, widgets.messages }) do w:SetShown(own) end
+	widgets.options:SetShown(not own)
+	if own then
+		at(widgets.annLabel, y + 5)
+		widgets.annTo:Refresh()
+		at(widgets.annTo, y, WIDTH - PAD - widgets.annTo:GetWidth())
+		y = y + 32
+		at(widgets.messages, y)
+	else
+		at(widgets.options, y)
+	end
 	return y + 22 + PAD
 end
 
@@ -154,8 +136,6 @@ local function layoutMain(on)
 	widgets.offText:SetShown(not on)
 	widgets.turnOn:SetShown(not on)
 	for _, w in ipairs({ widgets.search, widgets.stop, widgets.announce, widgets.leaveGroup, widgets.warn }) do w:SetShown(on) end
-	widgets.sessionTitle:Hide()
-	for i = 1, SESSION_LINES do widgets.quest[i]:Hide() end
 	if not on then
 		widgets.empty:Hide()
 		for _, r in ipairs(rows) do r.entry = nil r:Hide() end
@@ -163,19 +143,23 @@ local function layoutMain(on)
 		at(widgets.turnOn, y + 38)
 		return y + 38 + 26 + PAD
 	end
-	-- Find a group / Stop, Announce at the right.
+	-- Find a group (Stop at its right during a search), Announce under it.
+	-- Their wait drains their accent fill (W.Drain), no number to read.
 	local active = ns.Session.Active()
 	local cd = ns.Comm.SearchCooldown()
 	widgets.search:SetEnabled(cd == 0)
-	widgets.search:SetText(cd > 0 and string.format("%s (%d)", L.SEARCH, math.ceil(cd)) or (active and L.SEARCH_AGAIN or L.SEARCH))
+	widgets.search:SetText(cd > 0 and L.SEARCHING or (active and L.SEARCH_AGAIN or L.SEARCH))
+	widgets.search:SetWidth(WIDTH - 2 * PAD - (active and 76 or 0))
 	at(widgets.search, y)
 	widgets.stop:SetShown(active)
-	local acd = ns.Announce.Cooldown()
-	widgets.announce:SetShown(ns.Messages.Enabled("announce"))
-	widgets.announce:SetEnabled(acd == 0)
-	widgets.announce:SetText(acd > 0 and string.format("%s (%d)", L.ANNOUNCE, math.ceil(acd)) or L.ANNOUNCE)
-	at(widgets.announce, y, WIDTH - PAD - widgets.announce:GetWidth())
 	y = y + 28
+	local ann = ns.Messages.Enabled("announce")
+	widgets.announce:SetShown(ann)
+	if ann then
+		widgets.announce:SetEnabled(ns.Announce.Cooldown() == 0)
+		at(widgets.announce, y)
+		y = y + 28
+	end
 	local inParty = ns.InGroup()
 	widgets.leaveGroup:SetShown(inParty)
 	if inParty then
@@ -189,12 +173,11 @@ local function layoutMain(on)
 		at(widgets.warn, y + 2)
 		y = y + 20
 	end
-	if active then y = layoutSession(y + 4, true) end
 	-- Players found.
 	local found = playersFound()
 	widgets.empty:SetShown(#found == 0)
 	if #found == 0 then
-		widgets.empty:SetText(active and L.EMPTY_SEARCHING or L.EMPTY)
+		widgets.empty:SetText(not active and L.EMPTY or (cd > 0 and L.EMPTY_SEARCHING or L.EMPTY_WAITING))
 		at(widgets.empty, y + 4, PAD + 2)
 		y = y + 34
 	end
@@ -411,10 +394,12 @@ local function build()
 	widgets.offText:SetWidth(WIDTH - 2 * PAD)
 	widgets.offText:SetText(W.Dim() .. L.OFF_TEXT .. "|r")
 	widgets.turnOn = add(MAIN, W.Button(panel, L.TURN_ON, 120, function() ns.SetEnabled(true) end))
-	widgets.search = add(MAIN, W.Button(panel, L.SEARCH, 168, function() ns.Search() UI.Refresh() end))
+	widgets.search = add(MAIN, W.Button(panel, L.SEARCH, WIDTH - 2 * PAD, function() ns.Search() UI.Refresh() end))
+	W.Drain(widgets.search, function() return ns.Comm.SearchCooldown() / ns.Comm.SEARCH_GAP end)
 	widgets.stop = add(MAIN, W.Button(panel, L.STOP, 70, function() ns.Comm.StopSearch() UI.Refresh() end))
 	widgets.stop:SetPoint("LEFT", widgets.search, "RIGHT", 6, 0)
-	widgets.announce = add(MAIN, W.Button(panel, L.ANNOUNCE, 96, function() ns.Announce.Send() UI.Refresh() end))
+	widgets.announce = add(MAIN, W.Button(panel, L.ANNOUNCE, WIDTH - 2 * PAD, function() ns.Announce.Send() UI.Refresh() end))
+	W.Drain(widgets.announce, function() return ns.Announce.Cooldown() / ns.Announce.GAP end)
 	widgets.announce:SetScript("OnEnter", UI.AnnounceTip)
 	widgets.announce:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	widgets.leaveGroup = add(MAIN, W.Button(panel, L.LEAVE_GROUP, 140, function() ns.Leave.Do() end))
@@ -422,14 +407,6 @@ local function build()
 	widgets.warn = add(MAIN, text("small", GameFontHighlightSmall, "LEFT"))
 	widgets.warn:SetWidth(WIDTH - 2 * PAD)
 	widgets.warn:SetText(W.Hex("warning", "fffabf4d") .. L.CHANNEL_BROKEN .. "|r")
-	widgets.sessionTitle = add(MAIN, text("caption", GameFontNormalSmall, "LEFT"))
-	widgets.quest = {}
-	for i = 1, SESSION_LINES do
-		local fs = add(MAIN, text("small", GameFontHighlightSmall, "LEFT"))
-		fs:SetWordWrap(false)
-		fs:SetWidth(WIDTH - 2 * PAD - 4)
-		widgets.quest[i] = fs
-	end
 	widgets.empty = add(MAIN, text("note", GameFontDisableSmall, "LEFT"))
 	widgets.empty:SetWidth(WIDTH - 2 * PAD - 4)
 	for i = 1, ROWS do rows[i] = W.PlayerRow(panel) end
@@ -472,7 +449,7 @@ local function build()
 	-- Messages, and Polestar's options page.
 	widgets.messages = add(SETTINGS, W.Button(panel, L.MESSAGES .. "…", 120, function() UI.ShowMessages() end, 22))
 	W.Tip(widgets.messages, L.MESSAGES, L.MESSAGES_TIP)
-	widgets.options = add(SETTINGS, W.Button(panel, L.OPTIONS_SHORT, 150, function() if ns.OpenOptions then ns.OpenOptions() end end, 22))
+	widgets.options = add(SETTINGS, W.Button(panel, L.OPTIONS_SHORT, 120, function() if ns.OpenOptions then ns.OpenOptions() end end, 22))
 	W.Tip(widgets.options, L.OPTIONS_SHORT, L.OPTIONS_TIP)
 
 	W.EverySecond(panel, UI.Refresh)
@@ -486,7 +463,7 @@ end
 -- Polestar.lua: whether Polestar's settings have our page (shows Options).
 function UI.SetHasOptions(has)
 	UI.hasOptions = has and true or false
-	if widgets.options and view == "settings" then widgets.options:SetShown(UI.hasOptions) end
+	if view == "settings" then UI.Refresh() end
 end
 
 function UI.Show()
