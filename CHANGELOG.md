@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Polestar's options page is named **Group Finder** (it sits in Polestar's own settings, so the
+  short name fits its sidebar); the panel and the guide menu row keep “Community Group Finder”.
 - **Clearer labels**: “Let others find me when they search” (was “Answer searches for my
   quests”), “Show others my distance” (was “Share my map position”), “Show the message box when
   grouping” (was “Say hello and goodbye to the group”); the Messages window says when each text

@@ -66,7 +66,7 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 
 The panel has two views. The main one holds Find a group / Stop, Announce, the search in
 progress and the players found. The **cog** in its title bar opens the settings view: the master
-switch, the settings by category (as on the “Community Group Finder” page in Polestar's options),
+switch, the settings by category (as on the “Group Finder” page in Polestar's options),
 the search languages, where Announce speaks, the channel's test, **Messages…** and Polestar's
 options page.
 
@@ -118,7 +118,7 @@ Rate: a small queue (burst of 4, then ~0.8 msg/s), retried on `AddonMessageThrot
 |---|---|---|
 | `Polestar.API.version == 1`, `Polestar.On("STEP_CHANGED" / "GUIDE_CHANGED" / "TABS_CHANGED")`, `Polestar.Compat.IsOnQuest` / `IsQuestReadyForTurnIn` | **public API** (docs/API.md) | know when the step changes, filter quests |
 | `Polestar.Theme.Skin`, `Font`, `Color`, `Hex`, `OnChanged`, `GuideParts().window` | **public Skin API** | paint our frames, dock beside the guide window |
-| `Polestar.RegisterOptions` (with the public `icon` and `help` fields) | **semi-internal** (ARCHITECTURE.md “Options registry”), under `pcall` | “Community Group Finder” page in Polestar's options, one section per category |
+| `Polestar.RegisterOptions` (with the public `icon` and `help` fields) | **semi-internal** (ARCHITECTURE.md “Options registry”), under `pcall` | “Group Finder” page in Polestar's options, one section per category |
 | `Polestar.Free.MenuItems()` | **internal**, wrapped under `pcall` (the original runs first) | our row in the guide's “⋯” menu |
 | `UI.ShowOptions(key)`, `UI.Options.Relayout`, `Widgets.RefreshAll`, `Options.Kit.pages` / `Grouped.NavItems` / `Widgets.NavRowAfter` | **internal**, under `pcall` | panel “Options” button, language rows folding at once, sidebar icon |
 | `Polestar.Engine.GetGuide()` / `GetLiveStep()` and `step.goals[].quest`, `Compat.GetPlayerMapPosition()` | **internal**, under `pcall` | current step's quests first, position (otherwise `C_Map`) |
