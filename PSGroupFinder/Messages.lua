@@ -16,8 +16,9 @@
 -- any language); the player edits them freely. In a text:
 --   {quests}   the quests concerned, as the client's quest links when they
 --              name the right quest, else their titles
---   {progress} the same quests, each followed by your progress ("(40%)",
---              "(done)") when the log has it
+--   {progress} the same quests, each followed by what is left of it, as
+--              counts: "[The Defias Brotherhood] 4/12 Defias Pillager slain",
+--              "(done)" once nothing is left
 -- Texts are kept without escape sequences. The default text is stored as
 -- "unset" (false); an empty text ("") turns the message off.
 
@@ -71,19 +72,50 @@ function Messages.QuestText(id)
 	return ns.Quests.Title(id)
 end
 
-local function progress(id)
-	local pct = ns.Quests.Progress(id)
-	if not pct then return "" end
-	return " (" .. (pct >= 100 and "done" or (pct .. "%")) .. ")"
+-- "4/12 Defias Pillager slain" from an objective, whichever way the client
+-- writes it ("Defias Pillager slain: 4/12" or "4/12 Defias Pillager slain");
+-- the text as it is when it has no count.
+function Messages.ObjectiveText(o)
+	local text = tostring(o.text or "")
+	local label = text:gsub("^%s*%d+%s*/%s*%d+%s*", ""):gsub("%s*:?%s*%d+%s*/%s*%d+%s*$", "")
+	local have, need = tonumber(o.have), tonumber(o.need)
+	if not (have and need) then
+		local h, n = text:match("(%d+)%s*/%s*(%d+)")
+		have, need = tonumber(h), tonumber(n)
+	end
+	if have and need and need > 0 then
+		return label ~= "" and (have .. "/" .. need .. " " .. label) or (have .. "/" .. need)
+	end
+	return text
 end
 
--- The list for {quests} or {progress} from `ids` (at most MAX_QUESTS).
+-- What is left of quest `id`: its open objectives as "4/12 Defias Pillager
+-- slain", joined by ", "; "(done)" once nothing is left; "" when unknown.
+function Messages.Progress(id)
+	local q = ns.Quests.Log()[id]
+	if not q then return "" end
+	if not ns.Quests.Pending(id) then return "(done)" end
+	local parts = {}
+	for _, o in ipairs(q.objectives or {}) do
+		if not o.done then parts[#parts + 1] = Messages.ObjectiveText(o) end
+	end
+	return table.concat(parts, ", ")
+end
+
+-- The list for {quests} (", " between quests) or {progress} (each quest
+-- followed by what is left of it, " / " between quests), at most `count`.
 local function list(ids, count, withProgress)
 	local names = {}
 	for i = 1, math.min(#(ids or {}), count) do
-		names[i] = Messages.QuestText(ids[i]) .. (withProgress and progress(ids[i]) or "")
+		local name = Messages.QuestText(ids[i])
+		if withProgress then
+			local left = Messages.Progress(ids[i])
+			if left ~= "" then name = name .. " " .. left end
+		end
+		names[i] = name
 	end
-	return #names > 0 and table.concat(names, ", ") or L.MSG_NO_QUEST
+	if #names == 0 then return L.MSG_NO_QUEST end
+	return table.concat(names, withProgress and " / " or ", ")
 end
 
 -- `kind`'s text with {quests} and {progress} filled from `ids`, at most 255

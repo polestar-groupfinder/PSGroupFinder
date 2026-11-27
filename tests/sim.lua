@@ -2,7 +2,7 @@
 -- stub of the WoW API. Run: lua5.1 tests/sim.lua (from the repo root).
 local FILES = { "Locales", "Core", "Lang", "Throttle", "Quests", "Session", "Protocol", "Channels", "ChatFilter", "Comm", "Matcher", "ChatWatch", "Group", "Messages", "Leave", "Announce",
 	"UI/Widgets", "UI/Panel", "UI/QuestPanel", "UI/MessagesWindow", "UI/PartyBox",
-	"Polestar/Polestar", "Polestar/Header", "Polestar/Options", "Polestar/GoalRows" }
+	"Polestar/Polestar", "Polestar/Menu", "Polestar/Options", "Polestar/GoalRows" }
 local DIR = "PSGroupFinder/"
 local bus = {}      -- every client's env
 local now = 0
@@ -180,6 +180,8 @@ local function newClient(name, quests, opts)
 	env.ns = ns
 	bus[#bus + 1] = env
 	env.fire("ADDON_LOADED", "PSGroupFinder")
+	-- Most scenarios need answers; the real default (off) is checked on its own.
+	if not opts.defaults then ns.db.autoReply = true end
 	env.fire("PLAYER_LOGIN")
 	return env
 end
@@ -200,36 +202,39 @@ end
 local function check(cond, msg) if not cond then error("FAIL: " .. msg, 2) end print("ok  " .. msg) end
 
 -- Ana: Hogger (named kill) + boars (kill). Ben: Hogger too, on the same map.
--- Cid: unrelated quest. Ana's client refuses CHANNEL (like Forever's launch build).
+-- Cid: unrelated quest.
 local hogger = { id = 176, title = "Wanted: Hogger", obj = { { "Hogger slain: 0/1", "monster" } } }
 local boars = { id = 86, title = "Pie for Billy", obj = { { "Chunk of Boar Meat: 2/4", "item" } } }
 local other = { id = 999, title = "Report to Goldshire", obj = {} }
-local ana = newClient("Ana Smith", { hogger, boars }, { x = 0.40, y = 0.50, blocked = { CHANNEL = true } })
+local ana = newClient("Ana Smith", { hogger, boars }, { x = 0.40, y = 0.50 })
 local ben = newClient("Ben Stone", { hogger }, { x = 0.42, y = 0.51, class = "PRIEST" })
 local cid = newClient("Cid Vale", { other }, {})
 
--- Off by default: nothing is sent.
+-- Off by default: nothing is sent, nothing answers on its own.
 check(ana.ns.db.enabled == false, "disabled by default")
+local dft = newClient("Dft Vale", { hogger }, { defaults = true })
+check(dft.ns.Get("autoReply") == false and dft.ns.Get("autoGroup") == false and dft.ns.Get("readChat") == false,
+	"every automatism is off by default (answers, auto-group, chat reading)")
 check(ana.ns.Lang.DefaultCode() == "e" and ana.ns.Lang.Search()[1] == "e" and not ana.ns.Lang.AcceptsAll(),
 	"default languages: the client's only (enUS -> EN), not all languages")
 check(ana.ns.Lang.Encode() == "e", "language payload is the client letter (e)")
-check(ana.ns.Get("headerButton") == true, "header button is on by default")
 ana.PSGroupFinder_Search()
 run(1)
 check(next(ana.ns.Channels.status) == nil, "a search while disabled sends nothing")
 
-for _, c in ipairs({ ana, ben, cid }) do c.ns.SetEnabled(true) end
-run(15) -- join delay, then the quiet probe
-check(ben.ns.Channels.status.CHANNEL.state == "ok", "Ben: CHANNEL echo detected")
-check(ana.ns.Channels.status.CHANNEL.state == "fail" and ana.ns.Channels.status.CHANNEL.code == "InvalidChannel", "Ana: CHANNEL refused, reported as InvalidChannel")
+for _, c in ipairs({ ana, ben, cid, dft }) do c.ns.SetEnabled(true) end
+run(15) -- join delay
+check(next(ana.ns.Channels.status) == nil, "enabling joins the channel but sends no probe")
+check(ana.ns.Channels.ORDER[1] == "CHANNEL" and ana.ns.Channels.ORDER[2] == "GUILD" and #ana.ns.Channels.ORDER == 2,
+	"searches use the hidden channel and the guild only (no SAY / YELL)")
 
 local rel = ana.ns.Quests.Relevant()
 check(#rel == 2 and rel[1].id == 176 and rel[1].kind == "n" and rel[2].kind == "l", "Ana's relevant quests: Hogger (named) then boar meat (loot)")
 
-ana.ns.Channels.Test(true) -- from a click: SAY/YELL too
+ana.ns.Channels.Test()
 run(6)
-check(ana.ns.Channels.status.YELL.state == "ok", "Ana: YELL works as fallback")
-check(ana.ns.Channels.Best() == "YELL", "Ana's best channel is YELL")
+check(ana.ns.Channels.status.CHANNEL.state == "ok", "Test (on request): CHANNEL echo detected")
+check(ana.ns.Channels.status.YELL == nil and ana.ns.Channels.status.SAY == nil, "the test tries no SAY / YELL")
 
 ana.PSGroupFinder_Search()
 run(5)
@@ -238,9 +243,23 @@ check(#list == 1 and list[1].name == "Ben Stone" and list[1].quests[1] == 176, "
 check(list[1].yards and list[1].yards < 40, "distance computed in yards: " .. tostring(list[1].yards))
 check(#ben.ns.Matcher.List() == 1, "Ben sees Ana as also looking")
 check(#cid.ns.Matcher.List() == 0, "Cid (no shared quest) sees nobody and answers nothing")
+check(dft.ns.Matcher.Get("Ana Smith") ~= nil and ana.ns.Matcher.Get("Dft Vale") == nil,
+	"with answers off (the default) a player sees the searcher but sends no answer")
 
 ana.PSGroupFinder_Search()
 check(ana.printed[#ana.printed]:find("Wait"), "search cooldown enforced")
+
+-- A client that refuses the hidden channel: the guild still carries it, else nothing.
+local blk = newClient("Blk Hart", { hogger }, { blocked = { CHANNEL = true } })
+blk.ns.SetEnabled(true) run(15)
+blk.ns.Comm.Search()
+check(blk.printed[#blk.printed]:find("No channel"), "no hidden channel and no guild: the search says no channel can send")
+local gld = newClient("Gld Hart", { hogger }, { blocked = { CHANNEL = true }, guild = "Wardens" })
+local gmate = newClient("Gm Hart", { hogger }, { guild = "Wardens" })
+gld.ns.SetEnabled(true) gmate.ns.SetEnabled(true) run(15)
+gld.ns.Comm.Search() run(5)
+check(gld.ns.Matcher.Get("Gm Hart") ~= nil, "no hidden channel: the guild carries the search and its answer")
+
 
 -- The panel builds and refreshes with a session and a player found (stub frames).
 ana.ns.UI.Show()
@@ -261,8 +280,8 @@ local unknown = ana.ns.Protocol.Decode("S|abc123|1436|400|500|20|WARRIOR|0|gA|z|
 check(unknown and unknown.langs == nil and #unknown.quests == 1, "an unknown language letter decodes with no language")
 check(ana.ns.Lang.Decode("f").code == "f" and ana.ns.Lang.Decode("f/f") == nil, "language payload is exactly one known letter")
 
--- With Polestar: the live step's quest comes first, the panel is themed and
--- the launcher hangs under the guide window.
+-- With Polestar: the live step's quest comes first, the panel docks beside
+-- the guide window, and the guide menu gets our rows.
 local handlers, skinned = {}, {}
 local window = { HookScript = function() end, IsShown = function() return true end, GetRight = function() return 400 end, GetEffectiveScale = function() return 1 end }
 local nav = { GetNumChildren = function() return 0 end, GetChildren = function() end }
@@ -280,48 +299,41 @@ local fakePolestar = {
 		Color = function() return 0.85, 0.88, 0.95, 1 end,
 		Media = function(name) return name == "white" and "Interface\\Buttons\\WHITE8X8" or name end,
 		GuideParts = function() return { window = window, nav = nav } end },
+	Free = { MenuItems = function() return { { text = "Free mode" } } end },
 }
 local dee = newClient("Dee Moss", { hogger, boars }, { polestar = fakePolestar })
 local rel2 = dee.ns.Quests.Relevant()
 check(rel2[1].id == 86 and rel2[1].step == true, "Polestar live step quest first (" .. rel2[1].id .. ")")
 check(handlers.STEP_CHANGED ~= nil and handlers.GUIDE_CHANGED ~= nil, "subscribed to Polestar STEP_CHANGED / GUIDE_CHANGED")
-local hasButton = false
-for _, k in ipairs(skinned) do if k == "button" then hasButton = true end end
-check(hasButton, "launcher button painted through Polestar.Theme.Skin")
-check(dee.ns.headerButtonFrame ~= nil, "header icon created on the step bar (left of Lookup)")
-local _, headerRel = dee.ns.headerButtonFrame:GetPoint(1)
-check(headerRel == nav.Lookup, "header icon is anchored to Lookup (the magnifying glass)")
-check(dee.ns.ICON and dee.ns.ICON:find("PSGroupFinder") and dee.ns.ICON:find("icon%-group"),
-	"the header icon is a full path to our Media/icon-group texture")
-check(dee.ns.headerButtonFrame.psIconName == dee.ns.ICON and dee.ns.headerButtonFrame.psIconName ~= "search",
-	"the header button uses our icon, not Polestar's search/loupe icon")
--- Clicks: left starts a search without opening the panel; right toggles it.
+check(dee.ns.headerButtonFrame == nil, "no icon is added to the guide window's header")
+local items = fakePolestar.Free.MenuItems()
+check(#items == 3 and items[1].text == "Free mode" and items[2].text == "Find a group" and items[3].text == "Group Finder",
+	"the guide menu gets Find a group and Group Finder after Polestar's own rows")
 dee.ns.SetEnabled(true)
 run(15)
-dee.ns.Channels.Test(true)
+dee.ns.Channels.Test()
 run(6)
-check(not dee.ns.UI.IsShown(), "panel is closed before a header click")
-local hdr = dee.ns.headerButtonFrame
-check(type(hdr._OnClick) == "function", "header OnClick is set (RegisterForClicks Left/Right)")
-hdr:_OnClick("LeftButton")
-check(dee.ns.Session.Active(), "left click on the header starts a search")
-check(not dee.ns.UI.IsShown(), "left click does not open the panel")
+check(not dee.ns.UI.IsShown(), "panel is closed before using the menu")
+items[2].onClick()
+check(dee.ns.Session.Active(), "Find a group in the guide menu starts a search")
+check(not dee.ns.UI.IsShown(), "...without opening the panel")
 local sawSent = false
 for _, p in ipairs(dee.printed) do
 	if p:find("Search sent") then sawSent = true end
 end
-check(sawSent, "left click prints a short search confirmation in chat")
-if dee.ns.UI.IsShown() then dee.ns.UI.Toggle() end
-hdr:_OnClick("RightButton")
-check(dee.ns.UI.IsShown(), "right click opens the panel")
-hdr:_OnClick("RightButton")
-check(not dee.ns.UI.IsShown(), "right click again closes the panel")
+check(sawSent, "the search prints a short confirmation in chat")
+items[3].onClick()
+check(dee.ns.UI.IsShown(), "Group Finder in the guide menu opens the panel")
+dee.ns.UI.Toggle()
+fakePolestar.Free.MenuItems = function() return { { text = "Free mode" } } end
+dee.fire("ADDON_LOADED", "Polestar_FreeMode") run(1)
+check(#fakePolestar.Free.MenuItems() == 3, "when Polestar_FreeMode replaces the menu function, our rows are added again")
 -- Active search, no one found yet: a lone player with a unique quest.
 local loneQ = { id = 4242, title = "Supplies to Auberdine", obj = { { "Bundle of Furs: 0/1", "item" } } }
 local lea = newClient("Lea Grove", { loneQ }, { x = 0.5, y = 0.5 })
 lea.ns.SetEnabled(true)
 run(15)
-lea.ns.Channels.Test(true)
+lea.ns.Channels.Test()
 run(6)
 lea.PSGroupFinder_Search()
 lea.ns.UI.Show()
@@ -354,7 +366,7 @@ local finn = newClient("Finn Roe", { copyQ(qa), copyQ(qb) }, { x = 0.31, y = 0.3
 local gus = newClient("Gus Hale", { copyQ(qb) }, { x = 0.32, y = 0.30, class = "ROGUE" })
 for _, c in ipairs({ eve, finn, gus }) do c.ns.SetEnabled(true) end
 run(15)
-eve.ns.Channels.Test(true) run(6)
+eve.ns.Channels.Test() run(6)
 check(not eve.ns.Session.Active(), "no session before a search")
 run(30)
 eve.PSGroupFinder_Search()
@@ -403,7 +415,7 @@ local hal = mk("Hal Orn", { x = 0.60, y = 0.60 }, q1())
 local ivy = mk("Ivy Kerr", { x = 0.61, y = 0.60, class = "PRIEST" }, q1())
 local jon = mk("Jon Pike", { x = 0.62, y = 0.60, faction = "Horde" }, q1())
 run(15)
-hal.ns.Channels.Test(true) run(6)
+hal.ns.Channels.Test() run(6)
 run(30)
 -- Option off (default): nothing automatic.
 check(hal.ns.Get("autoGroup") == false, "autoGroup is off by default")
@@ -467,7 +479,7 @@ local pia = langClient("Pia Lang", "frFR", { x = 0.2, y = 0.2 })
 local ned = langClient("Ned Lang", "enUS", { x = 0.21, y = 0.2, class = "MAGE" })
 local mia = langClient("Mia Lang", "frFR", { x = 0.22, y = 0.2, class = "PRIEST" })
 run(15)
-pia.ns.Channels.Test(true) run(6)
+pia.ns.Channels.Test() run(6)
 run(30)
 check(ned.ns.Lang.DefaultCode() == "e" and ned.ns.Lang.Encode() == "e" and ned.ns.Lang.Search()[1] == "e", "an English client defaults to EN only")
 check(not pia.ns.Lang.Compatible(ned.ns.Lang.Decode(ned.ns.Lang.Encode())), "FR search does not list an EN client")
@@ -504,7 +516,7 @@ local uma = newClient("Uma Wood", { kq(1) }, { map = 1436 })
 for _, c in ipairs({ qua, rex, sue, tom, uma }) do c.ns.SetEnabled(true) end
 uma.ns.Set("autoReply", false)
 run(15)
-for _, c in ipairs({ qua, rex }) do c.ns.Channels.Test(true) end
+for _, c in ipairs({ qua, rex }) do c.ns.Channels.Test() end
 run(6)
 run(30)
 
@@ -676,7 +688,7 @@ local sam = newClient("Sam Lee", { lq(11001, 0), lq(11002, 0) }, { x = 0.11, y =
 local noa = newClient("Noa Bell", { lq(11001, 0) }, { x = 0.12, y = 0.1 })
 for _, c in ipairs({ rae, sam, noa }) do c.ns.SetEnabled(true) end
 run(15)
-rae.ns.Channels.Test(true) run(6)
+rae.ns.Channels.Test() run(6)
 run(30)
 check(sam.ns.Leave.Message() == "Thanks for the group, have fun!", "messages default to English, also on a French client")
 check(ned.ns.Leave.Message() == "Thanks for the group, have fun!", "default goodbye message in English for an English client")
@@ -707,8 +719,8 @@ check(rae.ns.PartyBox.Mode() == "hello" and sam.ns.PartyBox.Mode() == "hello", "
 check(rae.ns.PartyBox.Remaining() == 5, "Say hello is offered for 5 s")
 rae.ns.PartyBox.Main()
 local hi = lastOf(rae, "PARTY")
-check(hi and hi[1] == "Hi all! I'm on Quest 11001 (0%), Quest 11002 (0%).",
-	"Say hello says the hello message in /p with the quest links and the progress")
+check(hi and hi[1] == "Hi all! I'm on Quest 11001 0/6 Thing slain / Quest 11002 0/6 Thing slain.",
+	"Say hello says the hello message in /p with the quest links and what is left (x/y)")
 check(rae.ns.PartyBox.Mode() == nil, "the box closes once hello is said")
 tickBox(sam, 6)
 check(count(sam, "PARTY") == 0 and sam.ns.PartyBox.Mode() == nil, "after 5 s without a click the box goes and nothing is said")
@@ -735,7 +747,7 @@ check(rae.ns.PartyBox.Mode() == nil, "goodbye is not offered again for this grou
 
 -- A second group: Goodbye & leave says the message, then leaves.
 local tia = newClient("Tia Moon", { lq(11001, 0) }, { x = 0.1, y = 0.2 })
-tia.ns.SetEnabled(true) run(15) tia.ns.Channels.Test(true) run(6) run(30)
+tia.ns.SetEnabled(true) run(15) tia.ns.Channels.Test() run(6) run(30)
 tia.ns.Messages.Save("goodbye", "Thanks, take care!")
 noa.PSGroupFinder_Search() run(8)
 check(noa.ns.Matcher.Get("Tia Moon") ~= nil, "Noa found Tia")
@@ -756,7 +768,7 @@ check(tia.ns.char.party == nil, "the memory of the group is cleared")
 
 -- An empty goodbye message: the button only leaves.
 local uri = newClient("Uri Cole", { lq(11001, 0) }, { x = 0.1, y = 0.3 })
-uri.ns.SetEnabled(true) run(15) uri.ns.Channels.Test(true) run(6) run(30)
+uri.ns.SetEnabled(true) run(15) uri.ns.Channels.Test() run(6) run(30)
 uri.ns.Messages.Save("goodbye", "")
 uri.ns.Messages.Save("hello", "")
 check(not uri.ns.Messages.On("goodbye"), "an empty message is turned off")
@@ -786,7 +798,7 @@ check(vic.ns.char.party == nil and vic.ns.PartyBox.Mode() == nil, "a group forme
 -- Option off: no box. Abandoned quests do not count as done.
 local xan = newClient("Xan Dyle", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.4 })
 local yui = newClient("Yui Reed", { lq(11001, 0), lq(11002, 0) }, { x = 0.1, y = 0.41 })
-xan.ns.SetEnabled(true) yui.ns.SetEnabled(true) run(15) xan.ns.Channels.Test(true) run(6) run(30)
+xan.ns.SetEnabled(true) yui.ns.SetEnabled(true) run(15) xan.ns.Channels.Test() run(6) run(30)
 xan.ns.Set("partyBox", false)
 xan.PSGroupFinder_Search() run(8)
 xan.ns.Leave.NoteInvite("Yui Reed", { 11001, 11002 })
@@ -818,11 +830,12 @@ check(sam.ns.Get("leaveMsg") == "Hi cffff0000!", "escape sequences are stripped 
 M.Save("goodbye", "Thanks for the group, have fun!")
 check(sam.ns.Get("leaveMsg") == false and M.Template("goodbye") == "Thanks for the group, have fun!", "saving the default text stores it as unset")
 check(M.Expand("ask", { 11001 }) == "Hi! I'm on Quest 11001 too, could you invite me to your group?", "{quests} is filled in")
-check(M.Fill("On {quests}: {progress}", { 11001 }) == "On Quest 11001: Quest 11001 (0%)", "{progress} adds the progress after each quest")
+check(M.Fill("On {quests}: {progress}", { 11001 }) == "On Quest 11001: Quest 11001 0/6 Thing slain", "{progress} adds what is left of each quest as x/y")
+check(M.ObjectiveText({ text = "4/12 Defias Pillager slain" }) == "4/12 Defias Pillager slain" and M.ObjectiveText({ text = "Defias Pillager slain: 4/12" }) == "4/12 Defias Pillager slain", "objectives read the same whichever way the client writes them")
 sam.ns.UI.ShowMessages()
 check(sam.ns.UI.MessagesShown() and #sam.ns.UI.MessageBlocks() == 5, "the Messages window opens with its five messages")
 local blocks = sam.ns.UI.MessageBlocks()
-check(blocks[4].preview._text:find("Hi all!") and blocks[4].preview._text:find("%(0%%%)"), "the hello preview shows the quests with progress")
+check(blocks[4].preview._text:find("Hi all!") and blocks[4].preview._text:find("0/6 Thing slain"), "the hello preview shows the quests with progress")
 blocks[2].edit._text = "Yo {quests}"
 blocks[2].edit._OnTextChanged(blocks[2].edit, true)
 check(blocks[2].preview._text:find("Yo Quest 11001"), "the preview follows the text as it is typed")
@@ -837,7 +850,7 @@ sam.ns.UI.ShowMessages()
 local ola = newClient("Ola Dunn", { lq(11003, 0) }, { x = 0.3, y = 0.3 })
 local pam = newClient("Pam Dunn", { lq(11003, 0) }, { x = 0.31, y = 0.3 })
 local quin = newClient("Quin Dunn", {}, {})
-ola.ns.SetEnabled(true) pam.ns.SetEnabled(true) run(15) ola.ns.Channels.Test(true) run(6) run(30)
+ola.ns.SetEnabled(true) pam.ns.SetEnabled(true) run(15) ola.ns.Channels.Test() run(6) run(30)
 party["Pam Dunn"] = { "Pam Dunn", "Quin Dunn" } party["Quin Dunn"] = party["Pam Dunn"]
 ola.PSGroupFinder_Search() run(8)
 ola.ns.UI.Show() ola.ns.UI.Refresh()
@@ -855,7 +868,7 @@ party["Pam Dunn"] = nil party["Quin Dunn"] = nil
 local pip = newClient("Pip Wren", { lq(11001, 0) }, { x = 0.2, y = 0.2 })
 local kit = newClient("Kit Vale", { lq(11001, 0) }, { x = 0.21, y = 0.2 })
 pip.ns.SetEnabled(true) kit.ns.SetEnabled(true) run(15)
-pip.ns.Channels.Test(true) run(6) run(30)
+pip.ns.Channels.Test() run(6) run(30)
 pip.ns.Messages.Save("goodbye", "Have fun, thanks!")
 pip.PSGroupFinder_Search() run(8)
 check(pip.ns.Matcher.Get("Kit Vale") ~= nil, "Pip found Kit")
@@ -881,7 +894,7 @@ check(count(abb, "PARTY") == 0 and abb.leaves == 1, "our Leave on a hand-formed 
 local cy = newClient("Cy Moss", { lq(11001, 0) }, { x = 0.25, y = 0.2 })
 local dy = newClient("Dy Moss", { lq(11001, 0) }, { x = 0.26, y = 0.2 })
 cy.ns.SetEnabled(true) dy.ns.SetEnabled(true) run(15)
-cy.ns.Channels.Test(true) run(6) run(30)
+cy.ns.Channels.Test() run(6) run(30)
 cy.ns.Messages.Save("goodbye", "Goodbye")
 cy.ns.UI.Show()
 cy.ns.UI.Refresh()
@@ -964,52 +977,6 @@ for k, v in pairs(fakePolestar) do fp4[k] = v end
 fp4.RegisterOptions = function() return true end
 local ico2 = newClient("Ico Two", { hogger }, { polestar = fp4 })
 check(ico2.ns.OpenOptions() == false, "without Polestar's options window, the icon hook and Options are silent no-ops")
-
--- Our header icon stays on the button when SetIconState / a Painter would have
--- restored Polestar's "search" icon (the binoculars/loupe the player saw).
-local iconBtnName, setIconStateOn
-local fpEye = {}
-for k, v in pairs(fakePolestar) do fpEye[k] = v end
-fpEye.Widgets = {
-	IconButton = function(parent, icon, size)
-		iconBtnName = icon
-		local b = parent -- reuse a stub-like frame
-		b = (parent and parent) or {}
-		-- a fresh button
-		local btn = { Icon = { SetTexture = function(_, path) btn.Icon._texture = path end, Show = function() end, Hide = function() end, SetSize = function() end, SetPoint = function() end },
-			SetAlpha = function() end, SetScript = function(self, ev, fn) self["_" .. ev] = fn end,
-			SetSize = function() end, EnableMouse = function() end, RegisterForClicks = function() end,
-			ClearAllPoints = function() end, SetPoint = function() end, SetFrameLevel = function() end,
-			GetFrameLevel = function() return 1 end, Show = function() end, Hide = function() end,
-			GetPoint = function() return "RIGHT", nil, "LEFT", 0, 0 end,
-			GetCenter = function() return 1, 1 end,
-		}
-		btn.Icon.SetTexture(btn.Icon, icon)
-		btn.psIconName = icon
-		return btn
-	end,
-	SetIconState = function(b, active, enabled)
-		setIconStateOn = { active = active, enabled = enabled, name = b.psIconName }
-		-- must not rewrite the texture; only tint
-	end,
-	Color = function() end,
-	RefreshAll = function() end,
-}
--- GuideParts on the copied Theme still returns dee's window; attach() would
--- skip a new header if lookup is already bound. Give this client its own nav.
-local eyeNav = { Lookup = { psIconName = "search", GetFrameLevel = function() return 5 end, SetPoint = function() end, GetPoint = function() return "RIGHT", nil, "RIGHT", 0, 0 end, GetNumChildren = function() return 0 end, GetChildren = function() end } }
-local eyeWin = { HookScript = function() end, SetPoint = function() end, GetFrameLevel = function() return 1 end, IsShown = function() return true end }
-fpEye.Theme = {}
-for k, v in pairs(fakePolestar.Theme) do fpEye.Theme[k] = v end
-fpEye.Theme.GuideParts = function() return { window = eyeWin, nav = eyeNav } end
-local eyeCli = newClient("Eye Vale", { hogger }, { polestar = fpEye })
-check(iconBtnName == eyeCli.ns.ICON, "IconButton is constructed with our icon path, not \"search\"")
-check(eyeCli.ns.headerButtonFrame and eyeCli.ns.headerButtonFrame.psIconName == eyeCli.ns.ICON,
-	"header psIconName stays on our icon so a Painter cannot restore the loupe")
-eyeCli.ns.PaintHeader()
-check(setIconStateOn and setIconStateOn.enabled == true and setIconStateOn.name == eyeCli.ns.ICON,
-	"SetIconState tints our icon and is not given the search icon")
-check(eyeCli.ns.headerButtonFrame.psIconName ~= "search", "paintHeader does not retarget the button to search")
 
 -- Every RegisterOptions control has a non-empty help (tooltip).
 local missingHelp = {}
@@ -1100,14 +1067,13 @@ check(sys(nil, "CHAT_MSG_SYSTEM", "No player named 'Gone Player' is currently pl
 	and notice(nil, "CHAT_MSG_CHANNEL_NOTICE", "YOU_CHANGED", "", "", "5. PSGroupFinder") == false,
 	"with debug on, nothing is hidden")
 local before = #zoe.printed
-zoe.ns.Channels.Test(false)
-run(6)
-check(#zoe.printed > before, "with debug on, the quiet channel probe reports in chat")
+zoe.ns.Comm.Search()
+check(#zoe.printed > before + 1, "with debug on, the messages sent are traced in chat")
 zoe.SlashCmdList.PSGROUPFINDER("debug")
 before = #zoe.printed
-zoe.ns.Channels.Test(false)
+zoe.ns.Channels.Test()
 run(6)
-check(#zoe.printed == before, "with debug off, the quiet channel probe prints nothing")
+check(zoe.printed[before + 1]:find("Testing") and zoe.printed[#zoe.printed]:find("channel in use"), "the test, on request, reports each channel and the one in use")
 
 ---------------------------------------------------------------------------
 -- Announce: a looking-for-group line in public chat, only on a click
@@ -1153,7 +1119,7 @@ check(#t <= 255 and select(2, t:gsub(", ", "")) < 2, "a long line drops quests t
 -- During a search, the line names the quests of the search.
 run(61)
 amy.ns.Set("announceTo", "GENERAL")
-amy.ns.Channels.Test(true) run(6)
+amy.ns.Channels.Test() run(6)
 amy.ns.Session.Start({ { id = 86, kind = "l" } })
 check(amy.ns.Announce.Text(amy.ns.Announce.Quests()) == "LFG Pie for Billy, whisper me!", "during a search, the line names its quests")
 amy.ns.Session.Stop("manual")

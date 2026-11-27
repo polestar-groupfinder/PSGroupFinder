@@ -2,15 +2,13 @@
 -- on them.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
--- Tried in this order: CHANNEL (a hidden custom channel; Classic clients
--- refuse addon messages there, Forever's launch build did too:
--- InvalidChannel), YELL, SAY (nearby players only), GUILD. WHISPER carries
--- the answers. Channels.status says what each one did: "ok" (our message
--- came back), "sent" (the client took it, no echo yet), "fail" (refused,
--- with the code) or "skip" (cannot be tried now: no guild, not joined).
--- SAY and YELL need a hardware event, so only a click or a key press may
--- use them; updates sent with no key press go on CHANNEL, GUILD and by
--- whisper (Channels.SendQuiet).
+-- Searches go on CHANNEL (the hidden PSGroupFinder channel) and GUILD;
+-- WHISPER carries the answers. No SAY or YELL: Forever's client refuses
+-- addon messages there. Channels.status says what each one did: "ok" (our
+-- message came back), "sent" (the client took it, no echo yet), "fail"
+-- (refused, with the code) or "skip" (cannot be tried now: no guild, not
+-- joined). Nothing is sent to test them unless the player asks
+-- (Channels.Test: the Test button, /psgf test); the first search tells too.
 
 local _, ns = ...
 local L = ns.L
@@ -21,7 +19,7 @@ local Channels = {}
 ns.Channels = Channels
 
 Channels.NAME = "PSGroupFinder"
-Channels.ORDER = { "CHANNEL", "YELL", "SAY", "GUILD" }
+Channels.ORDER = { "CHANNEL", "GUILD" }
 Channels.status = {} -- chatType -> { state, code, at }
 
 local PROBE_WAIT = 4   -- seconds to wait for a probe's echo
@@ -130,8 +128,8 @@ function Channels.Best()
 	return candidates()[1]
 end
 
--- From a click or a key press: one public channel (the first that takes
--- it) plus the guild. Returns the chat types it went out on.
+-- A search or a quest search: the hidden channel (when it takes it) plus the
+-- guild. Returns the chat types it went out on.
 function Channels.SendPublic(text)
 	Channels.RegisterPrefix()
 	local sentOn, public = {}, false
@@ -144,9 +142,8 @@ function Channels.SendPublic(text)
 	return sentOn
 end
 
--- With no key press behind it: CHANNEL and GUILD only, plus a whisper to
--- each player found. The players only SAY or YELL reached keep the old
--- list until their entry expires.
+-- An update of your own search (a quest left it, or it ended): CHANNEL and
+-- GUILD, plus a whisper to each player found.
 function Channels.SendQuiet(text)
 	Channels.RegisterPrefix()
 	local sent = false
@@ -176,31 +173,28 @@ end
 -- Channel test
 ---------------------------------------------------------------------------
 
--- `hardware`: from a click, a key or a slash command, so SAY and YELL can be
--- tried too; the quiet probe after joining (a timer) tries CHANNEL and GUILD.
+-- Only when the player asks: the Test button or /psgf test.
 local probing = false
-function Channels.Test(hardware)
+function Channels.Test()
 	if probing then return end
 	if not ns.Get("enabled") then ns.Print(L.DISABLED) return end
 	Channels.RegisterPrefix()
 	probing = true
 	local text = Protocol.Probe(string.format("%x", math.random(0, 0xfffff)))
-	if hardware then ns.Print(L.TESTING, PROBE_WAIT) end
+	ns.Print(L.TESTING, PROBE_WAIT)
 	for _, ct in ipairs(Channels.ORDER) do
-		if hardware or ct == "CHANNEL" or ct == "GUILD" then
-			local s = Channels.status[ct]
-			if s and s.state == "ok" then s.state = "sent" end -- prove it again
-			trySend(ct, text)
-		end
+		local s = Channels.status[ct]
+		if s and s.state == "ok" then s.state = "sent" end -- prove it again
+		trySend(ct, text)
 	end
 	ns.After(PROBE_WAIT, function()
 		probing = false
-		Channels.Report(hardware)
+		Channels.Report(true)
 	end)
 end
 
--- `verbose`: one chat line per channel and the one in use. The quiet probe
--- only reports in debug mode; the panel shows the colours either way.
+-- `verbose`: one chat line per channel and the one in use; otherwise only in
+-- debug mode. The panel shows the colours either way.
 function Channels.Report(verbose)
 	local say = verbose and ns.Print or ns.Debug
 	local any = false
@@ -223,10 +217,7 @@ ns.On("ENABLED", function(on)
 	if on then
 		Channels.RegisterPrefix()
 		ns.After(JOIN_DELAY, function()
-			if not ns.Get("enabled") then return end
-			Channels.Join()
-			-- A quiet probe once joined, so the panel can say what works.
-			ns.After(3, function() if ns.Get("enabled") then Channels.Test(false) end end)
+			if ns.Get("enabled") then Channels.Join() end
 		end)
 	else
 		Channels.Leave()

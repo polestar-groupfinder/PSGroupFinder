@@ -56,7 +56,7 @@ local function questLines()
 		for _, o in ipairs(log[id] and log[id].objectives or {}) do
 			if not o.done and o.text and n < MAX_OBJECTIVES then
 				n = n + 1
-				out[#out + 1] = "   " .. W.Soft() .. o.text .. "|r"
+				out[#out + 1] = "   " .. W.Soft() .. ns.Messages.ObjectiveText(o) .. "|r"
 			end
 		end
 	end

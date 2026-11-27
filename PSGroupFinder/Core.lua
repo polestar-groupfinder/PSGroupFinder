@@ -31,11 +31,10 @@ end
 
 local DEFAULTS = {
 	enabled = false,     -- the whole feature, off until the player turns it on
-	autoReply = true,    -- answer searches for quests we have (only while enabled)
+	autoReply = false,   -- answer other players' searches for quests we have, without a click (opt-in)
 	readChat = false,    -- list players who ask for one of our quests in public chat (read only, beta)
 	autoGroup = false,   -- invite / accept without a click after a search (opt-in)
 	shareCoords = true,  -- send x/y with the map; off: the map only
-	headerButton = true, -- icon in Polestar's header (false: under the window)
 	searchLangs = false, -- filled in Lang.Init: the client's language
 	acceptAll = false,   -- search every language (opt-in; folds the language list)
 	panelPos = false,    -- { point, x, y } of the standalone panel
@@ -178,7 +177,7 @@ SlashCmdList.PSGROUPFINDER = function(msg)
 	elseif cmd == "announce" then
 		PSGroupFinder_Announce()
 	elseif cmd == "test" then
-		if ns.TestChannels then ns.TestChannels(true) end
+		if ns.TestChannels then ns.TestChannels() end
 	elseif cmd == "reset" then
 		ns.Set("panelPos", false)
 		if ns.ResetPanel then ns.ResetPanel() end

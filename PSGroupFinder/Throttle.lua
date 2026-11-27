@@ -6,8 +6,8 @@
 -- a bucket of BURST messages refilled at RATE per second, messages that
 -- do not fit wait their turn, and a message the client refuses with
 -- AddonMessageThrottle is tried again later. A search goes out at once
--- from the key press (Throttle.SendNow) since SAY and YELL may need the
--- hardware event; replies and probes go through the queue.
+-- (Throttle.SendNow) so that its result can be told on the click; replies,
+-- updates and probes go through the queue.
 
 local _, ns = ...
 

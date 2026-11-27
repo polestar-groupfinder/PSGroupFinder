@@ -117,7 +117,7 @@ local function sections()
 		{ L.OPT_SECTION, {
 			toggle("ENABLE", "enabled", ns.SetEnabled),
 			{ kind = "button", label = L.MESSAGES .. "…", help = L.MESSAGES_TIP, onClick = function() ns.UI.ShowMessages() end },
-			{ kind = "button", label = L.TEST, help = L.TEST_TIP, onClick = function() ns.TestChannels(true) end },
+			{ kind = "button", label = L.TEST, help = L.TEST_TIP, onClick = function() ns.TestChannels() end },
 		} },
 		{ L.CAT_GROUPING, {
 			toggle("AUTO_GROUP", "autoGroup"),
@@ -131,8 +131,7 @@ local function sections()
 			binding("PSGF_GOODBYE", "BINDING_GOODBYE"),
 		} },
 		{ L.CAT_CHAT, { toggle("READ_CHAT", "readChat") } },
-		{ L.CAT_INTERFACE, {
-			toggle("HEADER_BUTTON", "headerButton"),
+		{ L.CAT_KEYS, {
 			binding("PSGF_SEARCH", "BINDING_SEARCH"),
 			binding("PSGF_TOGGLE_PANEL", "BINDING_PANEL"),
 			binding("PSGF_ANNOUNCE", "BINDING_ANNOUNCE"),

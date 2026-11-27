@@ -32,6 +32,6 @@ UI\QuestPanel.lua
 UI\MessagesWindow.lua
 UI\PartyBox.lua
 Polestar\Polestar.lua
-Polestar\Header.lua
+Polestar\Menu.lua
 Polestar\Options.lua
 Polestar\GoalRows.lua

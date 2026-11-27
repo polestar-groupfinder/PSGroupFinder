@@ -3,9 +3,10 @@
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 -- The message formats are in Protocol.lua, the channels in Channels.lua.
--- A search of your own only ever goes out from a click or a key press; an
--- answer goes out by itself only while `autoReply` is on, and only for
--- quests you have.
+-- A search of your own only ever goes out from a click or a key press, and
+-- its updates (a quest left it, it ended) go to the same players. An answer
+-- to someone else's search goes out without a click only while `autoReply`
+-- is on (off by default), and only for quests you have.
 
 local _, ns = ...
 local L = ns.L
@@ -51,7 +52,6 @@ function Comm.Search()
 	local quests = ns.Quests.Relevant()
 	if #quests == 0 then ns.Print(L.NO_QUESTS) return false end
 	local text, count = Protocol.Search(quests)
-	-- Sent here, in the click's or key's call: SAY and YELL may need it.
 	local sentOn = Channels.SendPublic(text)
 	if #sentOn == 0 then ns.Print(L.NO_CHANNEL) return false end
 	lastSearch = ns.Now()
@@ -109,7 +109,7 @@ end
 -- Receiving
 ---------------------------------------------------------------------------
 
-local ACCEPTED = { CHANNEL = true, YELL = true, SAY = true, GUILD = true, WHISPER = true }
+local ACCEPTED = { CHANNEL = true, GUILD = true, WHISPER = true }
 
 local function ignored(sender)
 	if C_FriendList and C_FriendList.IsIgnored then

@@ -36,11 +36,9 @@ local FOLDED = {
 	{ "partyBox", "PARTY_BOX", "PARTY_BOX_TIP" },
 	{ header = "CAT_CHAT" },
 	{ "readChat", "READ_CHAT", "READ_CHAT_TIP" },
-	{ header = "CAT_INTERFACE" },
-	{ "headerButton", "HEADER_BUTTON", "HEADER_BUTTON_TIP" },
 }
 local HEADER_H = 16
-local DEFAULT_ON = { headerButton = true, partyBox = true } -- read as on unless set to false
+local DEFAULT_ON = { partyBox = true } -- read as on unless set to false
 local SESSION_LINES = 4
 local settingsOpen = false
 
@@ -169,13 +167,13 @@ function UI.Refresh()
 	if not (panel and panel:IsShown()) then return end
 	local on = ns.Get("enabled") and true or false
 
-	-- Switches: only the master switch and the header one work while off.
+	-- Switches: only the master switch works while off.
 	local x = PAD - (W.Theme() and 0 or 4)
 	local fy = 34 + OPT_H + 22
 	for _, c in ipairs(switches) do
 		if c.key then
 			c:SetChecked(setting(c.key))
-			local usable = on or c.key == "enabled" or c.key == "headerButton"
+			local usable = on or c.key == "enabled"
 			c:SetEnabled(usable)
 			c:SetAlpha(usable and 1 or 0.5)
 		end
@@ -484,7 +482,7 @@ local function build()
 	widgets.chHit:EnableMouse(true)
 	widgets.chHit:SetScript("OnEnter", channelTip)
 	widgets.chHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	widgets.test = W.Button(panel, L.TEST_SHORT, 56, function() ns.TestChannels(true) end, 20)
+	widgets.test = W.Button(panel, L.TEST_SHORT, 56, function() ns.TestChannels() end, 20)
 
 	-- Players found.
 	widgets.empty = text("note", GameFontDisableSmall, "LEFT")

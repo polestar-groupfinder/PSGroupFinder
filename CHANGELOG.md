@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **No /say or /yell for searches**: Forever's client refuses addon messages there; searches go
+  over the hidden channel and the guild, answers by whisper.
+- **Nothing acts on its own by default**: “Answer searches for my quests” is now off by default,
+  and the channels are tested only when you ask (Test button, `/psgf test`), no longer after
+  login. Auto-group and chat reading stay off by default; hello, goodbye and announce are click
+  or key only.
+- **Guide menu instead of a header icon**: Polestar's guide header has no slot for another
+  addon, so the header icon, its fallback button under the window and the “Button in the
+  Polestar header” option are gone; the guide's “⋯” menu gets **Find a group** and **Group
+  Finder** (opens the panel). The goal-row button stays.
+- **Progress as counts**: `{progress}` and the party box show what is left as x/y (“[The Defias
+  Brotherhood] 4/12 Defias Pillager slain”, “(done)”).
+- Renders of the panel, the guide menu and Say hello beside Polestar's own guide window replace
+  the earlier mock-up (`docs/mockup/`).
 - **Hello and goodbye**: with a group formed through the finder, a small floating box (quest
   tracker style: the group's quests, your progress, the objectives left) offers **Say hello** for
   5 seconds, only on your click or its key binding; after that the chance is gone. When the
