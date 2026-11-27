@@ -1255,6 +1255,11 @@ local boxSpec, styleCtl
 for _, spec in ipairs(capturedOpts) do if spec.section == "Message box" then boxSpec = spec end end
 for _, c in ipairs(boxSpec and boxSpec.controls or {}) do if c.kind == "cards" then styleCtl = c end end
 check(styleCtl and #styleCtl.choices == 2, "the box style is two picture cards")
+check(styleCtl.disabled() == false and helloSpec.controls[1].disabled() == false, "box on: the style cards and Hello are usable")
+ico.ns.Set("partyBox", false)
+check(styleCtl.disabled() == true and helloSpec.controls[1].disabled() == true and helloSpec.controls[3].disabled() == true,
+	"box off: the style cards and the Hello rows are greyed")
+ico.ns.Set("partyBox", true)
 local drew, why = pcall(styleCtl.choices[1].draw, ico.CreateFrame("Frame"))
 if drew then drew, why = pcall(styleCtl.choices[2].draw, ico.CreateFrame("Frame")) end
 if not drew then print(why) end

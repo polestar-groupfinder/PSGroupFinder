@@ -88,6 +88,14 @@ end
 ---------------------------------------------------------------------------
 
 local textRows = {} -- our text row control -> message kind
+
+-- Hello is only ever offered by the message box: with the box off, its rows
+-- and the style cards are greyed (a control's `disabled`).
+local function boxOff() return ns.Get("partyBox") == false end
+local NEEDS_BOX = { hello = true }
+local function offFor(kind)
+	return not ns.Messages.Enabled(kind) or (NEEDS_BOX[kind] and boxOff())
+end
 local boxes = {}    -- message kind -> its edit box (the last one built)
 
 local function tip(e, kind)
@@ -128,9 +136,19 @@ local function textBox(row, kind)
 		W.Skin(e, "editbox")
 	end
 	e:SetFrameLevel((tonumber(row:GetFrameLevel()) or 1) + 3)
+	-- Polestar's compact layout sizes a row to its label and control: ours
+	-- spans its section, as wide as the row's left inset in the view mirrored.
+	local function widen()
+		local _, rel, _, px = row:GetPoint(1)
+		if type(rel) == "table" and type(px) == "number" then row:SetPoint("RIGHT", rel, "RIGHT", -px, 0) end
+	end
 	local function sync()
+		widen()
 		if not e:HasFocus() then e:SetText(ns.Messages.Template(kind)) end
-		e:SetAlpha(ns.Messages.Enabled(kind) and 1 or 0.5)
+		local off = offFor(kind)
+		e:SetAlpha(off and 0.5 or 1)
+		reset:SetAlpha(NEEDS_BOX[kind] and boxOff() and 0.5 or 1)
+		if e.SetEnabled then e:SetEnabled(not (NEEDS_BOX[kind] and boxOff())) end
 	end
 	e:SetScript("OnEnterPressed", function() ns.Messages.Save(kind, e:GetText()) e:ClearFocus() end)
 	e:SetScript("OnEditFocusLost", function() ns.Messages.Save(kind, e:GetText()) sync() end)
@@ -234,6 +252,9 @@ local function sections()
 			end }
 		textRows[text] = kind
 		controls[#controls + 1] = text
+		if NEEDS_BOX[kind] then
+			for _, c in ipairs(controls) do c.disabled = boxOff end
+		end
 		return { L["MSG_" .. K], controls, L.TAB_MESSAGES }
 	end
 	return {
@@ -256,7 +277,7 @@ local function sections()
 		{ L.BOX_SECTION, {
 			toggle("PARTY_BOX", "partyBox"),
 			-- Picture cards: a miniature of the box in each style.
-			{ kind = "cards", label = L.BOX_STYLE, help = L.BOX_STYLE_TIP, search = "style compact preview",
+			{ kind = "cards", label = L.BOX_STYLE, help = L.BOX_STYLE_TIP, search = "style compact preview", disabled = boxOff,
 				choices = {
 					{ value = "polestar", label = L.BOX_STYLE_POLESTAR, draw = function(art) ns.PartyBox.DrawPreview(art, "polestar") end },
 					{ value = "compact", label = L.BOX_STYLE_COMPACT, draw = function(art) ns.PartyBox.DrawPreview(art, "compact") end },
@@ -307,10 +328,13 @@ ns.On("POLESTAR", function(polestar)
 	end)
 	ns.On("LANG", refreshLangs)
 	ns.On("SETTING", function(key)
-		if type(key) ~= "string" or not (key:find("Msg$") or key:find("On$")) then return end
+		-- Our get/set rows fire no SETTING_CHANGED: repaint the page so the
+		-- rows that hang on the box grey or come back.
+		if key == "partyBox" then refreshLangs() end
+		if type(key) ~= "string" or not (key:find("Msg$") or key:find("On$") or key == "partyBox") then return end
 		for kind, e in pairs(boxes) do
 			if not e:HasFocus() then e:SetText(ns.Messages.Template(kind)) end
-			e:SetAlpha(ns.Messages.Enabled(kind) and 1 or 0.5)
+			e:SetAlpha(offFor(kind) and 0.5 or 1)
 		end
 	end)
 	local U = P.UI
