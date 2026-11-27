@@ -13,7 +13,6 @@ manual-changelog: CHANGELOG.md
 
 ignore:
   - README.md
-  - INSTALLATION.md
   - docs
   - tests
   - tools

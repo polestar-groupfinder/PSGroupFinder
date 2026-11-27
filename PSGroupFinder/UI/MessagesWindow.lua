@@ -3,8 +3,9 @@
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
 -- One block per message (Messages.lua): its name and when it is said, the
--- text ({quests} for the quests), and a preview with your current quests.
--- Empty: never sent. Default: back to the text of the client's language.
+-- text ({quests} and {progress}, explained in the text box's tooltip), and a
+-- preview with your current quests, live while you type. Empty: never sent.
+-- Default: back to the English default text.
 -- Opened from the panel's Messages button and from Polestar's page.
 
 local _, ns = ...
@@ -68,8 +69,11 @@ local function makeBlock(kind, i)
 	e:SetScript("OnEditFocusLost", function() ns.Messages.Save(kind, e:GetText()) UI.RefreshMessages() end)
 	e:SetScript("OnEscapePressed", function() e:ClearFocus() UI.RefreshMessages() end)
 	e:SetScript("OnTextChanged", function(_, user)
-		if user then b.preview:SetText(W.Soft() .. L.MSG_TYPING .. "|r") end
+		if not user then return end
+		local text = ns.Messages.Fill(e:GetText(), sampleQuests())
+		b.preview:SetText(text == "" and (W.Dim() .. L.MSG_OFF .. "|r") or (W.Soft() .. text .. "|r"))
 	end)
+	W.Tip(e, L.MSG_VARS_TITLE, L.MSG_VARS)
 	b.edit = e
 	b.reset = W.Button(win, L.MSG_RESET, 64, function()
 		ns.Messages.Save(kind, ns.Messages.Default(kind))
@@ -95,7 +99,7 @@ local function build()
 	help:SetPoint("BOTTOMLEFT", win, "BOTTOMLEFT", PAD, PAD)
 	help:SetWidth(WIDTH - 2 * PAD)
 	help:SetJustifyH("LEFT")
-	help:SetText(L.MSG_HELP)
+	help:SetText(L.MSG_VARS)
 	win:SetScript("OnShow", UI.RefreshMessages)
 	win:Hide()
 end

@@ -308,7 +308,7 @@ check(dee.ns.Session.Active(), "left click on the header starts a search")
 check(not dee.ns.UI.IsShown(), "left click does not open the panel")
 local sawSent = false
 for _, p in ipairs(dee.printed) do
-	if p:find("Search sent") or p:find("Recherche envoyée") then sawSent = true end
+	if p:find("Search sent") then sawSent = true end
 end
 check(sawSent, "left click prints a short search confirmation in chat")
 if dee.ns.UI.IsShown() then dee.ns.UI.Toggle() end
@@ -477,7 +477,7 @@ run(8)
 local function hasPeer(c, who) return c.ns.Matcher.Get(who) ~= nil end
 check(not hasPeer(pia, "Ned Lang") and hasPeer(pia, "Mia Lang"), "Pia (FR) finds Mia (FR) and not Ned (EN)")
 pia.ns.Lang.SetAcceptAll(true)
-check(pia.ns.Lang.Encode() == "f" and pia.ns.Lang.MineSummary() == "Toutes", "accept-all still broadcasts only the client letter")
+check(pia.ns.Lang.Encode() == "f" and pia.ns.Lang.MineSummary() == "All", "accept-all still broadcasts only the client letter")
 check(pia.ns.Lang.Compatible(ned.ns.Lang.Decode(ned.ns.Lang.Encode())), "Pia with All lists Ned (unilateral)")
 check(not ned.ns.Lang.Compatible(pia.ns.Lang.Decode(pia.ns.Lang.Encode())), "Ned (EN only) still does not list Pia: each side filters alone")
 pia.ns.Lang.SetAcceptAll(false)
@@ -520,7 +520,7 @@ check(qua.ns.Protocol.Decode("S|abc123|1436|400|500|20|WARRIOR|0|gA|f|176:n").qu
 -- Quest panel: opened with no result yet.
 qua.ns.QuestUI.Open(12345)
 check(qua.ns.QuestUI.IsShown() and qua.ns.QuestUI.Quest() == 12345 and not qua.ns.UI.IsShown(), "quest panel opens in quest mode, the main panel is not shown")
-check(qua.ns.QuestUI.EmptyCaption() == "Personne pour l'instant. Appuyez sur Rechercher pour cette quête.", "quest panel: empty caption before any search (frFR client)")
+check(qua.ns.QuestUI.EmptyCaption() == "No one yet. Press Search for this quest.", "quest panel: empty caption before any search")
 check(#qua.ns.Matcher.QuestList(12345) == 0, "nobody known on the quest before searching")
 
 -- A targeted search by quest id: found in ANOTHER zone, language filter applied.
@@ -534,13 +534,13 @@ check(byName["Rex Holt"] and byName["Rex Holt"].map == 1429 and byName["Rex Holt
 check(not byName["Sue Park"], "Sue (EN client) is not listed by a FR-only searcher")
 check(not byName["Tom Gray"] and not byName["Uma Wood"], "no answer from a player without the quest, or with replies off")
 check(not (byName["Rex Holt"].sameZone), "the other-zone answer is not flagged same zone")
-check(qua.ns.QuestUI.EmptyCaption() == nil or qua.ns.QuestUI.EmptyCaption() ~= "Personne pour l'instant. Appuyez sur Rechercher pour cette quête.", "panel no longer says nobody")
+check(qua.ns.QuestUI.EmptyCaption() == nil or qua.ns.QuestUI.EmptyCaption() ~= "No one yet. Press Search for this quest.", "panel no longer says nobody")
 qua.ns.QuestUI.Refresh()
 local qrowFrames = qua.ns.QuestUI.RowFrames()
 check(qrowFrames[1] and qrowFrames[1].entry and qrowFrames[1].entry.name ~= nil and qrowFrames[1].invite ~= nil, "quest panel shows a row with Whisper / Invite for the player")
 
 -- Throttle: one quest search every 15 s; replies answered once per asker.
-check(not qua.ns.Comm.SearchQuest(12345) and (qua.printed[#qua.printed]:find("Wait") or qua.printed[#qua.printed]:find("Patientez")), "second quest search within 15 s is refused")
+check(not qua.ns.Comm.SearchQuest(12345) and qua.printed[#qua.printed]:find("Wait"), "second quest search within 15 s is refused")
 local rexAnswers = 0
 local sentA = rex.C_ChatInfo.SendAddonMessage
 rex.C_ChatInfo.SendAddonMessage = function(prefix, txt, chatType, target)
@@ -678,7 +678,7 @@ for _, c in ipairs({ rae, sam, noa }) do c.ns.SetEnabled(true) end
 run(15)
 rae.ns.Channels.Test(true) run(6)
 run(30)
-check(sam.ns.Leave.Message() == "Merci pour le groupe, bon jeu !", "default goodbye message in French for a French client")
+check(sam.ns.Leave.Message() == "Thanks for the group, have fun!", "messages default to English, also on a French client")
 check(ned.ns.Leave.Message() == "Thanks for the group, have fun!", "default goodbye message in English for an English client")
 check(rae.ns.Get("partyBox") == true, "default: the party box (hello, goodbye) is on")
 rae.PSGroupFinder_Search()
@@ -689,10 +689,10 @@ rae.ns.UI.Show()
 rae.ns.UI.Refresh()
 local inviteBtn
 for _, r in ipairs(rae.ns.UI.RowFrames()) do if type(r.entry) == "table" and r.entry.name == "Sam Lee" then inviteBtn = r.invite end end
-check(inviteBtn ~= nil and inviteBtn._text == "Inviter", "Sam's row exists with its Invite button")
+check(inviteBtn ~= nil and inviteBtn._text == "Invite", "Sam's row exists with its Invite button")
 inviteBtn._OnClick(inviteBtn)
 local w = lastOf(rae, "WHISPER")
-check(w and w[3] == "Sam Lee" and w[1] == "Salut ! Je fais aussi Quest 11001, Quest 11002, je t'ai envoyé une invitation.",
+check(w and w[3] == "Sam Lee" and w[1] == "Hi! I'm on Quest 11001, Quest 11002 too, I've sent you an invite.",
 	"Invite whispers the invite message, naming the shared quests")
 run(1)
 sam.AcceptGroup()
@@ -702,17 +702,18 @@ local function qset(c) local t = {} for id in pairs((c.ns.char.party or { quests
 local rs, ss = qset(rae), qset(sam)
 check(#rs == 2 and rs[1] == 11001 and rs[2] == 11002, "inviter remembers the shared quests of the group")
 check(#ss == 2, "the player who accepted the invitation remembers them too")
--- Hello: the box counts down, then says hello with the quests and progress.
+-- Hello: the box offers Say hello for 5 s; only a click (or the key) says it.
 check(rae.ns.PartyBox.Mode() == "hello" and sam.ns.PartyBox.Mode() == "hello", "the group formed: both get the hello box")
-check(count(rae, "PARTY") == 0, "nothing said before the countdown ends")
-tickBox(rae, 6)
+check(rae.ns.PartyBox.Remaining() == 5, "Say hello is offered for 5 s")
+rae.ns.PartyBox.Main()
 local hi = lastOf(rae, "PARTY")
-check(hi and hi[1] == "Salut tout le monde ! Je fais Quest 11001 (0%), Quest 11002 (0%).",
-	"after 5 s the hello goes out in /p with the quests and the progress")
+check(hi and hi[1] == "Hi all! I'm on Quest 11001 (0%), Quest 11002 (0%).",
+	"Say hello says the hello message in /p with the quest links and the progress")
 check(rae.ns.PartyBox.Mode() == nil, "the box closes once hello is said")
-sam.ns.PartyBox.Other()
 tickBox(sam, 6)
-check(count(sam, "PARTY") == 0 and sam.ns.PartyBox.Mode() == nil, "Cancel keeps quiet")
+check(count(sam, "PARTY") == 0 and sam.ns.PartyBox.Mode() == nil, "after 5 s without a click the box goes and nothing is said")
+sam.PSGroupFinder_Hello()
+check(count(sam, "PARTY") == 0, "the Say hello key does nothing once the chance is gone")
 check(rae.leaves == 0, "nothing else happens while quests are open")
 
 -- One quest done: nothing. Both done: the goodbye box, no automatic leave.
@@ -814,17 +815,21 @@ check(yui.ns.char.party == nil and xan.ns.PartyBox.Mode() == nil, "the memory an
 local M = sam.ns.Messages
 M.Save("goodbye", "Hi |cffff0000!")
 check(sam.ns.Get("leaveMsg") == "Hi cffff0000!", "escape sequences are stripped from a saved message")
-M.Save("goodbye", "Merci pour le groupe, bon jeu !")
-check(sam.ns.Get("leaveMsg") == false and M.Template("goodbye") == "Merci pour le groupe, bon jeu !", "saving the default text stores it as unset")
-check(M.Expand("ask", { 11001 }) == "Salut ! Je fais aussi Quest 11001, tu peux m'inviter dans ton groupe ?", "{quests} is filled in")
+M.Save("goodbye", "Thanks for the group, have fun!")
+check(sam.ns.Get("leaveMsg") == false and M.Template("goodbye") == "Thanks for the group, have fun!", "saving the default text stores it as unset")
+check(M.Expand("ask", { 11001 }) == "Hi! I'm on Quest 11001 too, could you invite me to your group?", "{quests} is filled in")
+check(M.Fill("On {quests}: {progress}", { 11001 }) == "On Quest 11001: Quest 11001 (0%)", "{progress} adds the progress after each quest")
 sam.ns.UI.ShowMessages()
-check(sam.ns.UI.MessagesShown() and #sam.ns.UI.MessageBlocks() == 4, "the Messages window opens with its four messages")
+check(sam.ns.UI.MessagesShown() and #sam.ns.UI.MessageBlocks() == 5, "the Messages window opens with its five messages")
 local blocks = sam.ns.UI.MessageBlocks()
-check(blocks[3].preview._text:find("Salut tout le monde") and blocks[3].preview._text:find("%(0%%%)"), "the hello preview shows the quests with progress")
-blocks[1].edit._text = ""
-blocks[1].edit._OnEnterPressed(blocks[1].edit)
-check(not M.On("invite") and blocks[1].preview._text:find("pas envoy"), "emptying a text turns it off, the preview says so")
-blocks[1].reset._OnClick(blocks[1].reset)
+check(blocks[4].preview._text:find("Hi all!") and blocks[4].preview._text:find("%(0%%%)"), "the hello preview shows the quests with progress")
+blocks[2].edit._text = "Yo {quests}"
+blocks[2].edit._OnTextChanged(blocks[2].edit, true)
+check(blocks[2].preview._text:find("Yo Quest 11001"), "the preview follows the text as it is typed")
+blocks[2].edit._text = ""
+blocks[2].edit._OnEnterPressed(blocks[2].edit)
+check(not M.On("invite") and blocks[2].preview._text:find("not sent"), "emptying a text turns it off, the preview says so")
+blocks[2].reset._OnClick(blocks[2].reset)
 check(M.On("invite") and sam.ns.Get("inviteMsg") == false, "Default brings the default text back")
 sam.ns.UI.ShowMessages()
 
@@ -1109,16 +1114,14 @@ check(#zoe.printed == before, "with debug off, the quiet channel probe prints no
 ---------------------------------------------------------------------------
 local longQ = { id = 7001, title = ("Very long quest title "):rep(8), obj = { { "Thing slain: 0/5", "monster" } } }
 local amy = newClient("Amy Rook", { hogger, boars }, {})
-check(amy.ns.Announce.Lang() == "e" and amy.ns.Announce.Target() == "GENERAL",
-	"announce defaults: the client's language, the zone's General channel")
-check(amy.ns.Announce.Text({ 176, 86 }, "e") == "LFG Wanted: Hogger / Pie for Billy, whisper me!", "English line names the quests")
-check(amy.ns.Announce.Text({ 176 }, "f") == "Cherche groupe pour Wanted: Hogger, /w moi !", "French line, whatever the client language")
+check(amy.ns.Announce.Target() == "GENERAL", "announce default: the zone's General channel")
+check(amy.ns.Announce.Text({ 176, 86 }) == "LFG Wanted: Hogger, Pie for Billy, whisper me!", "the English line names the quests")
 check(amy.ns.Announce.Send() == false and #amy.chat == 0, "nothing is announced while the finder is off")
 amy.ns.SetEnabled(true)
 run(15)
 check(amy.ns.Announce.Send() == true, "announce goes out from a click")
 check(#amy.chat == 1 and amy.chat[1][2] == "CHANNEL" and amy.chat[1][3] == 1
-	and amy.chat[1][1] == "LFG Wanted: Hogger / Pie for Billy, whisper me!",
+	and amy.chat[1][1] == "LFG Wanted: Hogger, Pie for Billy, whisper me!",
 	"the line goes to General (channel 1) and names the relevant quests")
 check(amy.ns.Announce.Send() == false and #amy.chat == 1 and amy.printed[#amy.printed]:find("Wait"),
 	"a second announce within a minute is refused")
@@ -1130,52 +1133,51 @@ amy.channels = { 1, "General", false, 4, "LookingForGroup", false }
 check(amy.ns.Announce.Send() == true and amy.chat[2][3] == 4, "the LFG channel is found by name once joined")
 run(61)
 amy.ns.Set("announceTo", "YELL")
-amy.ns.Set("announceLang", "d")
-check(amy.ns.Announce.Send() == true and amy.chat[3][2] == "YELL" and amy.chat[3][1]:find("^Suche Gruppe"),
-	"yell, in German")
+amy.ns.Messages.Save("announce", "Need help on {quests}!")
+check(amy.ns.Announce.Send() == true and amy.chat[3][2] == "YELL" and amy.chat[3][1] == "Need help on Wanted: Hogger, Pie for Billy!",
+	"yell, with the player's own announce text")
+run(61)
+amy.ns.Messages.Save("announce", "")
+check(amy.ns.Announce.Send() == false and amy.printed[#amy.printed]:find("Messages"), "an empty announce message is not sent, with a hint")
+amy.ns.Messages.Save("announce", amy.ns.Messages.Default("announce"))
 -- Quest links: used only when the client's link names this very quest.
 amy.GetQuestLink = function(id) return "|cffffff00|Hquest:" .. id .. ":10|h[Hogger]|h|r" end
-check(amy.ns.Announce.Text({ 176 }, "e"):find("|Hquest:176:", 1, true), "the client's quest link is used when it names the quest")
+check(amy.ns.Announce.Text({ 176 }):find("|Hquest:176:", 1, true), "the client's quest link is used when it names the quest")
 amy.GetQuestLink = function() return "|cffffff00|Hquest:999:10|h[Other]|h|r" end
-check(amy.ns.Announce.Text({ 176 }, "e") == "LFG Wanted: Hogger, whisper me!", "a link for another quest (log index API) is not used")
+check(amy.ns.Announce.Text({ 176 }) == "LFG Wanted: Hogger, whisper me!", "a link for another quest (log index API) is not used")
 amy.GetQuestLink = nil
 -- Long titles: quests are dropped from the end, the line stays within 255 bytes.
 local ally = newClient("Al Rook", { longQ, hogger }, {})
-local t = ally.ns.Announce.Text({ 7001, 7001, 176 }, "e")
-check(#t <= 255 and select(2, t:gsub(" / ", "")) < 2, "a long line drops quests to fit 255 bytes (" .. #t .. " bytes)")
+local t = ally.ns.Announce.Text({ 7001, 7001, 176 })
+check(#t <= 255 and select(2, t:gsub(", ", "")) < 2, "a long line drops quests to fit 255 bytes (" .. #t .. " bytes)")
 -- During a search, the line names the quests of the search.
 run(61)
 amy.ns.Set("announceTo", "GENERAL")
-amy.ns.Set("announceLang", false)
 amy.ns.Channels.Test(true) run(6)
 amy.ns.Session.Start({ { id = 86, kind = "l" } })
-check(amy.ns.Announce.Text(amy.ns.Announce.Quests(), "e") == "LFG Pie for Billy, whisper me!", "during a search, the line names its quests")
+check(amy.ns.Announce.Text(amy.ns.Announce.Quests()) == "LFG Pie for Billy, whisper me!", "during a search, the line names its quests")
 amy.ns.Session.Stop("manual")
--- The panel: Announce, then the language and channel selectors.
+-- The panel: Announce, then the channel selector.
 amy.ns.UI.Show()
-local annBtn, annLang, annTo = amy.ns.UI.AnnounceWidgets()
-check(annBtn and annLang and annTo, "the panel has Announce with a language and a channel selector")
-annLang._OnClick(annLang)
-local list, lrows = annLang.List()
-check(list and list:IsShown() and #lrows == #amy.ns.Lang.ALL, "the language selector lists every language")
-lrows[1]._OnClick(lrows[1])
-check(amy.ns.Get("announceLang") == "f" and not list:IsShown(), "choosing FR sets the announce language and closes the list")
+local annBtn, annTo = amy.ns.UI.AnnounceWidgets()
+check(annBtn and annTo, "the panel has Announce with a channel selector")
 annTo._OnClick(annTo)
-local _, trows = annTo.List()
+local list, trows = annTo.List()
+check(list and list:IsShown() and #trows == 4, "the channel selector lists General, LFG, Say, Yell")
 trows[3]._OnClick(trows[3])
-check(amy.ns.Get("announceTo") == "SAY", "the channel selector sets the target (Say)")
+check(amy.ns.Get("announceTo") == "SAY" and not list:IsShown(), "choosing Say sets the target and closes the list")
 annBtn._OnClick(annBtn)
-check(amy.chat[#amy.chat][2] == "SAY" and amy.chat[#amy.chat][1]:find("^Cherche groupe"), "the panel's Announce sends the chosen line")
+check(amy.chat[#amy.chat][2] == "SAY" and amy.chat[#amy.chat][1]:find("^LFG"), "the panel's Announce sends the line")
 -- The quest panel announces that quest only.
 run(61)
 amy.ns.QuestUI.Open(176)
 local qa = amy.ns.QuestUI.AnnounceButton()
 qa._OnClick(qa)
-check(amy.chat[#amy.chat][1] == "Cherche groupe pour Wanted: Hogger, /w moi !", "the quest panel's Announce names that quest only")
+check(amy.chat[#amy.chat][1] == "LFG Wanted: Hogger, whisper me!", "the quest panel's Announce names that quest only")
 -- Slash command and key binding share the same path.
 run(61)
 amy.SlashCmdList.PSGROUPFINDER("announce")
-check(amy.chat[#amy.chat][1]:find("Wanted: Hogger / Pie for Billy"), "/psgf announce sends the line")
+check(amy.chat[#amy.chat][1]:find("Wanted: Hogger, Pie for Billy"), "/psgf announce sends the line")
 
 ---------------------------------------------------------------------------
 -- Reading public chat: players without the addon who ask for one of our quests
@@ -1206,6 +1208,10 @@ say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. Gene
 check(#cal.ns.ChatWatch.List() == 0, "nothing is read while the finder is off")
 cal.ns.SetEnabled(true)
 run(15)
+check(cal.ns.Get("readChat") == false, "reading chat (beta) is off by default")
+say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. General - Westfall", "Player-1-MAGE")
+check(#cal.ns.ChatWatch.List() == 0, "...and while it is off nothing is read")
+cal.ns.Set("readChat", true)
 say(cal, "CHAT_MSG_CHANNEL", "LFG The Defias Brotherhood", "Mia Stone", "1. General - Westfall", "Player-1-MAGE")
 local cl = cal.ns.ChatWatch.List()
 check(#cl == 1 and cl[1].name == "Mia Stone" and cl[1].quests[1] == 5501 and cl[1].class == "MAGE"

@@ -2,20 +2,24 @@
 -- an editable text; an empty text is never sent.
 -- Copyright (C) 2026 PSGroupFinder contributors. GPL-3.0-or-later, see LICENSE.
 --
+--   announce said in public chat (General by default) on the Announce click
 --   invite   whispered when you click Invite on a player (solo)
 --   ask      whispered when you click Ask on a player already in a group
 --            (you cannot invite them: you ask them to invite you)
---   hello    said in the party when a group formed through the finder is
---            joined: by the party box after a short countdown (or at once
---            on its button, or the key binding); closing the box cancels it
+--   hello    said in the party from the party box's Say hello button (or its
+--            key binding), offered for a few seconds when a group formed
+--            through the finder gets together
 --   goodbye  said in the party just before leaving a group formed through
---            the finder: the party box's Say goodbye, the panel's Leave
+--            the finder: the party box's Goodbye & leave, the panel's Leave
 --            button, the key binding
--- In a text, {quests} stands for the quests concerned: the client's quest
--- link when it names the right quest, else the title; in hello, each with
--- your progress. Texts are kept without escape sequences. The default text
--- is stored as "unset" (false) so that it follows the client's language;
--- an empty text ("") turns the message off.
+-- The defaults are in English for every client (the other players may read
+-- any language); the player edits them freely. In a text:
+--   {quests}   the quests concerned, as the client's quest links when they
+--              name the right quest, else their titles
+--   {progress} the same quests, each followed by your progress ("(40%)",
+--              "(done)") when the log has it
+-- Texts are kept without escape sequences. The default text is stored as
+-- "unset" (false); an empty text ("") turns the message off.
 
 local _, ns = ...
 local L = ns.L
@@ -26,21 +30,21 @@ ns.Messages = Messages
 local MAX_LEN = 255
 local MAX_QUESTS = 3
 
--- kind -> { setting holding the text, locale key of the default, add progress }
+-- kind -> { setting holding the text, default text }
 Messages.KINDS = {
-	invite = { text = "inviteMsg", default = "MSG_INVITE_DEFAULT" },
-	ask = { text = "askMsg", default = "MSG_ASK_DEFAULT" },
-	hello = { text = "helloMsg", default = "MSG_HELLO_DEFAULT", progress = true },
-	goodbye = { text = "leaveMsg", default = "LEAVE_MSG_DEFAULT" },
+	announce = { text = "announceMsg", default = "LFG {quests}, whisper me!" },
+	invite = { text = "inviteMsg", default = "Hi! I'm on {quests} too, I've sent you an invite." },
+	ask = { text = "askMsg", default = "Hi! I'm on {quests} too, could you invite me to your group?" },
+	hello = { text = "helloMsg", default = "Hi all! I'm on {progress}." },
+	goodbye = { text = "leaveMsg", default = "Thanks for the group, have fun!" },
 }
-Messages.ORDER = { "invite", "ask", "hello", "goodbye" }
+Messages.ORDER = { "announce", "invite", "ask", "hello", "goodbye" }
 
 function Messages.Default(kind)
-	return L[Messages.KINDS[kind].default]
+	return Messages.KINDS[kind].default
 end
 
--- The text to use: the player's own ("" when turned off), else the default
--- of the client's language.
+-- The text to use: the player's own ("" when turned off), else the default.
 function Messages.Template(kind)
 	local m = ns.Get(Messages.KINDS[kind].text)
 	if type(m) == "string" then return m end
@@ -70,27 +74,35 @@ end
 local function progress(id)
 	local pct = ns.Quests.Progress(id)
 	if not pct then return "" end
-	return " (" .. (pct >= 100 and L.PROGRESS_DONE_SHORT or (pct .. "%")) .. ")"
+	return " (" .. (pct >= 100 and "done" or (pct .. "%")) .. ")"
 end
 
--- `kind`'s text with {quests} filled from `ids`, at most 255 bytes (quests
--- dropped from the end until it fits). hello adds each quest's progress,
--- "(40%)". "" when the message is turned off.
-function Messages.Expand(kind, ids)
-	local tpl = Messages.Template(kind)
-	if tpl == "" then return "" end
-	local withProgress = Messages.KINDS[kind].progress
+-- The list for {quests} or {progress} from `ids` (at most MAX_QUESTS).
+local function list(ids, count, withProgress)
 	local names = {}
-	for i = 1, math.min(#(ids or {}), MAX_QUESTS) do
-		local id = ids[i]
-		names[i] = Messages.QuestText(id) .. (withProgress and progress(id) or "")
+	for i = 1, math.min(#(ids or {}), count) do
+		names[i] = Messages.QuestText(ids[i]) .. (withProgress and progress(ids[i]) or "")
 	end
-	while true do
-		local list = #names > 0 and table.concat(names, ", ") or L.MSG_NO_QUEST
-		local text = tpl:gsub("{quests}", function() return list end)
-		if #text <= MAX_LEN or #names <= 1 then return text:sub(1, MAX_LEN) end
-		table.remove(names)
+	return #names > 0 and table.concat(names, ", ") or L.MSG_NO_QUEST
+end
+
+-- `kind`'s text with {quests} and {progress} filled from `ids`, at most 255
+-- bytes (quests dropped from the end until it fits). "" when the message is
+-- turned off.
+function Messages.Expand(kind, ids)
+	return Messages.Fill(Messages.Template(kind), ids)
+end
+
+-- Any text `tpl` with {quests} and {progress} filled (the live preview).
+function Messages.Fill(tpl, ids)
+	tpl = tostring(tpl or ""):gsub("|", "")
+	if tpl == "" then return "" end
+	for count = math.min(#(ids or {}), MAX_QUESTS), 0, -1 do
+		local text = tpl:gsub("{quests}", function() return list(ids, math.max(count, 1), false) end)
+		text = text:gsub("{progress}", function() return list(ids, math.max(count, 1), true) end)
+		if #text <= MAX_LEN or count <= 1 then return text:sub(1, MAX_LEN) end
 	end
+	return tpl:sub(1, MAX_LEN)
 end
 
 -- PARTY, or INSTANCE_CHAT in an instance group.

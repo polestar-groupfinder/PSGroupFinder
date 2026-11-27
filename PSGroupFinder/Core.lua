@@ -32,7 +32,7 @@ end
 local DEFAULTS = {
 	enabled = false,     -- the whole feature, off until the player turns it on
 	autoReply = true,    -- answer searches for quests we have (only while enabled)
-	readChat = true,     -- list players who ask for one of our quests in public chat (read only)
+	readChat = false,    -- list players who ask for one of our quests in public chat (read only, beta)
 	autoGroup = false,   -- invite / accept without a click after a search (opt-in)
 	shareCoords = true,  -- send x/y with the map; off: the map only
 	headerButton = true, -- icon in Polestar's header (false: under the window)
@@ -40,11 +40,11 @@ local DEFAULTS = {
 	acceptAll = false,   -- search every language (opt-in; folds the language list)
 	panelPos = false,    -- { point, x, y } of the standalone panel
 	partyBox = true,     -- with a finder group: say hello (countdown), then offer goodbye when its quests are done
-	inviteMsg = false,   -- the messages (Messages.lua): false = the default text, "" = off
+	announceMsg = false, -- the messages (Messages.lua): false = the default text, "" = off
+	inviteMsg = false,
 	askMsg = false,
 	helloMsg = false,
 	leaveMsg = false,
-	announceLang = false, -- language of the public announce (false: the client's)
 	announceTo = "GENERAL", -- where it goes: GENERAL (zone), LFG, SAY, YELL
 	debug = false,
 }

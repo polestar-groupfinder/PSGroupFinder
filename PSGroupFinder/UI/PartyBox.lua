@@ -4,10 +4,10 @@
 --
 -- Like a quest tracker: the group's quests with your progress and the
 -- objectives left. Two moments (Leave.lua fires them):
---   * hello, when the group forms: the hello message (Messages.lua, with the
---     quest links and your progress) is said after a HELLO_COUNTDOWN-second
---     countdown, at once with Say hello, or not at all with Cancel / the
---     close button.
+--   * hello, when the group forms: Say hello (or its key binding) says the
+--     hello message (Messages.lua, with the quest links and your progress)
+--     in the party, for HELLO_TIME seconds; then the box goes and the chance
+--     is gone. Nothing is ever said without the click or the key.
 --   * goodbye, when the group's quests are all done: Say goodbye (the
 --     goodbye message, then leave the group) for GOODBYE_TIME seconds; then
 --     the box goes and you stay. Stay closes it at once.
@@ -22,7 +22,7 @@ local PartyBox = {}
 ns.PartyBox = PartyBox
 
 local WIDTH, PAD = 260, 10
-local HELLO_COUNTDOWN = 5
+local HELLO_TIME = 5
 local GOODBYE_TIME = 30
 local HELLO_AGAIN = 60     -- seconds before another hello may be offered
 local MAX_QUESTS, MAX_OBJECTIVES = 3, 3
@@ -124,7 +124,7 @@ local function build()
 		remaining = remaining - dt
 		tick = tick + dt
 		if remaining <= 0 then
-			if mode == "hello" then PartyBox.Main() else PartyBox.Other() end
+			PartyBox.Other()
 		elseif tick >= 0.25 then
 			tick = 0
 			PartyBox.Refresh()
@@ -144,7 +144,7 @@ function PartyBox.ShowHello()
 	if not (ns.Get("enabled") and ns.Get("partyBox") and ns.Messages.On("hello")) then return end
 	if ns.Now() - lastHello < HELLO_AGAIN then return end
 	lastHello = ns.Now()
-	show("hello", HELLO_COUNTDOWN)
+	show("hello", HELLO_TIME)
 end
 
 function PartyBox.ShowGoodbye()
@@ -175,10 +175,9 @@ function PartyBox.Remaining() return remaining end
 -- Tests: the frame, to drive its countdown.
 function PartyBox.Frame() return box end
 
--- Key bindings.
+-- Key bindings. Say hello works only while the box offers it.
 function PSGroupFinder_Hello()
-	if PartyBox.Mode() == "hello" then PartyBox.Main() return end
-	if ns.Leave and ns.Leave.Active() then ns.Messages.SayParty("hello", ns.Leave.Quests()) end
+	if PartyBox.Mode() == "hello" then PartyBox.Main() end
 end
 
 function PSGroupFinder_Goodbye()

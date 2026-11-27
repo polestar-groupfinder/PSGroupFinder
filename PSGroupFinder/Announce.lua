@@ -6,10 +6,10 @@
 -- General channel (the default), the looking-for-group channel, /say or
 -- /yell. It only ever goes out from a click, a key press or a slash command:
 -- the game requires a hardware event to speak in a channel, and the finder
--- never speaks for you on its own. The language of the line is chosen
--- apart from the client's (announceLang). Quests are named by the client's
--- own quest link when it gives one (each reader sees it in their language),
--- else by their title.
+-- never speaks for you on its own. The line is the "announce" message
+-- (Messages.lua: English by default, edited in the Messages window), its
+-- {quests} the client's own quest links when it gives them (each reader
+-- sees them in their language), else the titles.
 
 local _, ns = ...
 local L = ns.L
@@ -19,21 +19,6 @@ ns.Announce = Announce
 
 local GAP = 60        -- seconds between two announces
 local MAX_QUESTS = 3  -- quests named in one line
-local MAX_LEN = 255
-
--- One line per language code (Lang.lua); %s is the quest list.
-Announce.TEMPLATES = {
-	f = "Cherche groupe pour %s, /w moi !",
-	e = "LFG %s, whisper me!",
-	d = "Suche Gruppe für %s, /w mich!",
-	s = "Busco grupo para %s, ¡susurradme!",
-	i = "Cerco gruppo per %s, sussurratemi!",
-	p = "Procuro grupo para %s, me sussurre!",
-	r = "Ищу группу на %s, пишите в личку!",
-	k = "%s 파티 구합니다, 귓속말 주세요!",
-	c = "%s 求组，请密我！",
-	t = "%s 徵求隊伍，請密我！",
-}
 
 -- Where the line goes. CHANNEL targets are found by name among the joined
 -- channels (names differ by client language).
@@ -45,12 +30,6 @@ local CHANNEL_NAMES = {
 }
 
 local last = -math.huge
-
-function Announce.Lang()
-	local code = ns.Get("announceLang")
-	if Announce.TEMPLATES[code] then return code end
-	return ns.Lang.DefaultCode()
-end
 
 function Announce.Target()
 	local t = ns.Get("announceTo")
@@ -97,8 +76,6 @@ function Announce.Resolve(target)
 	return "CHANNEL", id
 end
 
-local function questText(id) return ns.Messages.QuestText(id) end
-
 -- The quests to name: those of the search in progress, else the relevant
 -- ones of the log; `id` names one quest only (the quest panel).
 function Announce.Quests(id)
@@ -109,22 +86,10 @@ function Announce.Quests(id)
 	return out
 end
 
--- The line for `ids` in language `code`, at most 255 bytes (quests dropped
--- from the end until it fits); nil when there is no quest.
-function Announce.Text(ids, code)
-	if not ids or #ids == 0 then return nil end
-	local tpl = Announce.TEMPLATES[code] or Announce.TEMPLATES.e
-	local names = {}
-	for i, id in ipairs(ids) do names[i] = questText(id) end
-	while true do
-		local text = tpl:format(table.concat(names, " / "))
-		if #text <= MAX_LEN then return text end
-		if #names == 1 then
-			-- One very long name: fall back to the plain title, cut.
-			return tpl:format(ns.Quests.Title(ids[1])):sub(1, MAX_LEN)
-		end
-		table.remove(names)
-	end
+-- The line for `ids`; nil when there is no quest or the message is off.
+function Announce.Text(ids)
+	if not ids or #ids == 0 or not ns.Messages.On("announce") then return nil end
+	return ns.Messages.Expand("announce", ids)
 end
 
 -- From a click, a key press or a slash command only. `id`: one quest.
@@ -133,7 +98,8 @@ function Announce.Send(id)
 	if IsInInstance and IsInInstance() then ns.Print(L.INSTANCE) return false end
 	local wait = Announce.Cooldown()
 	if wait > 0 then ns.Print(L.ANN_COOLDOWN, math.ceil(wait)) return false end
-	local text = Announce.Text(Announce.Quests(id), Announce.Lang())
+	if not ns.Messages.On("announce") then ns.Print(L.ANN_OFF) return false end
+	local text = Announce.Text(Announce.Quests(id))
 	if not text then ns.Print(L.NO_QUESTS) return false end
 	local chatType, target = Announce.Resolve(Announce.Target())
 	if not chatType then ns.Print(target) return false end

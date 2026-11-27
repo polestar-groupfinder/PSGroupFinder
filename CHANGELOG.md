@@ -3,31 +3,36 @@
 ## Unreleased
 
 - **Hello and goodbye**: with a group formed through the finder, a small floating box (quest
-  tracker style: the group's quests, your progress, the objectives left) says hello in /p after a
-  5-second countdown, with the quest links and your progress; Cancel keeps quiet. When the group's
-  quests are done it offers **Goodbye & leave** for 30 s (the old Leave / Stay window is gone).
-  Key bindings “Say hello to the group” and “Say goodbye and leave the group”.
+  tracker style: the group's quests, your progress, the objectives left) offers **Say hello** for
+  5 seconds, only on your click or its key binding; after that the chance is gone. When the
+  group's quests are done it offers **Goodbye & leave** for 30 s (the old Leave / Stay window is
+  gone). Key bindings “Say hello to the group” and “Say goodbye and leave the group”.
 - **Invite / Ask**: Invite also whispers a short message naming the shared quests; for a player
   already in a group the button reads **Ask** and whispers a request to be invited instead.
-- **Messages window**: the four texts (invite, ask, hello, goodbye) with a live preview;
-  `{quests}` for the quests, an empty text is never sent.
-- **Lighter options**: the panel shows only the master switch, the others fold under
-  **Settings**; “Offer to leave”, “Say a message in /p before leaving” and “Also for a group not
-  formed by the finder” are replaced by one switch, “Say hello and goodbye to the group”. The
-  panel's Leave button says goodbye for a finder group only.
-- **Spot players asking in chat** (on by default, read only): players without the addon who
+- **Messages window**: the five texts (announce, invite, ask, hello, goodbye), in English by
+  default for every client, editable, with a live preview. `{quests}` stands for the quest links,
+  `{progress}` for the quest links with your progress; the text box's tooltip says so. An empty
+  text is never sent. The announce line no longer has a language selector.
+- **Lighter, sorted options**: the panel shows only the master switch; the others fold under
+  **Settings**, by category (Grouping, Party, Chat (beta), Interface), like the sections of
+  Polestar's options page. “Offer to leave”, “Say a message in /p before leaving” and “Also for a
+  group not formed by the finder” are replaced by one switch, “Say hello and goodbye to the
+  group”. The panel's Leave button says goodbye for a finder group only.
+- **English only**: the French interface strings, the French titles in the TOC, the outdated
+  screenshots, infographic and mock-up, and INSTALLATION.md are removed (the README has the
+  install steps). Search languages remain, for grouping only.
+- **Spot players asking in chat** (beta, off by default, read only): players without the addon who
   look for a group on one of your open quests in General, the other public channels, /say or
   /yell are listed in both panels, marked “chat”, with their line in the tooltip. A line counts
   when it links the quest, contains its whole title (accents, case and punctuation aside; a short
   title also needs an LFG word) or has an LFG word and a distinctive title word. Five minutes per
   entry, never contacted or auto-invited on their own, nothing read in an instance.
 - **Announce**: a button says one short looking-for-group line for your quests (“LFG Wanted:
-  Hogger, whisper me!”) in the zone's General channel by default, or the looking-for-group
-  channel, /say, /yell. The language of the line is picked in a selector (FR, EN, DE, ES, IT, PT,
-  RU, KO, ZH, ZHT), apart from the game language; quests are named by the client's quest link
-  when it names the right quest, else by title, and the line is cut to 255 bytes. Only on a
-  click, the key bind “Announce my search in chat” or `/psgf announce`, at most once a minute;
-  the tooltip previews the line. The quest panel announces its one quest.
+  Hogger, whisper me!”, the editable announce message) in the zone's General channel by default,
+  or the looking-for-group channel, /say, /yell. Quests are named by the client's quest link when
+  it names the right quest, else by title, and the line is cut to 255 bytes. Only on a click, the
+  key bind “Announce my search in chat” or `/psgf announce`, at most once a minute; the tooltip
+  previews the line. The quest panel announces its one quest.
 - **New icon**: two line-art people (`Media/icon-group.tga`, 64×64, drawn by
   `tools/make-icons.py`) replace the eye everywhere: header, options sidebar, goal rows, windows.
 - **Quest log buttons removed**: the buttons in the game's quest log and in the Map & Quest Log

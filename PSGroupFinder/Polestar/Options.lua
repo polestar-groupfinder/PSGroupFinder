@@ -79,7 +79,7 @@ end
 
 local function toggle(labelKey, key, onSet)
 	return {
-		kind = "toggle", label = L[labelKey], help = L[labelKey .. "_TIP"], search = "group finder party quest lfg groupe",
+		kind = "toggle", label = L[labelKey], help = L[labelKey .. "_TIP"], search = "group finder party quest lfg",
 		get = function() return ns.Get(key) and true or false end,
 		set = function(v) if onSet then onSet(v and true or false) else ns.Set(key, v and true or false) end end,
 	}
@@ -91,36 +91,21 @@ local function register(spec)
 	return ok and res ~= false
 end
 
-local function registerOptions()
-	if registered or type(P.RegisterOptions) ~= "function" then return end
-	local page = { page = L.OPT_SECTION, key = KEY, icon = ns.ICON, group = "guiding", order = 45,
-		tab = L.OPT_SECTION, section = L.OPT_SECTION, controls = {
-			toggle("ENABLE", "enabled", ns.SetEnabled),
-			toggle("AUTO_GROUP", "autoGroup"),
-			toggle("PARTY_BOX", "partyBox"),
-			toggle("READ_CHAT", "readChat"),
-			toggle("AUTO_REPLY", "autoReply"),
-			toggle("SHARE_COORDS", "shareCoords"),
-			toggle("HEADER_BUTTON", "headerButton"),
-			{ kind = "button", label = L.MESSAGES .. "…", help = L.MESSAGES_TIP, onClick = function() ns.UI.ShowMessages() end },
-			{ kind = "binding", action = "PSGF_SEARCH", label = L.BINDING_SEARCH, help = L.BINDING_SEARCH_TIP },
-			{ kind = "binding", action = "PSGF_TOGGLE_PANEL", label = L.BINDING_PANEL, help = L.BINDING_PANEL_TIP },
-			{ kind = "binding", action = "PSGF_ANNOUNCE", label = L.BINDING_ANNOUNCE, help = L.BINDING_ANNOUNCE_TIP },
-			{ kind = "binding", action = "PSGF_HELLO", label = L.BINDING_HELLO, help = L.BINDING_HELLO_TIP },
-			{ kind = "binding", action = "PSGF_GOODBYE", label = L.BINDING_GOODBYE, help = L.BINDING_GOODBYE_TIP },
-			{ kind = "button", label = L.TEST, help = L.TEST_TIP, onClick = function() ns.TestChannels(true) end },
-		} }
-	if not register(page) then return end
-	registered = true
-	local langs = { page = L.OPT_SECTION, key = KEY, icon = ns.ICON, tab = L.OPT_SECTION, section = L.LANGS, controls = {
-		{ kind = "toggle", label = L.LANG_ALL, help = L.LANGS_TIP, search = "language langue",
+local function binding(action, labelKey)
+	return { kind = "binding", action = action, label = L[labelKey], help = L[labelKey .. "_TIP"] }
+end
+
+-- One section per category, the same as the panel's Settings.
+local function sections()
+	local langs = {
+		{ kind = "toggle", label = L.LANG_ALL, help = L.LANGS_TIP, search = "language",
 			get = ns.Lang.AcceptsAll, set = ns.Lang.SetAcceptAll },
-	} }
+	}
 	for _, row in ipairs(ns.Lang.ALL) do
 		local code = row.code
-		langs.controls[#langs.controls + 1] = {
+		langs[#langs + 1] = {
 			kind = "toggle", label = ns.Lang.Name(code), help = string.format(L.LANG_ONE_TIP, ns.Lang.Name(code)),
-			search = "language langue",
+			search = "language",
 			get = function() return ns.Lang.HasSearch(code) end,
 			set = function(v) ns.Lang.SetSearch(code, v) end,
 			-- `needs` folds the row away; `disabled` greys it on a Polestar that ignores needs.
@@ -128,7 +113,44 @@ local function registerOptions()
 			disabled = function() return ns.Lang.AcceptsAll() end,
 		}
 	end
-	register(langs)
+	return {
+		{ L.OPT_SECTION, {
+			toggle("ENABLE", "enabled", ns.SetEnabled),
+			{ kind = "button", label = L.MESSAGES .. "…", help = L.MESSAGES_TIP, onClick = function() ns.UI.ShowMessages() end },
+			{ kind = "button", label = L.TEST, help = L.TEST_TIP, onClick = function() ns.TestChannels(true) end },
+		} },
+		{ L.CAT_GROUPING, {
+			toggle("AUTO_GROUP", "autoGroup"),
+			toggle("AUTO_REPLY", "autoReply"),
+			toggle("SHARE_COORDS", "shareCoords"),
+		} },
+		{ L.LANGS, langs },
+		{ L.CAT_PARTY, {
+			toggle("PARTY_BOX", "partyBox"),
+			binding("PSGF_HELLO", "BINDING_HELLO"),
+			binding("PSGF_GOODBYE", "BINDING_GOODBYE"),
+		} },
+		{ L.CAT_CHAT, { toggle("READ_CHAT", "readChat") } },
+		{ L.CAT_INTERFACE, {
+			toggle("HEADER_BUTTON", "headerButton"),
+			binding("PSGF_SEARCH", "BINDING_SEARCH"),
+			binding("PSGF_TOGGLE_PANEL", "BINDING_PANEL"),
+			binding("PSGF_ANNOUNCE", "BINDING_ANNOUNCE"),
+		} },
+	}
+end
+
+local function registerOptions()
+	if registered or type(P.RegisterOptions) ~= "function" then return end
+	for i, sec in ipairs(sections()) do
+		local spec = { page = L.OPT_SECTION, key = KEY, icon = ns.ICON, tab = L.OPT_SECTION, section = sec[1], controls = sec[2] }
+		if i == 1 then spec.group, spec.order = "guiding", 45 end
+		if not register(spec) then
+			if i == 1 then return end
+		else
+			registered = true
+		end
+	end
 end
 
 -- The panel's Options button: Polestar's settings window on our page.

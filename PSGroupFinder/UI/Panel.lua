@@ -4,7 +4,7 @@
 -- From top to bottom: the master switch; Settings (folded by default: the
 -- other switches) and Messages; the search languages; Find a group / Stop
 -- (/ Options when Polestar's settings have our page); Announce with its
--- language and channel; Leave the group while in a party; the search in progress
+-- channel; Leave the group while in a party; the search in progress
 -- (its quests leave it as their objectives are done), the channels with
 -- their legend, and the players found, each with Whisper and Invite (only
 -- ever on your click). The panel is as tall as what it shows.
@@ -23,24 +23,36 @@ ns.UI = UI
 local WIDTH, PAD = W.WIDTH, W.PAD
 local ROWS = 6
 local OPT_H = 20 -- pitch of the switches
--- key, label, tooltip. The first one turns the whole finder on or off and is
--- always shown; the others fold under Settings. Polestar's page has them all.
-local SWITCHES = {
-	{ "enabled", "ENABLE", "ENABLE_TIP" },
+-- The master switch, always shown, then the settings that fold under
+-- Settings, by category: { key, label, tooltip } or { header = label }.
+-- Polestar's page has the same categories (Polestar/Options.lua).
+local MASTER = { "enabled", "ENABLE", "ENABLE_TIP" }
+local FOLDED = {
+	{ header = "CAT_GROUPING" },
 	{ "autoGroup", "AUTO_GROUP", "AUTO_GROUP_TIP" },
-	{ "partyBox", "PARTY_BOX", "PARTY_BOX_TIP" },
-	{ "readChat", "READ_CHAT", "READ_CHAT_TIP" },
 	{ "autoReply", "AUTO_REPLY", "AUTO_REPLY_TIP" },
 	{ "shareCoords", "SHARE_COORDS", "SHARE_COORDS_TIP" },
+	{ header = "CAT_PARTY" },
+	{ "partyBox", "PARTY_BOX", "PARTY_BOX_TIP" },
+	{ header = "CAT_CHAT" },
+	{ "readChat", "READ_CHAT", "READ_CHAT_TIP" },
+	{ header = "CAT_INTERFACE" },
 	{ "headerButton", "HEADER_BUTTON", "HEADER_BUTTON_TIP" },
 }
-local DEFAULT_ON = { headerButton = true, partyBox = true, readChat = true } -- read as on unless set to false
+local HEADER_H = 16
+local DEFAULT_ON = { headerButton = true, partyBox = true } -- read as on unless set to false
 local SESSION_LINES = 4
 local settingsOpen = false
 
+local function foldedHeight()
+	local h = 0
+	for _, f in ipairs(FOLDED) do h = h + (f.header and HEADER_H or OPT_H) end
+	return h
+end
+
 -- Where the part under the switches starts.
 local function contentTop()
-	return 34 + OPT_H + 22 + (settingsOpen and (#SWITCHES - 1) * OPT_H or 0)
+	return 34 + OPT_H + 22 + (settingsOpen and foldedHeight() or 0)
 end
 
 local panel
@@ -159,21 +171,26 @@ function UI.Refresh()
 
 	-- Switches: only the master switch and the header one work while off.
 	local x = PAD - (W.Theme() and 0 or 4)
-	for i, c in ipairs(switches) do
-		c:SetChecked(setting(c.key))
-		local usable = on or c.key == "enabled" or c.key == "headerButton"
-		c:SetEnabled(usable)
-		c:SetAlpha(usable and 1 or 0.5)
-		if i > 1 then
+	local fy = 34 + OPT_H + 22
+	for _, c in ipairs(switches) do
+		if c.key then
+			c:SetChecked(setting(c.key))
+			local usable = on or c.key == "enabled" or c.key == "headerButton"
+			c:SetEnabled(usable)
+			c:SetAlpha(usable and 1 or 0.5)
+		end
+		if c ~= switches[1] then
 			c:SetShown(settingsOpen)
-			at(c, 34 + OPT_H + 22 + (i - 2) * OPT_H, x)
+			if settingsOpen then
+				at(c, fy + (c.psHeader and 3 or 0), c.psHeader and PAD or x)
+				fy = fy + (c.psHeader and HEADER_H or OPT_H)
+			end
 		end
 	end
 	widgets.settings:SetText((settingsOpen and L.SETTINGS_OPEN or L.SETTINGS_CLOSED))
 	local top = contentTop()
 	at(widgets.below, top)
 	widgets.langValue:SetText(W.Dim() .. ns.Lang.MineSummary() .. "|r")
-	widgets.annLang:Refresh()
 	widgets.annTo:Refresh()
 	if widgets.langPicker and widgets.langPicker:IsShown() then UI.RefreshLangPicker() end
 
@@ -347,12 +364,6 @@ function UI.LangPicker() return widgets.langPicker end
 -- Announce (Announce.lua): the choices and the preview
 ---------------------------------------------------------------------------
 
-function UI.AnnounceLangs()
-	local out = {}
-	for _, row in ipairs(ns.Lang.ALL) do out[#out + 1] = { value = row.code, label = row.tag } end
-	return out
-end
-
 function UI.AnnounceTargets()
 	local out = {}
 	for _, t in ipairs(ns.Announce.TARGETS) do out[#out + 1] = { value = t, label = ns.Announce.TargetName(t) } end
@@ -363,7 +374,7 @@ end
 function UI.AnnounceTip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_TOP")
 	GameTooltip:SetText(L.ANNOUNCE, 1, 1, 1)
-	local text = ns.Announce.Text(ns.Announce.Quests(self.questID), ns.Announce.Lang())
+	local text = ns.Announce.Text(ns.Announce.Quests(self.questID))
 	if text then
 		GameTooltip:AddLine(string.format(L.ANNOUNCE_TIP, ns.Announce.TargetName(ns.Announce.Target())), nil, nil, nil, true)
 		GameTooltip:AddLine(text, 1, 1, 1, true)
@@ -389,9 +400,19 @@ local function build()
 	W.CloseButton(panel)
 
 	-- The switches (placed in UI.Refresh: all but the first fold away).
-	for _, s in ipairs(SWITCHES) do
-		local key = s[1]
-		switches[#switches + 1] = W.Check(panel, L[s[2]], L[s[3]], key, key == "enabled" and ns.SetEnabled or nil)
+	switches[1] = W.Check(panel, L[MASTER[2]], L[MASTER[3]], MASTER[1], ns.SetEnabled)
+	switches[1].psHeader = false
+	for _, s in ipairs(FOLDED) do
+		local c
+		if s.header then
+			c = W.Text(panel, "caption", GameFontNormalSmall)
+			c:SetText(W.Dim() .. L[s.header] .. "|r")
+			c.psHeader, c.key = true, false
+		else
+			c = W.Check(panel, L[s[2]], L[s[3]], s[1])
+			c.psHeader = false
+		end
+		switches[#switches + 1] = c
 	end
 	switches[1]:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - (W.Theme() and 0 or 4), -34)
 	widgets.settings = W.Button(panel, L.SETTINGS_CLOSED, 110, function()
@@ -434,16 +455,11 @@ local function build()
 	widgets.announce:SetPoint("TOPLEFT", widgets.search, "BOTTOMLEFT", 0, -2)
 	widgets.announce:SetScript("OnEnter", UI.AnnounceTip)
 	widgets.announce:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	widgets.annLang = W.Choice(panel, 64, {
-		items = UI.AnnounceLangs, get = ns.Announce.Lang, set = function(v) ns.Set("announceLang", v) end,
-		title = L.ANN_LANG, help = L.ANN_LANG_TIP,
-	})
-	widgets.annLang:SetPoint("LEFT", widgets.announce, "RIGHT", 6, 0)
-	widgets.annTo = W.Choice(panel, WIDTH - 2 * PAD - 110 - 64 - 12, {
+	widgets.annTo = W.Choice(panel, WIDTH - 2 * PAD - 110 - 6, {
 		items = UI.AnnounceTargets, get = ns.Announce.Target, set = function(v) ns.Set("announceTo", v) end,
 		title = L.ANN_TO, help = L.ANN_TO_TIP,
 	})
-	widgets.annTo:SetPoint("LEFT", widgets.annLang, "RIGHT", 6, 0)
+	widgets.annTo:SetPoint("LEFT", widgets.announce, "RIGHT", 6, 0)
 
 	widgets.leaveGroup = W.Button(panel, L.LEAVE_GROUP, 140, function() ns.Leave.Do() end)
 	W.Tip(widgets.leaveGroup, L.LEAVE_GROUP, L.LEAVE_GROUP_TIP)
@@ -513,7 +529,7 @@ function UI.IsShown() return panel and panel:IsShown() or false end
 function UI.EmptyCaption() return widgets.empty and widgets.empty:GetText() or nil end
 function UI.RowFrames() return rows end
 function UI.LeaveGroupButton() return widgets.leaveGroup end
-function UI.AnnounceWidgets() return widgets.announce, widgets.annLang, widgets.annTo end
+function UI.AnnounceWidgets() return widgets.announce, widgets.annTo end
 function UI.SettingsButton() return widgets.settings end
 function UI.Switch(key)
 	for _, c in ipairs(switches) do if c.key == key then return c end end

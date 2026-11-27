@@ -1,114 +1,77 @@
 # Group Finder for Polestar (PSGroupFinder)
 
-<p align="center">
-  <img src="docs/infographic.png" alt="PSGroupFinder: Group Finder for Polestar, features and installation" width="900">
-</p>
-
 An **optional** module for [Polestar](https://github.com/fitzforge/polestar) (WoW: Forever 1.60.1):
 it finds players who are on **the same quest as you, near you** (kills, named elites, loot from
 mobs, group quests) and lets you **whisper** or **invite** them. Grouping can be **automatic**
-(an option, off by default).
+(an option, off by default). It is a separate addon: it does not modify Polestar and also works
+without it (standalone window). Licence: GPL-3.0-or-later.
 
-It is a separate addon: it does not modify Polestar and also works without it (standalone window).
-Licence: GPL-3.0-or-later (compatible with Polestar, GPL-3.0).
+> Work in progress: this version is being ported into Polestar itself. It has not been tested in
+> the game client yet; screenshots will follow. A mock-up of the windows is in
+> [docs/mockup/mockup.png](docs/mockup/mockup.png).
 
 ## Installation
 
-> [!IMPORTANT]
-> Download **`PSGroupFinder-<version>.zip`** from the
-> [releases page](https://github.com/polestar-groupfinder/PSGroupFinder/releases) (under **Assets**).
-> Do **not** use the “Source code (zip)” / “Source code (tar.gz)” links: they are not the addon.
-
 1. Install [Polestar](https://www.curseforge.com/wow/addons/polestar) first.
-2. Unzip the release zip into `World of Warcraft/_forever_/Interface/AddOns/`. The final path
-   must be exactly `AddOns/PSGroupFinder/PSGroupFinder.toc` (not a folder inside a folder).
-3. Fully restart the game (a `/reload` does not load a new addon).
-
-The full procedure (Windows and Mac paths, enabling the addon, a first two-account test)
-is in [INSTALLATION.md](INSTALLATION.md).
+2. Download `PSGroupFinder-<version>.zip` from the
+   [releases page](https://github.com/polestar-groupfinder/PSGroupFinder/releases) (under
+   **Assets**, not “Source code”), or build it with `./build.sh`.
+3. Unzip it into `World of Warcraft/_forever_/Interface/AddOns/`. The final path must be exactly
+   `AddOns/PSGroupFinder/PSGroupFinder.toc`.
+4. Fully restart the game (a `/reload` does not load a new addon), tick **Group Finder for
+   Polestar** in the AddOns list, then `/psgf on`.
 
 ## Features
 
-| | |
+- **Find a group**: the group icon in the Polestar guide header (left click = search, right
+  click = panel), the panel's **Find a group**, a key binding or `/psgf search`. A search is a
+  session on your relevant quests: a quest leaves it once its objectives are done, the others
+  stay, and it stops when none remain, on **Stop**, in an instance or when your group is full.
+- **Results**: players found, best first (shared quests, Polestar's current step, distance), with
+  their language, **Whisper** and **Invite**. A player already in a group shows **Ask** instead:
+  you cannot invite them, so it whispers a request to be invited. Invite and Ask also whisper a
+  short message. Only on your click.
+- **Players on this quest**: the small button under a Polestar objective icon (or Alt-click on
+  the objective, or `/psgf quest <id>`) lists the players who have that quest, in any zone, with
+  their zone and progress; **Search for this quest** asks everyone.
+- **Announce**: says one looking-for-group line (“LFG [Quest], whisper me!”) in the zone's
+  **General** channel (or the looking-for-group channel, /say, /yell), for players who do not
+  have the addon. Only on your click, key binding or `/psgf announce`, at most once a minute; the
+  tooltip previews the line.
+- **Party box**: when a group formed through the finder gets together, a small box (the group's
+  quests, your progress, the objectives left) offers **Say hello** for 5 seconds, only on your
+  click or key; then the chance is gone. When every quest you grouped for is done, it offers
+  **Goodbye & leave** for 30 seconds (the goodbye message, then you leave). The panel's **Leave
+  the group** also says goodbye for a finder group; leaving through the game says nothing.
+- **Messages**: announce, invite, ask, hello and goodbye, all in English by default for everyone
+  and editable, with a live preview. `{quests}` is replaced by the quest links, `{progress}` by
+  the quest links with your progress (“[Quest] (40%)”). An empty text is never sent.
+- **Spot players asking in chat (beta, off by default)**: reads General, the other public
+  channels, /say and /yell, and lists players who look for a group on one of your quests even
+  without the addon, marked “chat”. Nothing is sent to them on its own.
+- **Auto-grouping** (off by default, needed on both sides): after your search, the addon invites
+  the player found (or asks them to invite you) and accepts their invitation. Same faction, party
+  of 5 at most, never in an instance, only from a player the finder expects.
+- **Search languages** (grouping only): your game language by default; tick others, or **All
+  languages**. A player appears on your list if their game language is in your search.
+- **Quiet chat**: the game's notices about the addon's own traffic are hidden; `/psgf debug`
+  shows them and traces every message.
+
+## Options
+
+The panel shows only **Enable**; the rest folds under **Settings**, by category, as on the
+“Group Finder” page in Polestar's options:
+
+| Category | Settings |
 |---|---|
-| <img src="docs/screenshots/01-guide-eye-button.png" alt="Button in the Polestar guide" width="420"> | **A button in the guide.** It joins Polestar's header (click to search) and sits on every quest step. |
-| <img src="docs/screenshots/02-players-on-this-quest.png" alt="Players on this quest panel and tooltip" width="420"> | **Players on this quest.** Click the button on a step to see who has that quest, wherever they are, and search for it with one click. |
-| <img src="docs/screenshots/03-floating-panel.png" alt="Floating Group Finder panel" width="420"> | **Floating panel.** Find a group, then Whisper or Invite, only ever on your click. Live channel status and a Test button. |
-| <img src="docs/screenshots/04-settings-page.png" alt="Group Finder page in Polestar's settings" width="420"> | **A page in Polestar's settings.** Enable it, tune it, bind keys and test channels without leaving Polestar's own window. |
+| Grouping | Group automatically (off), answer searches for my quests (on), share my map position (on), search languages |
+| Party | Say hello and goodbye to the group (on), key bindings for hello and goodbye |
+| Chat (beta) | Spot players asking in chat (off) |
+| Interface | Button in the Polestar header (on), key bindings for search, panel and announce |
 
-> The screenshots predate the new group icon (two people), which replaced the eye.
-
-## Usage
-
-- **Enable**: `/psgf on`, or tick “Enable the group finder”. **Off by default**: while it is off,
-  the addon joins no channel, sends nothing and listens to nothing.
-- **Find a group**:
-  - the **group icon** in the Polestar guide header, immediately left of the magnifying glass
-    (left click = search, right click = panel; dimmed while the addon is off, tinted while a
-    search runs). Unticking “Button in the Polestar header” puts a button under the window instead;
-  - the **Find a group** button on the panel;
-  - a **key bind**: Esc > Options > Key Bindings > *Polestar* > “Find a group for my quests”
-    (and “Show or hide the group finder”);
-  - `/psgf search`.
-- **A search is a session** on your relevant quests. As soon as a quest's objectives are done
-  (or it is ready to turn in, or gone), it leaves the search, the players already found are told,
-  and the search **continues for the others**. It stops when none remain, when you click **Stop**
-  (`/psgf stop`), turn the addon off, enter an instance, or your group is full.
-- **Results**: the panel (docked beside the Polestar window, otherwise a movable window) lists the
-  players found, best first: more shared quests (the current Polestar step above all), nearer,
-  not already grouped. Each row shows the player's language (e.g. `EN`), and **Whisper** /
-  **Invite** buttons. Hover a row for every shared quest.
-- **Announce** (for the players who do not have the addon): the **Announce** button says one
-  short line such as “LFG Wanted: Hogger, whisper me!” in the zone's **General** channel (or
-  the looking-for-group channel, /say, /yell), in the **language you pick** in the selector next
-  to it, whatever your game language. It names the quests of the search in progress (else your
-  relevant quests, three at most), as quest links when the client gives one. Only on your click,
-  key bind (“Announce my search in chat”) or `/psgf announce`, at most once a minute; the
-  button's tooltip shows the exact line first. The quest panel has its own **Announce** for that
-  one quest.
-- **Spotting players in chat** (option “Spot players asking in chat”, on by default, read only):
-  the addon reads General, the other public channels, /say and /yell, and lists the players who
-  look for a group on one of your open quests, **even without the addon**, marked **chat**, with
-  their line in the tooltip. A line counts when it carries a link to the quest, contains its whole
-  title (accents, case and punctuation aside; a short title also needs a word such as LFG, group,
-  groupe, cherche, suche), or has such a word and a distinctive word of the title. Entries last
-  5 minutes. Whisper and Invite work as for the others; nothing is sent to them on its own and they
-  never take part in auto-grouping. The match uses the titles in your game language: a player who
-  writes the title in another language is only found through a quest link.
-- **Players on this quest**: the small group button under a Polestar objective icon (or
-  **Alt-click** on the objective, or `/psgf quest <id>`) lists the players who have **that**
-  quest, in any zone, with their zone and progress; **Search for this quest** asks everyone.
-  A second click on the same quest closes the list; another quest switches to it.
-- **Search languages**: by default only your game language is ticked. Tick others one by one,
-  or **All languages** (the list folds away). Filtering is one-sided: a player appears on your
-  list if their game language is in your search. For auto-grouping, each player must appear on
-  the other's list.
-- **Auto-grouping** (“Group automatically (same quest)”, **off by default**, needed on both
-  sides): after *your* search, the addon invites the player found (or asks them to invite you)
-  and accepts their invitation, with no click. Whoever is already a group leader invites the solo
-  player; between two solo players, the lower session id invites. Same faction, party of 5 at
-  most, never in an instance, and an invitation is accepted only from a player the finder expects.
-- **Invite / Ask**: **Invite** sends the invitation and whispers a short message naming the
-  shared quests. A player already in a group cannot be invited: the button reads **Ask** and
-  whispers a request to be invited instead. Only on your click.
-- **Hello and goodbye** (option “Say hello and goodbye to the group”, on by default): when a group
-  formed through the addon gets together, a small floating box shows the group's quests with
-  your progress and the objectives left (like a quest tracker) and says hello in /p after a
-  5-second countdown, with the quest links and your progress (“Hi all! I'm on [Quest] (40%).”);
-  **Cancel** keeps quiet, **Say hello** says it at once. When every quest you grouped for is
-  done, the box offers **Goodbye & leave** for 30 seconds (the goodbye message, then you leave);
-  after that, or with **Stay**, you stay. Key bindings for both. The panel's **Leave the group**
-  also says goodbye for a finder group; leaving through the game (portrait, `/leave`) says nothing.
-- **Messages** (button in the panel and on Polestar's page): the four texts (invite, ask, hello,
-  goodbye) with a live preview. `{quests}` stands for the quests; an empty text is never sent.
-- **Options** (saved in `PSGroupFinderDB`), kept short, each with a tooltip: enable; then, folded
-  under **Settings** in the panel: group automatically, hello and goodbye, spot players asking in
-  chat, answer searches for my quests, share my map position (otherwise only the zone), header
-  button. Polestar's page has the same switches, the Messages button and the key bindings.
-- **Commands**: `/psgf` (panel), `/psgf search`, `/psgf stop`, `/psgf announce`, `/psgf on|off`, `/psgf test`
-  (tests the channels), `/psgf reset` (repositions the panel), `/psgf quest <id>`,
-  `/psgf hooks` (what was found in the Polestar guide), `/psgf debug` (shows the addon's traffic
-  and the game's notices about it, which are hidden otherwise).
+The texts are in **Messages…** (panel and options page). Commands: `/psgf` (panel), `/psgf
+search`, `/psgf stop`, `/psgf announce`, `/psgf on|off`, `/psgf test` (tests the channels),
+`/psgf reset`, `/psgf quest <id>`, `/psgf hooks`, `/psgf debug`.
 
 ## What is sent
 
@@ -185,7 +148,7 @@ CI runs the first three on every push (`.github/workflows/ci.yml`).
 | File | Role |
 |---|---|
 | `Core.lua` | settings, internal message bus, events, slash commands, key bindings |
-| `Locales.lua`, `Lang.lua` | interface strings (enUS, frFR); search languages |
+| `Locales.lua`, `Lang.lua` | interface strings (English); search languages (for grouping only) |
 | `Throttle.lua`, `Protocol.lua`, `Channels.lua`, `Comm.lua` | send queue; message formats; channels and probes; searches and message handling |
 | `ChatFilter.lua` | hides the game's notices about our own traffic (off in debug mode) |
 | `Quests.lua`, `Session.lua`, `Matcher.lua` | which quests count; the search in progress; the players found and their order |
