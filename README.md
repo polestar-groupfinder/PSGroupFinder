@@ -9,6 +9,7 @@ without it (standalone window). Licence: GPL-3.0-or-later.
 > Work in progress: this version is being ported into Polestar itself. It has not been tested in
 > the game client yet; screenshots will follow. Renders of the windows beside Polestar's guide
 > (drawn, not captured in game): [the panel and its settings view](docs/mockup/panel.png),
+> [the options page](docs/mockup/options-1.png) ([scrolled](docs/mockup/options-2.png)),
 > [the guide menu](docs/mockup/settings.png), [Say hello](docs/mockup/hello.gif).
 
 ## Installation
@@ -71,8 +72,8 @@ options page.
 
 | Category | Settings |
 |---|---|
-| Grouping | Group automatically (off), answer searches for my quests (off), share my map position (on), search languages |
-| Party | Say hello and goodbye to the group (on: the buttons only, nothing is said without a click), key bindings for hello and goodbye |
+| Grouping | Group automatically (off), let others find me when they search (off: answers their searches with a hidden whisper), show others my distance (on: sends your map position), search languages (on Polestar's page) |
+| Party | Show the message box when grouping (on: it offers hello, then goodbye; nothing is said without a click), key bindings for hello and goodbye |
 | Chat (beta) | Spot players asking in chat (off) |
 | Key bindings (Polestar's page) | search, panel, announce |
 
@@ -92,7 +93,7 @@ refuses addon messages there) and no guild: the finder talks to the players who 
 | Message | When | Contents |
 |---|---|---|
 | Search `S` | your click / key bind, at most every 20 s; when a quest leaves your search (also while grouped), sent again on the channel and to the players found | up to ~10 quest IDs with their kind (kill, named, loot, group) and objective counts (“@4/12;0/5”, numbers only), map, x/y (if shared), level, class, party size, flags (auto-group, faction), client language |
-| Reply `R` | only with “Answer searches for my quests” on (off by default): whisper to the searcher, at most once per 20 s per player | only the IDs of **shared** quests with their objective counts, your map/position, level, class, flags, language |
+| Reply `R` | only with “Let others find me when they search” on (off by default): whisper to the searcher, at most once per 20 s per player | only the IDs of **shared** quests with their objective counts, your map/position, level, class, flags, language |
 | End `X` | your search ends (last quest done, stop, group full) | your session id: the others drop you from their list |
 | Request `G` | auto-group (off by default), whispered to the player who should invite you | the IDs of the shared quests |
 | Quest search `Q` | your click on a quest button, at most every 15 s | the id of **one** quest, map, x/y, level, class, party size, flags, language |

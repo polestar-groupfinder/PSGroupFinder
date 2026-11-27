@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Clearer labels**: “Let others find me when they search” (was “Answer searches for my
+  quests”), “Show others my distance” (was “Share my map position”), “Show the message box when
+  grouping” (was “Say hello and goodbye to the group”); the Messages window says when each text
+  is sent. The search languages are set on Polestar's options page (in the panel's settings view
+  only without it).
 - **Tidier panel**: the settings move behind a cog in the title bar (a settings view in the same
   panel: on/off, the categories, languages, where Announce speaks, the channel test, Messages,
   Polestar's options). The main view keeps Find a group / Stop, Announce, the search in progress

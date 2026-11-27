@@ -6,10 +6,11 @@
 -- leave it as their objectives are done), and the players found, each with
 -- Whisper and Invite (only ever on your click); while the finder is off,
 -- only a line saying so and Turn on. The cog in the title bar switches to
--- the settings view: the master switch, the settings by category, the
--- search languages, where Announce speaks, Messages, the channel's test
--- and, with Polestar, its options page. The panel is as tall as what it
--- shows.
+-- the settings view: the master switch, the settings by category, where
+-- Announce speaks, Messages, the channel's test
+-- and, with Polestar, its options page (which also holds the search
+-- languages; without Polestar they are in the settings view). The panel is
+-- as tall as what it shows.
 -- With Polestar it sits against the guide window's right edge (left edge
 -- when the right one has no room) and hides with it; without Polestar it is
 -- a movable window of its own. The quest panel (QuestPanel.lua) takes the
@@ -160,9 +161,17 @@ local function layoutSettings(on)
 		y = y + (c.psHeader and HEADER_H or OPT_H) + (i == 1 and 4 or 0)
 	end
 	y = y + 8
-	at(widgets.langLabel, y + 2)
-	widgets.langValue:SetText(W.Dim() .. ns.Lang.MineSummary() .. "|r")
-	y = y + 24
+	-- The search languages live on Polestar's options page; here only
+	-- without it (no other place to set them).
+	local langs = not UI.hasOptions
+	for _, w in ipairs(widgets.langWidgets) do w:SetShown(langs) end
+	if langs then
+		at(widgets.langLabel, y + 2)
+		widgets.langValue:SetText(W.Dim() .. ns.Lang.MineSummary() .. "|r")
+		y = y + 24
+	elseif widgets.langPicker then
+		widgets.langPicker:Hide()
+	end
 	at(widgets.annLabel, y + 5)
 	widgets.annTo:Refresh()
 	at(widgets.annTo, y, WIDTH - PAD - widgets.annTo:GetWidth())
@@ -388,6 +397,8 @@ function UI.ToggleLangPicker()
 end
 
 function UI.LangPicker() return widgets.langPicker end
+-- Tests: the search languages line of the settings view.
+function UI.LangLine() return widgets.langLabel end
 
 ---------------------------------------------------------------------------
 -- Announce (Announce.lua): the choices and the preview
@@ -490,6 +501,7 @@ local function build()
 	langHit:SetPoint("BOTTOMRIGHT", widgets.langLabel, "BOTTOMLEFT", WIDTH - 2 * PAD, -4)
 	langHit:SetScript("OnClick", UI.ToggleLangPicker)
 	W.Tip(langHit, L.LANGS, L.LANGS_TIP)
+	widgets.langWidgets = { widgets.langLabel, widgets.langValue, langHit }
 	-- Where Announce speaks.
 	widgets.annLabel = add(SETTINGS, text("small", GameFontHighlightSmall))
 	widgets.annLabel:SetText(L.ANN_TO)
