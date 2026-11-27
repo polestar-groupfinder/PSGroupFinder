@@ -1351,14 +1351,25 @@ check(dem.ns.InGroup() and dem.ns.Demo.IsMember("Aelyra"), "demo: Aelyra joins t
 check(dem.ns.PartyBox.Mode() == "hello", "demo: the hello box comes up")
 dem.ns.PartyBox.Main()
 check(count(dem, "PARTY") == 0 and demPrinted("-> PARTY: \"Hi all!"), "demo: Say hello prints the line instead of saying it")
--- Ask Brannok: he invites you.
+-- In a group: two groups do not merge, Brannok's Ask is blocked.
 dem.ns.Widgets.Invite(bran) run(5)
-check(dem.ns.Demo.IsMember("Brannok"), "demo: after Ask, Brannok invites you and you join")
+check(not dem.ns.Demo.IsMember("Brannok") and demPrinted("groups do not merge"), "in a group, Ask on a grouped player is blocked")
+check(dem.ns.Demo.IsLeader() and dem.ns.UI.GroupNote():GetText():find("You lead the group", 1, true),
+	"you invited Aelyra: you lead, the panel says you can invite more")
+-- Leave, then Ask Brannok: he invites you, you do not lead.
+dem.ns.Leave.Do(true) run(1)
+check(not dem.ns.InGroup() and count(dem, "PARTY") == 0, "Leave says nothing")
+dem.ns.Widgets.Invite(bran) run(5)
+check(dem.ns.Demo.IsMember("Brannok") and not dem.ns.Demo.IsLeader(), "demo: after Ask, Brannok invites you and you join, not as leader")
+dem.ns.UI.Refresh()
+check(dem.ns.UI.GroupNote():GetText():find("only its leader", 1, true) and dem.ns.Widgets.InviteBlocked(dem.ns.Matcher.Get("Tibbs") or { size = 0 }),
+	"not the leader: the panel says so, Invite is blocked")
+check(dem.ns.UI.FoldButton():IsShown() == (#dem.ns.Matcher.List() > 0), "not the leader: the players list folds to one button")
 -- Progress, stop, goodbye, leave.
 dem.SlashCmdList.PSGROUPFINDER("demo players") run(4)
 dem.SlashCmdList.PSGROUPFINDER("demo stop") run(1)
 check(dem.ns.Matcher.Get("Tibbs") == nil, "demo: Tibbs ends their search and leaves the list")
-dem.SlashCmdList.PSGROUPFINDER("demo goodbye") run(3)
+dem.SlashCmdList.PSGROUPFINDER("demo done") run(3)
 check(dem.ns.PartyBox.Mode() == "goodbye", "demo: the goodbye box comes up")
 dem.ns.PartyBox.Main() run(1)
 check(not dem.ns.InGroup() and dem.leaves == 0 and demPrinted("-> leave the party"), "demo: Goodbye & leave breaks up the pretend group, the real party is not left")

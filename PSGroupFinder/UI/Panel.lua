@@ -42,6 +42,7 @@ local FOLDED = {
 local HEADER_H = 18
 local DEFAULT_ON = { partyBox = true } -- read as on unless set to false
 local view = "main" -- or "settings"
+local listOpen = false -- the players list, unfolded by hand while it folds in a group
 
 local panel
 local rows = {}
@@ -136,6 +137,7 @@ local function layoutMain(on)
 	widgets.offText:SetShown(not on)
 	widgets.turnOn:SetShown(not on)
 	for _, w in ipairs({ widgets.search, widgets.stop, widgets.announce, widgets.leaveGroup, widgets.leaveQuiet, widgets.warn }) do w:SetShown(on) end
+	if not on then widgets.groupNote:Hide() widgets.fold:Hide() end
 	if not on then
 		widgets.empty:Hide()
 		for _, r in ipairs(rows) do r.entry = nil r:Hide() end
@@ -179,8 +181,31 @@ local function layoutMain(on)
 		at(widgets.warn, y + 2)
 		y = y + 20
 	end
-	-- Players found.
+	-- In a group: a line says what you can do. Leader with room: the list
+	-- stays (invite more). Otherwise it folds to one button that opens it.
 	local found = playersFound()
+	local grouped = ns.InGroup()
+	local canAdd = not grouped or ns.Group.CanAdd()
+	widgets.groupNote:SetShown(grouped)
+	if grouped then
+		local size = ns.Group.PartySize()
+		widgets.groupNote:SetText(W.Dim() .. (canAdd and string.format(L.GROUP_LEAD, size, ns.Group.MAX_PARTY)
+			or (size >= ns.Group.MAX_PARTY and L.GROUP_FULL or L.GROUP_MEMBER)) .. "|r")
+		at(widgets.groupNote, y + 2, PAD + 2)
+		y = y + 20
+	end
+	local foldable = grouped and not canAdd and #found > 0
+	widgets.fold:SetShown(foldable)
+	if foldable then
+		widgets.fold:SetText(string.format(listOpen and L.PLAYERS_HIDE or L.PLAYERS_SHOW, #found))
+		at(widgets.fold, y)
+		y = y + 26
+		if not listOpen then
+			widgets.empty:Hide()
+			for _, r in ipairs(rows) do r.entry = nil r:Hide() end
+			return y + PAD - 2
+		end
+	end
 	widgets.empty:SetShown(#found == 0)
 	if #found == 0 then
 		widgets.empty:SetText(not active and L.EMPTY or (cd > 0 and L.EMPTY_SEARCHING or L.EMPTY_WAITING))
@@ -416,6 +441,9 @@ local function build()
 	widgets.warn = add(MAIN, text("small", GameFontHighlightSmall, "LEFT"))
 	widgets.warn:SetWidth(WIDTH - 2 * PAD)
 	widgets.warn:SetText(W.Hex("warning", "fffabf4d") .. L.CHANNEL_BROKEN .. "|r")
+	widgets.groupNote = add(MAIN, text("small", GameFontHighlightSmall, "LEFT"))
+	widgets.groupNote:SetWidth(WIDTH - 2 * PAD - 4)
+	widgets.fold = add(MAIN, W.Button(panel, L.PLAYERS_SHOW, WIDTH - 2 * PAD, function() listOpen = not listOpen UI.Refresh() end))
 	widgets.empty = add(MAIN, text("note", GameFontDisableSmall, "LEFT"))
 	widgets.empty:SetWidth(WIDTH - 2 * PAD - 4)
 	for i = 1, ROWS do rows[i] = W.PlayerRow(panel) end
@@ -500,6 +528,8 @@ function UI.EmptyCaption() return widgets.empty and widgets.empty:GetText() or n
 function UI.RowFrames() return rows end
 function UI.LeaveGroupButton() return widgets.leaveGroup end
 function UI.LeaveQuietButton() return widgets.leaveQuiet end
+function UI.FoldButton() return widgets.fold end
+function UI.GroupNote() return widgets.groupNote end
 function UI.AnnounceWidgets() return widgets.announce, widgets.annTo end
 function UI.GearButton() return widgets.gear end
 function UI.Switch(key)
@@ -507,6 +537,7 @@ function UI.Switch(key)
 end
 
 ns.TogglePanel = UI.Toggle
+ns.RegisterEvent("GROUP_ROSTER_UPDATE", function() listOpen = false end)
 ns.ResetPanel = UI.Place
 
 for _, msg in ipairs({ "PEERS", "CHANNELS", "SETTING", "ENABLED", "SEARCHED", "SESSION", "LANG", "QUEST_SEARCHED", "ANNOUNCED" }) do

@@ -295,9 +295,22 @@ function W.CanOnlyAsk(e)
 	return (e.size or 0) > 0
 end
 
+-- Can the row's Invite / Ask act? nil when it can, else why not: in a
+-- group, only its leader invites, into room left, a solo player (two groups
+-- do not merge).
+function W.InviteBlocked(e)
+	if not ns.InGroup() then return nil end
+	if W.CanOnlyAsk(e) then return L.CANT_MERGE end
+	if not ns.Group.CanInvite() then return L.CANT_NOT_LEADER end
+	if ns.Group.PartySize() >= ns.Group.MAX_PARTY then return L.CANT_FULL end
+	return nil
+end
+
 -- The Invite / Ask click on a player row: invites (or asks to join) and
 -- whispers the matching message (Messages.lua), only on this click.
 function W.Invite(e)
+	local why = W.InviteBlocked(e)
+	if why then ns.Print(why) return end
 	local name, quests = e.name, e.quests
 	-- Remembered, so that the finder can say hello, then goodbye once these quests are done.
 	if ns.Leave and quests then ns.Leave.NoteInvite(name, quests) end
@@ -408,6 +421,8 @@ function W.PlayerRow(parent)
 	r.info:SetJustifyH("LEFT")
 	r.info:SetWordWrap(false)
 	r.invite = W.IconButton(r, "icon-invite", function()
+		local why = rawget(r.invite, "psWhy")
+		if why then return why end
 		return r.entry and W.CanOnlyAsk(r.entry) and L.ASK_TIP or L.INVITE
 	end, function() if r.entry then W.Invite(r.entry) end end)
 	r.invite:SetPoint("RIGHT", r, "RIGHT", 0, 0)
@@ -438,6 +453,10 @@ function W.FillRow(r, e, info)
 	r.name:SetText(string.format("|c%s%s|r  %s%s", classColor(e.class), ns.ShortName(e.name), level, lang))
 	r.dist:SetText(stateText(e))
 	r.info:SetText(info)
+	local why = W.InviteBlocked(e)
+	r.invite.psWhy = why
+	r.invite:SetEnabled(why == nil)
+	r.invite:SetAlpha(why and 0.35 or 1)
 end
 
 -- Lays out up to #rows entries of `list` from `y` down; returns the new y.

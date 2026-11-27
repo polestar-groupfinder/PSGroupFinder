@@ -33,6 +33,7 @@ local active = false
 local members = {}  -- name key -> name: the pretend group
 local counts = {}   -- fake name -> questID -> { { have, need }, ... }
 local distance      -- yards Nearby reads while set
+local leader = false -- you lead the pretend group (you invited), or not (you were invited)
 
 local HELP = {
 	"|cff66ccff/psgf demo|r on or off. While on, nothing is sent: it is printed. Then:",
@@ -40,9 +41,9 @@ local HELP = {
 	"  |cffffd100players|r  the 3 players search for your quests (they show as asking)",
 	"  |cffffd100progress|r the players found move on in their objectives",
 	"  |cffffd100stop|r     Tibbs ends their search (leaves your list)",
-	"  |cffffd100invite|r   Aelyra invites you, you join: hello box",
-	"  |cffffd100hello|r    a finder group with Aelyra at once: hello box",
-	"  |cffffd100goodbye|r  the group's quests count as done: goodbye box",
+	"  |cffffd100invite|r   Aelyra invites you, you join (you do not lead): hello box",
+	"  |cffffd100hello|r    you invite Aelyra (you lead): hello box at once",
+	"  |cffffd100done|r     the group's quests count as done: the box offers to leave",
 	"  |cffffd100near|r     Polestar's arrow pretends you are 50 m from the objective",
 	"  |cffffd100reset|r    clears the players and the pretend group",
 	"Or click as usual: Invite, Ask, Search for this quest, Announce, Leave the group, /psgf test.",
@@ -64,6 +65,7 @@ function Demo.Members()
 	return n
 end
 function Demo.InGroup() return Demo.Members() > 0 end
+function Demo.IsLeader() return leader end
 
 local function fake(name)
 	if type(name) ~= "string" then return nil end
@@ -162,13 +164,16 @@ end
 local function disband()
 	if not next(members) then return end
 	wipe(members)
+	leader = false
 	ns.Dispatch("GROUP_ROSTER_UPDATE")
 end
 
-local function join(f)
+-- `asLeader`: you invited them (you lead), else they invited you.
+local function join(f, asLeader)
 	if not active or members[ns.NameKey(f.name)] then return end
+	if not next(members) then leader = asLeader and true or false end
 	members[ns.NameKey(f.name)] = f.name
-	note("%s joins your party (pretend).", f.name)
+	note("%s joins your party (pretend). You %s the group.", f.name, leader and "lead" or "do not lead")
 	ns.Dispatch("GROUP_ROSTER_UPDATE")
 end
 
@@ -178,7 +183,7 @@ local function inviteYou(f)
 	if not active then return end
 	note("%s invites you. (In game: the invitation popup. Taken as accepted.)", f.name)
 	ns.Dispatch("PARTY_INVITE_REQUEST", f.name)
-	ns.After(1.5, function() join(f) end)
+	ns.After(1.5, function() join(f, false) end)
 end
 
 ---------------------------------------------------------------------------
@@ -243,12 +248,13 @@ end
 function Demo.Invite(name)
 	note("-> invite %s", ns.ShortName(name))
 	local f = fake(name)
-	if f then ns.After(2, function() join(f) end) end
+	if f then ns.After(2, function() join(f, true) end) end
 end
 
 function Demo.Leave()
 	note("-> leave the party")
 	wipe(members)
+	leader = false
 	ns.Dispatch("GROUP_ROSTER_UPDATE")
 end
 
@@ -275,7 +281,7 @@ local function groupWith(f)
 	for _, q in ipairs(myQuests()) do ids[#ids + 1] = q.id end
 	if not found(f) then deliver(searchText(f), "CHANNEL", f.name) end
 	ns.Leave.NoteInvite(f.name, ids)
-	join(f)
+	join(f, true)
 end
 
 local COMMANDS = {}
@@ -332,7 +338,7 @@ function COMMANDS.hello()
 	groupWith(FAKES[1])
 end
 
-function COMMANDS.goodbye()
+function COMMANDS.done()
 	if not hasQuests() then return end
 	if not ns.Get("partyBox") then note("Turn on \"Show the message box when grouping\" first.") return end
 	if not (ns.Leave.Active() and Demo.InGroup()) then
@@ -340,7 +346,9 @@ function COMMANDS.goodbye()
 		groupWith(FAKES[1])
 	end
 	ns.After(1.5, function()
-		if ns.Leave.Active() then ns.Fire("GROUP_DONE") end
+		if not ns.Leave.Active() then return end
+		note("Your group's quests are done (pretend).")
+		ns.Fire("GROUP_DONE")
 	end)
 end
 
@@ -395,6 +403,7 @@ function Demo.Command(arg)
 		note("Turn the demo on first: /psgf demo")
 		return
 	end
+	if arg == "goodbye" then arg = "done" end
 	local fn = COMMANDS[arg]
 	if fn then fn() else for _, line in ipairs(HELP) do ns.Print(line) end end
 end

@@ -46,12 +46,22 @@ local function partySize()
 end
 
 local function canInvite()
+	-- The demo's pretend group: leader when you invited, not when invited.
+	if ns.Demo and ns.Demo.Active() and ns.Demo.InGroup() then return ns.Demo.IsLeader() end
 	if partySize() == 0 then return true end
 	if C_PartyInfo and C_PartyInfo.CanInvite then
 		local ok, r = pcall(C_PartyInfo.CanInvite)
 		if ok then return r and true or false end
 	end
 	return UnitIsGroupLeader and UnitIsGroupLeader("player") and true or false
+end
+
+Group.MAX_PARTY = MAX_PARTY
+Group.PartySize = function() return partySize() end
+Group.CanInvite = function() return canInvite() end
+-- Can you bring one more player in? Solo, or leader of a group with room.
+function Group.CanAdd()
+	return partySize() < MAX_PARTY and canInvite()
 end
 
 function Group.Expect(name)
